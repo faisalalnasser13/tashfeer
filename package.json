@@ -1,0 +1,33 @@
+{
+  "name": "tashfeer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && firebase deploy",
+    "test": "npm run test:units && npm run test:contention && npm run test:sim",
+    "test:units": "node test/sim/run.mjs rules.mjs",
+    "test:contention": "node test/sim/run.mjs contention.mjs",
+    "test:sim": "node test/sim/run.mjs sim.js 300",
+    "test:rules": "firebase emulators:exec --only firestore \"node test/rules.test.mjs\""
+  },
+  "dependencies": {
+    "firebase": "^10.12.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "firebase-tools": "^15.24.0",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.1"
+  }
+}

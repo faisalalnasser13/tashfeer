@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>تشفير — النموذج التفاعلي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Reem+Kufi:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#080C18;--panel2:#0C1330;--line:#25335F;--gold:#D9A441;--silver:#AFC0DA;
+  --parch:#EFE7D4;--muted:#8794B8;--ok:#6FBF95;--bad:#E57A6F;--warn:#E0A46C}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{margin:0;background:#05070F;color:var(--parch);font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;
+  background-image:radial-gradient(circle at 12% 4%,rgba(175,192,218,.07),transparent 40%),
+  radial-gradient(circle at 88% 70%,rgba(217,164,65,.05),transparent 40%);background-attachment:fixed}
+/* ---------- prototype chrome ---------- */
+.chrome{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:8px;
+  padding:8px 10px;background:#05070F;border-bottom:1px solid var(--line)}
+.chrome .arw{width:38px;height:38px;flex:0 0 auto;border:1px solid var(--line);border-radius:10px;
+  display:grid;place-items:center;font-size:17px;color:var(--muted);cursor:pointer;background:#0C1330}
+.chrome .arw:active{transform:scale(.94)}
+.chrome .cur{flex:1;min-width:0;height:38px;border:1px solid rgba(217,164,65,.4);border-radius:10px;
+  background:rgba(217,164,65,.08);display:flex;align-items:center;justify-content:center;gap:7px;
+  cursor:pointer;padding:0 10px}
+.chrome .cur b{font-size:13.5px;font-weight:500;color:var(--gold);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.chrome .cur em{font-style:normal;font-size:11px;color:#7A6534;flex:0 0 auto}
+
+.stage{display:flex;justify-content:center;padding:0}
+.scr{width:100%;max-width:420px;height:calc(100dvh - 55px);background:var(--ink);
+  overflow:hidden;display:flex;flex-direction:column;position:relative}
+.body{flex:1;overflow-y:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.body::-webkit-scrollbar{width:0}
+
+/* ---------- scene sheet ---------- */
+.sheet{position:fixed;inset:0;z-index:80;background:rgba(3,5,12,.96);backdrop-filter:blur(6px);
+  overflow-y:auto;display:none;padding:14px 16px 40px}
+.sheet.open{display:block}
+.sheet h1{font-family:"Reem Kufi";font-size:26px;color:var(--gold);margin:6px 0 3px}
+.sheet .tag{font-size:12px;color:var(--muted);line-height:1.8;margin:0 0 8px}
+.sheet .close{position:absolute;top:14px;inset-inline-end:16px;width:38px;height:38px;
+  border:1px solid var(--line);border-radius:10px;display:grid;place-items:center;
+  font-size:16px;color:var(--muted);cursor:pointer}
+.gh{font-size:11px;color:var(--muted);letter-spacing:.05em;margin:18px 0 7px;padding-inline-start:2px}
+.nav b{display:block;padding:11px 13px;border-radius:10px;font-size:14px;font-weight:400;
+  color:var(--parch);cursor:pointer;border:1px solid var(--line);margin-bottom:6px;background:#0A1026}
+.nav b.on{background:rgba(217,164,65,.1);border-color:rgba(217,164,65,.5);color:var(--gold)}
+.nav b i{font-style:normal;font-size:11.5px;color:#5B6789;display:block;margin-top:3px}
+.nav b.on i{color:rgba(217,164,65,.65)}
+.note{font-size:12px;color:var(--muted);line-height:1.85;margin-top:16px;
+  border-top:1px solid var(--line);padding-top:14px}
+.note b{color:var(--parch);display:block;font-size:13px;margin-bottom:4px}
+
+/* ---------- roomy screens get the sidebar back ---------- */
+@media (min-width:900px){
+  .chrome{display:none}
+  .stage{padding:34px;gap:34px;align-items:flex-start}
+  .scr{width:360px;max-width:360px;height:740px;border:1px solid #1E2A4C;border-radius:26px;
+    box-shadow:0 26px 60px -22px #000}
+  .sheet{display:block;position:sticky;top:34px;inset:auto;width:250px;flex:0 0 auto;
+    background:none;backdrop-filter:none;padding:0;order:-1;height:fit-content}
+  .sheet .close{display:none}
+  .nav b{padding:8px 12px;font-size:13px;margin-bottom:3px;border-color:transparent;background:none}
+  .nav b:hover{background:#0C1330}
+}
+
+/* ---- app chrome ---- */
+.hd{background:rgba(8,12,24,.96);border-bottom:1px solid var(--line);flex:0 0 auto}
+.hd1{display:flex;align-items:baseline;justify-content:space-between;padding:0 15px;height:44px}
+.rnd{font-family:"Reem Kufi";font-size:15px;color:var(--gold)}
+.phs{font-size:12px;color:var(--muted);margin-inline-start:8px}
+.tm{font-family:"Reem Kufi";font-size:16px;color:rgba(239,231,212,.8)}
+.tm.crit{color:#D6564A}
+.scores{display:flex;gap:1px;background:var(--line)}
+.sc{flex:1;background:var(--ink);display:flex;align-items:center;justify-content:space-between;padding:6px 12px}
+.nm{font-family:"Reem Kufi";font-size:13px}
+.you{font-size:10px;color:var(--muted);margin-inline-start:6px}
+.pips{display:flex;align-items:center;gap:9px}
+.pg{display:flex;gap:4px}
+.pip{width:8px;height:8px;border-radius:50%;border:1.5px solid currentColor}
+.pip.on{background:currentColor}
+.dv{width:1px;height:11px;background:var(--line)}
+.bar{height:3px;background:#1A2444}.bar i{display:block;height:100%;background:var(--gold)}
+.bar i.c{background:#D6564A}
+.keys{padding:8px 12px;border-bottom:1px solid var(--line);background:rgba(8,12,24,.9);cursor:pointer;flex:0 0 auto}
+.keyrow{display:flex;gap:6px;overflow:hidden}
+.tabbar{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);
+  background:rgba(8,12,24,.96);flex:0 0 auto}
+.tabbar b{padding:12px 0;text-align:center;font-size:13px;font-weight:500;color:var(--muted);
+  position:relative;cursor:pointer}
+.tabbar b.on{color:var(--gold)}
+.tabbar b.on::before{content:"";position:absolute;top:0;inset-inline:28px;height:2px;background:var(--gold);border-radius:2px}
+.foot{border-top:1px solid var(--line);background:rgba(8,12,24,.96);padding:12px 15px;flex:0 0 auto}
+
+/* ---- pieces ---- */
+.ct{padding:15px}
+.card{background:linear-gradient(180deg,#131C3B,#101832);border:1px solid var(--line);
+  border-radius:14px;box-shadow:inset 0 1px 0 rgba(239,231,212,.05)}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel2);font-size:12.5px;color:#CFC7B4;white-space:nowrap}
+.chip .n{font-family:"Reem Kufi";font-size:13px}
+.chip .r{font-size:9.5px;color:var(--muted)}
+.lbl{font-size:11.5px;color:var(--muted);margin:0 0 8px}
+.sect{display:flex;align-items:center;gap:10px;margin:17px 0 10px}
+.sect span{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.sect i{flex:1;height:1px;background:var(--line)}
+.cart{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.slot{position:relative;aspect-ratio:3/4;border-radius:10px 10px 20px 20px;border:1px solid #2B3A68;
+  background:linear-gradient(180deg,#0E1530,#0A1026);display:grid;place-items:center;
+  font-family:"Reem Kufi";font-size:38px;color:var(--parch);cursor:pointer;transition:.12s}
+.slot::before{content:attr(data-o);position:absolute;top:6px;inset-inline-end:8px;
+  font-family:"IBM Plex Sans Arabic";font-size:10px;font-weight:600;color:#6C7BA6}
+.slot.e{color:#38456F}
+.slot.a{border-color:var(--gold);box-shadow:0 0 0 1px rgba(217,164,65,.35),0 0 24px -6px rgba(217,164,65,.5)}
+.slot.al{border-color:var(--silver);box-shadow:0 0 0 1px rgba(175,192,218,.35),0 0 24px -6px rgba(175,192,218,.5)}
+.slot.ok{border-color:rgba(79,160,122,.75);background:linear-gradient(180deg,#10281F,#0C1C17)}
+.slot.no{border-color:rgba(214,86,74,.7);background:linear-gradient(180deg,#2A1210,#1C0D0C)}
+.lock{opacity:.45;pointer-events:none}
+.pad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+.pad b{border:1px solid #3A4C86;border-radius:11px;padding:11px 0;text-align:center;
+  font-family:"Reem Kufi";font-size:21px;font-weight:400;cursor:pointer;transition:.12s}
+.pad b:active{transform:scale(.95)}
+.pad b.u{border-color:#2B3A68;background:var(--panel2);color:#5B6789;opacity:.5}
+.pad .clr{border:1px solid var(--line);border-radius:11px;display:grid;place-items:center;
+  font-size:12px;color:var(--muted);cursor:pointer}
+.clue{display:flex;align-items:center;gap:12px;padding:12px 15px;margin-bottom:8px}
+.clue .o{font-size:11px;color:var(--muted);width:34px;flex:0 0 auto}
+.clue .t{font-family:"Reem Kufi";font-size:17px}
+.inp{background:var(--panel2);border:1px solid var(--line);border-radius:11px;
+  padding:11px 13px;font-size:15px;color:var(--parch);width:100%;font-family:inherit}
+.inp::placeholder{color:#4A5680}
+.inp:focus{outline:none;border-color:var(--gold)}
+.ban{border-radius:11px;padding:10px 13px;font-size:12.5px;line-height:1.7;border:1px solid}
+.ban.l{border-color:#3A2A5A;background:#1A1230;color:#B49CD8}
+.ban.w{border-color:#7A4A2A;background:#2A1A10;color:var(--warn)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;
+  background:var(--panel2);border:1px solid var(--line)}
+.seg b{border-radius:9px;padding:9px 0;text-align:center;font-size:14px;font-weight:500;
+  color:var(--muted);cursor:pointer;transition:.12s}
+.seg b.on{color:var(--gold);background:rgba(217,164,65,.12);box-shadow:inset 0 0 0 1px rgba(217,164,65,.33)}
+.seg b.onl{color:var(--silver);background:rgba(175,192,218,.12);box-shadow:inset 0 0 0 1px rgba(175,192,218,.33)}
+.seg b.off{opacity:.32;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gc{padding:10px;cursor:pointer}
+.gc.wide{grid-column:span 2}
+.gh2{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.gn{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;
+  font-family:"Reem Kufi";font-size:16px;flex:0 0 auto}
+.gt{display:flex;flex-wrap:wrap;gap:6px}
+.gt .chip{font-size:11.5px;padding:2px 8px}
+.stamp{display:inline-flex;padding:4px 12px 5px;border:2px solid currentColor;border-radius:4px;
+  font-family:"Reem Kufi";font-size:14px;transform:rotate(-3.5deg);opacity:.94}
+.stamp.b{color:var(--ok);background:rgba(79,160,122,.1)}
+.stamp.f{color:var(--bad);background:rgba(214,86,74,.1)}
+.gr{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.gr .v{display:flex;align-items:center;gap:6px}
+.gr .v i{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;
+  font-family:"Reem Kufi";font-size:15px;font-style:normal;border:1px solid}
+.gr .v i.ok{border-color:rgba(79,160,122,.53);background:rgba(79,160,122,.09);color:var(--ok)}
+.gr .v i.no{border-color:rgba(214,86,74,.4);background:rgba(214,86,74,.07);color:var(--bad)}
+.av{display:inline-flex;align-items:center;gap:8px;font-size:13px}
+.av i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;
+  font-style:normal;flex:0 0 auto}
+.btn{border-radius:11px;padding:13px;text-align:center;font-size:15px;font-weight:600;cursor:pointer;transition:.12s}
+.btn:active{transform:scale(.985)}
+.btn.p{background:var(--gold);color:#17120A}
+.btn.g{border:1px solid var(--line);color:#CFC7B4}
+.btn.d{background:#1A2038;color:#4A5680;cursor:not-allowed}
+.ann{font-size:11px;color:var(--muted);text-align:center;margin-top:9px;line-height:1.7}
+.mid{display:grid;place-items:center;min-height:300px;text-align:center;padding:0 28px}
+.range{-webkit-appearance:none;appearance:none;height:26px;background:transparent;width:100%;cursor:pointer}
+.range::-webkit-slider-runnable-track{height:4px;border-radius:99px;
+  background:linear-gradient(to left,var(--gold) var(--p),#1A2444 var(--p))}
+.range::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-9px;border-radius:50%;
+  background:#EFE7D4;border:3px solid var(--gold);box-shadow:0 2px 8px -1px rgba(0,0,0,.7)}
+.sw{position:relative;width:48px;height:28px;border-radius:99px;cursor:pointer;flex:0 0 auto}
+.sw i{position:absolute;top:4px;width:20px;height:20px;border-radius:50%;transition:.15s}
+</style>
+</head>
+<body>
+<div class="chrome">
+  <div class="arw" onclick="step(-1)">›</div>
+  <div class="cur" onclick="sheet(true)"><b id="curname">—</b><em>الشاشات ▾</em></div>
+  <div class="arw" onclick="step(1)">‹</div>
+</div>
+
+<div class="stage">
+  <div class="sheet" id="sheet">
+    <div class="close" onclick="sheet(false)">✕</div>
+    <h1>تشفير</h1>
+    <p class="tag">نموذج تفاعلي. كل شيء قابل للضغط: التبويبات، الأرقام، البطاقات، الإرسال.</p>
+    <div class="nav" id="nav"></div>
+    <div class="note" id="note"></div>
+  </div>
+  <div class="scr"><div id="app" style="display:flex;flex-direction:column;height:100%"></div></div>
+</div>
+
+<script>
+/* ============================ mock game ============================ */
+const P = {
+  laila:{n:"ليلى",a:"◈",t:"gold"}, sami:{n:"سامي",a:"▲",t:"gold"},
+  hind:{n:"هند",a:"◐",t:"gold"},
+  noor:{n:"نور",a:"✦",t:"silver"}, omar:{n:"عمر",a:"❖",t:"silver"},
+};
+const HEX = {gold:"#D9A441", silver:"#AFC0DA"};
+const LAB = {gold:"الذهب", silver:"الفضة"};
+const MYKEYS = ["نحلة","مرآة","جسر","رماد"];
+const OURCLUES = ["عبور","خلية","بقايا"], THEIRCLUES = ["ملح","صمت","قاع"];
+const MYCODE = [3,1,4];
+const OURLANES = [
+  {n:1,w:"نحلة",c:[[1,"عسل"],[2,"طنين"]]}, {n:2,w:"مرآة",c:[[2,"انعكاس"]]},
+  {n:3,w:"جسر",c:[[1,"نهر"]]},           {n:4,w:"رماد",c:[[1,"حريق"],[2,"بركان"]]},
+];
+const THEIRLANES = [
+  {n:1,c:[[1,"شروق"],[2,"حرارة"]]}, {n:2,c:[[1,"موج"],[2,"زرقة"]]},
+  {n:3,c:[[2,"ليل"]]},              {n:4,c:[]},
+];
+const TEAMGUESS = { // uid -> {lane: word}
+  laila:{1:"شمس",2:"بحر"}, sami:{1:"شمس",2:"نهر",3:"ظلام"}, hind:{1:"شمس"},
+};
+
+/* ============================ state ============================ */
+const S = {
+  scene:"home", tab:"play", gtab:"ours", keysOpen:false, lane:null, logSide:"silver",
+  dec:[3,null,null], intc:[2,4,null], focus:{dec:1,intc:2}, sent:null,
+  enc:[ "عبور","", "" ], encT:60, gsT:60, timer:true,
+};
+
+const SCENES = [
+  ["الدخول", [
+    ["home","الرئيسية","إنشاء أو انضمام"],
+    ["lobby","الغرفة — المضيف","فرق، خلط، مؤقتات"],
+    ["lobbyG","الغرفة — لاعب","بلا إعدادات"],
+    ["keys","كشف المفاتيح","12 ثانية"],
+  ]],
+  ["الجولة", [
+    ["encE","التلميحات — المُشفِّر","إدخال + رفض المكرر"],
+    ["encW","التلميحات — البقية","انتظار + سجلّنا"],
+    ["g1","الفكّ — الجولة ١","لا اعتراض"],
+    ["gOurs","الفكّ — شفرتنا","الأرقام تعمل"],
+    ["gLock","الفكّ — المُشفِّر","مقفول عن الفكّ"],
+    ["gInt","الاعتراض","تخمينات الفريق"],
+    ["gSent","بعد الإرسال","مُجمَّد"],
+    ["reveal","الكشف","الأختام"],
+    ["rend","نهاية الجولة","الحصيلة + المغادرون"],
+  ]],
+  ["المرجع", [
+    ["log","السجل","تبويب كامل"],
+    ["team","الفريق","نتيجة + تحكّم"],
+    ["over","النهاية","كشف الثمانية"],
+  ]],
+];
+const NOTES = {
+  home:["الرئيسية","الاسم والرمز يُحفظان محليًا، فالتحديث لا يُخرجك. حقل الرمز يقبل حروفًا لاتينية فقط — أسهل في الكتابة والنطق."],
+  lobby:["الغرفة — المضيف","«اخلط» يوزّع الجميع على فريقين متساويين. المؤقتات شرائح بقيمة ابتدائية 60 ثانية، والتعبئة تنمو من اليمين."],
+  lobbyG:["الغرفة — لاعب","نفس الشاشة بلا إعدادات ولا زر بدء. الضغط على بطاقة فريق يُدخلك أو يُخرجك."],
+  keys:["كشف المفاتيح","مرة واحدة في اللعبة. تظهر المفاتيح بالتتابع ثم تنتقل تلقائيًا."],
+  encE:["المُشفِّر","تحت كل حقل: ما سبق أن قاله فريقكم عن ذلك المفتاح بالذات. بدونه يكتب المُشفِّر أعمى فيكرّر نفسه أو يناقضها. السجلّ الكامل أسفل الشاشة أيضًا."],
+  encW:["بقية الفريق","انتظار مُنتج: سجلّ تلميحاتكم السابقة تحت الشاشة مباشرة، لأن الخصم يحفظها كلها."],
+  g1:["الجولة الأولى","لا اعتراض — قاعدة أصلية. التبويب معطّل مع شرح السبب بدل إخفائه."],
+  gOurs:["فكّ شفرتنا","التلميح فوق خانته مباشرة — لهما نفس الترتيب، فلا قفزة ذهنية بين قائمتين. توفير الارتفاع يرفع السجلّ فوق الطيّة."],
+  gLock:["المُشفِّر أثناء الفكّ","مقفول عن فكّ شفرته — لكنه يستطيع الاعتراض والإرسال."],
+  gInt:["الاعتراض","تلميحات الخصم فوق خاناتها، وسجلّه كاملًا تحتها دون تمرير. افتح بطاقة لترى تخمينك وتخمينات زملائك بالأسماء."],
+  gSent:["بعد الإرسال","أول ضغطة تُرسل وتُجمّد الأرقام — القاعدة محفوظة في firestore.rules لا في الواجهة فقط."],
+  reveal:["الكشف","الختم هو لحظة اللعبة، وهو أيضًا ما يعلّم دلالة النقاط الملوّنة في الشريط العلوي."],
+  rend:["نهاية الجولة","الحصيلة، ثم مَن غادر الشاشة بالمدّة، ثم المُشفِّر القادم."],
+  log:["السجل","يفتح على سجلّ الخصم لأنه الأكثر استعمالًا. زر «حسب الجولة» يبدّل إلى عرض زمني."],
+  team:["الفريق","شرح النتيجة يعيش هنا بشكل دائم، وتحكّم المضيف أسفله."],
+  over:["النهاية","المفاتيح الثمانية تُنشر أخيرًا من الخادم — قبل ذلك لا يمكن لأحد قراءتها."],
+};
+
+/* ============================ helpers ============================ */
+const el = s => document.querySelector(s);
+const av = (u,sz=26) => `<i style="width:${sz}px;height:${sz}px;border:1px solid ${HEX[P[u].t]}66;background:${HEX[P[u].t]}18;color:${HEX[P[u].t]};font-size:${sz*.5}px">${P[u].a}</i>`;
+const ORD = ["الأول","الثاني","الثالث"];
+
+function header(round, phase, time, crit){
+  const pip=(n,c)=>`<span class="pg" style="color:${c}">${[0,1].map(i=>`<i class="pip ${i<n?'on':''}"></i>`).join("")}</span>`;
+  return `<div class="hd">
+    <div class="hd1"><div><span class="rnd">${round}</span><span class="phs">${phase}</span></div>
+      <span class="tm ${crit?'crit':''}">${time}</span></div>
+    <div class="scores">
+      <div class="sc" style="box-shadow:inset 0 -2px 0 var(--gold)">
+        <span class="nm" style="color:var(--gold)">الذهب<span class="you">أنت</span></span>
+        <span class="pips">${pip(1,"var(--ok)")}<span class="dv"></span>${pip(0,"var(--bad)")}</span></div>
+      <div class="sc"><span class="nm" style="color:var(--silver);opacity:.62">الفضة</span>
+        <span class="pips">${pip(0,"var(--ok)")}<span class="dv"></span>${pip(1,"var(--bad)")}</span></div>
+    </div><div class="bar"><i class="${crit?'c':''}" style="width:${crit?7:62}%"></i></div></div>`;
+}
+function keystrip(){
+  if(S.keysOpen) return `<div class="keys" onclick="S.keysOpen=false;draw()">
+    <div style="display:flex;justify-content:space-between;padding:0 2px 8px"><span style="font-size:11px;color:var(--muted)">مفاتيحكم السرية</span><span style="font-size:11px;color:var(--muted)">إخفاء</span></div>
+    <div class="grid">${MYKEYS.map((k,i)=>`<div class="card" style="padding:9px 11px;display:flex;align-items:center;gap:9px;border-color:${HEX.gold}3A">
+      <span style="font-family:'Reem Kufi';font-size:18px;color:var(--gold);width:16px;text-align:center">${i+1}</span>
+      <span style="font-size:15px">${k}</span></div>`).join("")}</div></div>`;
+  return `<div class="keys" onclick="S.keysOpen=true;draw()"><div class="keyrow">${
+    MYKEYS.map((k,i)=>`<span class="chip" style="border-color:${HEX.gold}3A"><span class="n" style="color:var(--gold)">${i+1}</span>${k}</span>`).join("")}</div></div>`;
+}
+function tabbar(){
+  const t=[["play","اللعب",""],["log","السجل","3"],["team","الفريق",""]];
+  return `<div class="tabbar">${t.map(([k,l,b])=>`<b class="${S.tab===k?'on':''}" onclick="S.tab='${k}';draw()">${l}${b?` <span style="font-size:10px;color:var(--muted)">${b}</span>`:""}</b>`).join("")}</div>`;
+}
+function cart(vals, key, tone, truth, locked, clues){
+  return `<div class="cart">${[0,1,2].map(i=>{
+    let cls="slot";
+    if(truth){ cls += vals[i]===truth[i]?" ok":" no"; }
+    else{
+      if(vals[i]==null) cls+=" e";
+      if(!locked && S.focus[key]===i) cls += tone==="silver"?" al":" a";
+    }
+    const click = (locked||truth)?"":`onclick="S.focus['${key}']=${i};draw()"`;
+    const slot = `<div class="${cls}" data-o="${clues?"":ORD[i]}" ${click}>${vals[i]==null?"—":vals[i]}</div>`;
+    if(!clues) return slot;
+    return `<div style="display:flex;flex-direction:column;gap:6px">
+      <div style="text-align:center;padding:0 4px">
+        <p style="font-size:10px;color:var(--muted);margin:0 0 4px;line-height:1">${ORD[i]}</p>
+        <p style="font-family:'Reem Kufi';font-size:16px;line-height:1.25;margin:0;color:${HEX[tone]};
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${clues[i]}</p></div>
+      ${slot}</div>`;
+  }).join("")}</div>`;
+}
+function pad(key){
+  return `<div class="pad">${[1,2,3,4].map(n=>{
+    const used=S[key].includes(n);
+    return `<b class="${used?'u':''}" onclick="assign('${key}',${n})">${n}</b>`;
+  }).join("")}<span class="clr" onclick="clr('${key}')">مسح</span></div>`;
+}
+window.assign=(key,n)=>{ const f=S.focus[key];
+  S[key]=S[key].map((v,i)=>i===f?n:(v===n?null:v));
+  const nx=S[key].findIndex((v,i)=>i!==f&&v==null); if(nx>=0)S.focus[key]=nx; draw(); };
+window.clr=(key)=>{ S[key]=S[key].map((v,i)=>i===S.focus[key]?null:v); draw(); };
+
+function lanes(list, team, withGuess){
+  return `<div class="grid">${list.map(L=>{
+    const open=S.lane===L.n, mine=(TEAMGUESS.laila[L.n]||"");
+    const ops=Object.entries(TEAMGUESS).map(([u,g])=>[u,g[L.n]]).filter(([,w])=>w);
+    const distinct=new Set(ops.map(([,w])=>w));
+    let title;
+    if(L.w) title=`<span style="font-size:14px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${L.w}</span>`;
+    else if(!withGuess||(!mine&&!ops.length)) title=`<span style="font-size:14px;flex:1;color:var(--muted)">؟</span>`;
+    else title=`<span style="flex:1;min-width:0;display:flex;align-items:center;gap:6px">
+        <span style="font-size:14px;color:${mine?HEX[team]:'#8794B8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${mine||ops[0][1]}</span>
+        ${ops.length>1&&distinct.size===1?`<span style="font-size:10px;color:var(--ok);flex:0 0 auto">متفقون</span>`
+          :distinct.size>1?`<span style="font-size:10px;color:var(--muted);flex:0 0 auto">${distinct.size} آراء</span>`:""}</span>`;
+    return `<div class="card gc ${open?'wide':''}" style="border-color:${HEX[team]}30" onclick="S.lane=${open?null:L.n};draw()">
+      <div class="gh2"><span class="gn" style="color:${HEX[team]};background:${HEX[team]}18;border:1px solid ${HEX[team]}40">${L.n}</span>
+        ${title}<span style="font-size:11px;color:var(--muted);flex:0 0 auto">${L.c.length}</span></div>
+      ${L.c.length?`<div class="gt">${L.c.map(([r,t])=>`<span class="chip"><span class="r">${r}</span>${t}</span>`).join("")}</div>`
+        :`<p style="font-size:11.5px;color:var(--muted);margin:0 0 2px 4px">لا تلميحات بعد</p>`}
+      ${(withGuess&&open)?`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)" onclick="event.stopPropagation()">
+        <input class="inp" style="font-size:14px;padding:9px 12px" placeholder="تخمينك لهذه الكلمة" value="${mine}" maxlength="24">
+        ${ops.filter(([u])=>u!=="laila").length?`<div class="gt" style="margin-top:10px">${
+          ops.filter(([u])=>u!=="laila").map(([u,w])=>`<span class="chip"><span class="r">${P[u].n}</span>${w}</span>`).join("")}</div>`:""}
+      </div>`:""}
+    </div>`;
+  }).join("")}</div>`;
+}
+
+/* ============================ screens ============================ */
+const V = {};
+
+V.home = () => `<div class="body"><div class="ct" style="padding-top:40px">
+  <div style="text-align:center;margin-bottom:32px">
+    <div style="font-family:'Reem Kufi';font-size:46px;color:var(--gold);line-height:1">شفرة</div>
+    <p style="font-size:13px;color:var(--muted);line-height:1.9;margin:14px 0 0">مرّروا شفرتكم لفريقكم<br>دون أن يلتقطها الخصم.</p></div>
+  <p class="lbl">اسمك</p><input class="inp" value="ليلى" style="margin-bottom:20px">
+  <p class="lbl">رمزك</p>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:22px">
+    ${["◈","◉","▲","✦","❖"].map((g,i)=>`<div style="aspect-ratio:1;border:1px solid ${i?'var(--line)':'var(--gold)'};background:${i?'var(--panel2)':'rgba(217,164,65,.09)'};border-radius:11px;display:grid;place-items:center;color:${i?'var(--muted)':'var(--gold)'};font-size:19px;cursor:pointer">${g}</div>`).join("")}</div>
+  <div class="btn p" style="margin-bottom:18px" onclick="go('lobby')">أنشئ غرفة</div>
+  <div class="sect"><i></i><span>أو انضم بغرفة قائمة</span><i></i></div>
+  <div style="display:flex;gap:8px"><input class="inp" style="flex:1;text-align:center;letter-spacing:.3em;font-family:'Reem Kufi';font-size:19px" dir="ltr" placeholder="ABCDE">
+    <div class="btn g" style="padding:13px 22px" onclick="go('lobbyG')">انضم</div></div>
+</div></div>`;
+
+const teamCard=(t,list,mine)=>`<div class="card" style="padding:12px;border-color:${HEX[t]}6B;${mine?`box-shadow:inset 0 0 0 1px ${HEX[t]}`:"opacity:.82"};cursor:pointer">
+  <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+    <span style="font-family:'Reem Kufi';font-size:15px;color:${HEX[t]}">${LAB[t]}</span>
+    <span style="font-size:11px;color:var(--muted)">${list.length}/4</span></div>
+  ${list.map(u=>`<div class="av" style="margin-bottom:7px">${av(u,24)}${P[u].n}</div>`).join("")}
+  <div style="font-size:11px;color:${mine?HEX[t]:'var(--muted)'};margin-top:8px">${mine?"أنت هنا · اضغط للخروج":"انضم"}</div></div>`;
+
+const lobbyTop = `<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+  <div><p class="lbl" style="margin-bottom:4px">رمز الغرفة</p>
+  <div style="font-family:'Reem Kufi';font-size:33px;color:var(--gold);letter-spacing:.16em;line-height:1" dir="ltr">K7M2Q</div></div>
+  <div class="btn g" style="padding:9px 16px;font-size:13px;margin-top:14px">مشاركة</div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px">
+  ${teamCard("gold",["laila","sami","hind"],true)}${teamCard("silver",["noor","omar"],false)}</div>`;
+
+V.lobby = () => `<div class="body"><div class="ct" style="padding-top:22px">${lobbyTop}
+  <div class="card" style="padding:13px 15px;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;cursor:pointer">
+    <span style="font-size:13.5px">توزيع الفرق عشوائيًا</span><span style="font-size:11.5px;color:var(--gold)">اخلط</span></div>
+  <div class="card" style="padding:15px">
+    ${slider("وقت كتابة التلميحات","encT",30,180)}
+    ${slider("وقت الفكّ والاعتراض","gsT",30,240)}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px;margin-top:8px;border-top:1px solid var(--line)">
+      <span style="font-size:13.5px">المؤقت</span>
+      <span class="sw" style="background:${S.timer?'rgba(217,164,65,.2)':'var(--panel2)'};box-shadow:inset 0 0 0 1px ${S.timer?'var(--gold)':'var(--line)'}" onclick="S.timer=!S.timer;draw()">
+        <i style="inset-inline-start:${S.timer?'4px':'24px'};background:${S.timer?'var(--gold)':'#4A5680'}"></i></span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:14px">
+      <span style="font-size:13.5px">عدد الجولات</span>
+      <span style="display:flex;gap:6px">${[6,8,10].map(v=>`<b style="padding:5px 13px;border-radius:8px;border:1px solid ${v===8?'var(--gold)':'var(--line)'};background:${v===8?'rgba(217,164,65,.09)':'transparent'};font-size:13px;color:${v===8?'var(--gold)':'var(--muted)'};font-weight:400;cursor:pointer">${v}</b>`).join("")}</span></div>
+  </div></div></div>
+<div class="foot"><div class="btn p" onclick="go('keys')">ابدأ اللعبة</div></div>`;
+
+function slider(label,key,min,max){
+  const p=((S[key]-min)/(max-min))*100;
+  return `<div style="padding:6px 0 10px;${S.timer?'':'opacity:.4'}">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+      <span style="font-size:13.5px">${label}</span>
+      <span style="font-family:'Reem Kufi';font-size:15px;color:var(--gold)">${S[key]}<span style="font-size:11px;color:var(--muted);margin-inline-start:4px">ثانية</span></span></div>
+    <input type="range" class="range" min="${min}" max="${max}" step="15" value="${S[key]}" style="--p:${p}%"
+      oninput="S.${key}=+this.value;draw()"></div>`;
+}
+
+V.lobbyG = () => `<div class="body"><div class="ct" style="padding-top:22px">${lobbyTop}
+  <div class="ban" style="border-color:var(--line);background:var(--panel2);color:var(--muted)">المضيف يضبط المؤقتات ويبدأ اللعبة.</div>
+</div></div><div class="foot"><p style="text-align:center;font-size:13px;color:var(--muted);margin:8px 0">بانتظار المضيف ليبدأ…</p></div>`;
+
+V.keys = () => `<div class="body"><div class="ct" style="padding-top:40px">
+  <div style="text-align:center;margin-bottom:30px">
+    <div style="font-family:'Reem Kufi';font-size:20px;margin-bottom:8px">مفاتيحكم الأربعة</div>
+    <p style="font-size:13px;color:var(--muted);line-height:1.9;margin:0">لن تتغيّر طوال اللعبة.<br>الخصم لا يراها — بعد.</p></div>
+  ${MYKEYS.map((k,i)=>`<div class="card" style="padding:16px;display:flex;align-items:center;gap:16px;margin-bottom:10px;border-color:${HEX.gold}44">
+    <span style="font-family:'Reem Kufi';font-size:29px;color:var(--gold);width:34px;text-align:center">${i+1}</span>
+    <span style="font-family:'Reem Kufi';font-size:21px">${k}</span></div>`).join("")}
+  <div class="btn g" style="margin-top:18px" onclick="go('encE')">→ التالي</div>
+</div></div>`;
+
+V.encE = () => header("الجولة 3","كتابة التلميحات","0:41") + keystrip() + `<div class="body"><div class="ct">
+  <p class="lbl">شفرتك — اجعل فريقك يقولها</p>
+  ${cart(MYCODE,"x","gold",null,true)}
+  <div class="ban l" style="margin:14px 0">اكتب تلميحًا لكل رقم. واضح بما يكفي لفريقك، غامض بما يكفي على الخصم.</div>
+  ${[0,1,2].map(i=>{
+    const tgt=MYCODE[i], bad=i===1;
+    const past=OURLANES[tgt-1].c;
+    return `<div class="sect" style="margin-top:${i?16:0}px"><span>التلميح ${ORD[i]}</span><i></i>
+      <span class="chip" style="border-color:${HEX.gold}55"><span class="n" style="color:var(--gold)">${tgt}</span>${MYKEYS[tgt-1]}</span></div>
+    ${past.length?`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 2px 8px">
+        <span style="font-size:10.5px;color:var(--muted)">قلتم سابقًا</span>
+        ${past.map(([r,t])=>`<span class="chip" style="font-size:11.5px;padding:2px 8px"><span class="r" style="font-size:9.5px">${r}</span>${t}</span>`).join("")}</div>`
+      :`<p style="font-size:10.5px;color:var(--muted);margin:0 2px 8px">لم تلمّحوا لهذه الكلمة بعد</p>`}
+    <input class="inp" style="${bad?'border-color:#D6564A':''}" value="${["عبور","عسل",""][i]}" placeholder="كلمة أو عبارة">
+    ${bad?`<p style="font-size:11.5px;color:#D6564A;margin:5px 4px 0">استُخدم في جولة سابقة</p>`:""}`;
+  }).join("")}
+  <div class="btn d" style="margin-top:20px">أرسل التلميحات</div>
+  <p class="ann">ممنوع التلميح للهجاء أو عدد الحروف أو الترتيب على الشاشة.</p>
+  <div class="sect"><span>سجلّ فريقكم كاملًا</span><i></i></div>
+  ${lanes(OURLANES,"gold",false)}
+</div></div>` + tabbar();
+
+V.encW = () => header("الجولة 3","كتابة التلميحات","0:41") + keystrip() + `<div class="body"><div class="ct">
+  <div class="card" style="padding:22px;text-align:center;margin-bottom:18px">
+    <div style="display:flex;justify-content:center;margin-bottom:12px"><span class="av">${av("sami",44)}</span></div>
+    <div style="font-family:'Reem Kufi';font-size:17px">سامي يكتب التلميحات</div>
+    <div style="display:flex;justify-content:center;gap:14px;margin-top:16px">
+      <span class="chip"><i style="width:6px;height:6px;border-radius:50%;background:#4A5680"></i>الذهب<span style="color:var(--muted)">يكتب…</span></span>
+      <span class="chip"><i style="width:6px;height:6px;border-radius:50%;background:var(--ok)"></i>الفضة<span style="color:var(--muted)">جاهز</span></span></div></div>
+  <p class="lbl">راجعوا تلميحاتكم السابقة — الخصم يحفظها كلها</p>
+  ${lanes(OURLANES,"gold",false)}
+</div></div>` + tabbar();
+
+function guessScreen(opts){
+  const {round=3, canInt=true, locked=false, sent=null, time="0:38", crit=false} = opts;
+  const tab = (!canInt) ? "theirs" : S.gtab;
+  let main;
+  if(tab==="ours"){
+    main = `${locked?`<div class="ban l" style="margin-bottom:14px">أنت كتبت هذه التلميحات. لا تشارك في الفكّ ولا تُظهر أي ردّ فعل.</div>`:""}
+      <div style="${locked||sent?'opacity:.5':''}">${cart(S.dec,"dec","gold",null,locked||!!sent,OURCLUES)}</div>
+      ${(locked||sent)?"":pad("dec")}
+      <p class="ann">${sent?"أُرسلت — لا يمكن التعديل":locked?"زملاؤك يحلّونها الآن":"أي لاعب في فريقكم يستطيع تحريك الأرقام — الجميع يرى نفس الشاشة"}</p>
+      <div class="sect"><span>سجلّكم</span><i></i></div>
+      ${lanes(OURLANES,"gold",false)}`;
+  } else if(!canInt){
+    main = `<div class="mid"><div>
+      <div style="font-family:'Reem Kufi';font-size:17px;color:rgba(239,231,212,.8);margin-bottom:10px">لا اعتراض في الجولة الأولى</div>
+      <p style="font-size:13px;color:var(--muted);line-height:1.9;margin:0">لم يقل الخصم شيئًا بعد، فلا يوجد ما يُبنى عليه تخمين. الاعتراض يبدأ من الجولة الثانية.</p></div></div>`;
+  } else {
+    main = `<div style="${sent?'opacity:.5':''}">${cart(S.intc,"intc","silver",null,!!sent,THEIRCLUES)}</div>
+      ${sent?"":pad("intc")}
+      <div class="sect"><span>سجلّ الفضة</span><i></i></div>
+      ${lanes(THEIRLANES,"silver",true)}`;
+  }
+  const complete = S.dec.every(v=>v!=null) && (!canInt || S.intc.every(v=>v!=null));
+  const foot = sent
+    ? `<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:9px 0">
+        <span class="av">${av(sent,24)}</span><span style="font-size:13.5px;color:var(--muted)">أرسلها ${P[sent].n} — بانتظار الخصم</span></div>`
+    : `<div class="btn ${complete?'p':'d'}" ${complete?`onclick="S.sent='laila';go('gSent')"`:""}>أرسل إجابة الفريق</div>
+       <p class="ann">${complete?"أي لاعب في الفريق يستطيع الإرسال — وبعدها تُقفل الأرقام":"أكملوا الشفرتين قبل الإرسال"}</p>`;
+
+  return header(`الجولة ${round}`,"فكّ واعتراض",time,crit) + keystrip() +
+    `<div style="padding:11px 15px 0"><div class="seg">
+      <b class="${tab==='ours'?'on':''}" onclick="S.gtab='ours';draw()">شفرتنا</b>
+      <b class="${tab==='theirs'?(canInt?'onl':'onl off'):(canInt?'':'off')}" ${canInt?`onclick="S.gtab='theirs';draw()"`:""}>اعتراض</b>
+    </div></div>
+    <div class="body"><div class="ct" style="padding-top:12px">${main}</div></div>
+    <div class="foot">${foot}</div>`;
+}
+V.gOurs = () => { S.gtab="ours"; return guessScreen({}); };
+V.gInt  = () => { S.gtab="theirs"; return guessScreen({}); };
+V.gLock = () => { S.gtab="ours"; return guessScreen({locked:true}); };
+V.gSent = () => guessScreen({sent:"laila", time:"0:22"});
+V.g1    = () => guessScreen({round:1, canInt:false, time:"0:52"});
+
+V.reveal = () => header("الجولة 3","الكشف","0:11") + keystrip() + `<div class="body"><div class="ct">
+  <div class="card" style="padding:15px;border-color:${HEX.gold}44;margin-bottom:11px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-family:'Reem Kufi';font-size:16px;color:var(--gold)">شفرة الذهب<span class="you">فريقكم</span></span>
+      <span class="stamp f">خلل</span></div>
+    <div class="gt" style="margin-bottom:13px">${OURCLUES.map((c,i)=>`<span class="chip"><span class="r">${ORD[i]}</span>${c}</span>`).join("")}</div>
+    <p class="lbl">الشفرة الحقيقية</p>${cart([3,1,4],"z","gold",null,true)}
+    <div class="gr"><span style="font-size:12.5px;color:var(--muted)">الذهب فكّها</span>
+      <span class="v"><i class="ok">3</i><i class="ok">1</i><i class="no">2</i><span style="color:var(--bad);margin-inline-start:4px">✕</span></span></div>
+    <div class="gr"><span style="font-size:12.5px;color:var(--muted)">اعتراض الفضة</span>
+      <span class="v"><i class="no">1</i><i class="ok">1</i><i class="no">2</i><span style="color:var(--bad);margin-inline-start:4px">✕</span></span></div></div>
+  <div class="card" style="padding:15px;border-color:${HEX.silver}44">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-family:'Reem Kufi';font-size:16px;color:var(--silver)">شفرة الفضة</span>
+      <span class="stamp b">اختراق</span></div>
+    <div class="gt" style="margin-bottom:13px">${THEIRCLUES.map((c,i)=>`<span class="chip"><span class="r">${ORD[i]}</span>${c}</span>`).join("")}</div>
+    <p class="lbl">الشفرة الحقيقية</p>${cart([2,4,1],"z","silver",null,true)}
+    <div class="gr"><span style="font-size:12.5px;color:var(--muted)">الفضة فكّها</span>
+      <span class="v"><i class="ok">2</i><i class="ok">4</i><i class="ok">1</i><span style="color:var(--ok);margin-inline-start:4px">✓</span></span></div>
+    <div class="gr"><span style="font-size:12.5px;color:var(--muted)">اعتراضنا</span>
+      <span class="v"><i class="ok">2</i><i class="ok">4</i><i class="ok">1</i><span style="color:var(--ok);margin-inline-start:4px">✓</span></span></div></div>
+</div></div>` + tabbar();
+
+V.rend = () => header("الجولة 3","نهاية الجولة","0:19") + `<div class="body"><div class="ct" style="padding-top:17px">
+  <div class="card" style="padding:15px;margin-bottom:12px"><p class="lbl">الحصيلة</p>
+    ${["gold","silver"].map(t=>`<div style="display:flex;justify-content:space-between;margin-bottom:9px">
+      <span style="font-family:'Reem Kufi';font-size:15px;color:${HEX[t]}">${LAB[t]}</span>
+      <span style="font-size:12.5px"><span style="color:var(--ok)">اختراق ${t==='gold'?1:1}/2</span><span style="color:var(--bad);margin-inline-start:14px">خلل ${t==='gold'?1:1}/2</span></span></div>`).join("")}
+    <p style="font-size:11.5px;color:var(--muted);line-height:1.8;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)">اختراقان يفوزان باللعبة. خللان يخسرانها.</p></div>
+  <div class="card" style="padding:15px;border-color:#7A4A2A;margin-bottom:12px">
+    <p style="font-size:12px;color:var(--warn);margin:0 0 12px">من غادر الشاشة هذه الجولة</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+      <span class="av">${av("noor",24)}نور</span><span style="font-size:12px;color:var(--muted)">3× · 42ث</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="av">${av("sami",24)}سامي</span><span style="font-size:12px;color:var(--muted)">1× · 6ث</span></div>
+    <p style="font-size:11px;color:var(--muted);line-height:1.8;margin:12px 0 0">إشعار على الهاتف يُحتسب أيضًا. لقطات الشاشة لا يمكن رصدها من المتصفح.</p></div>
+  <div class="card" style="padding:15px"><p class="lbl">المُشفِّر في الجولة القادمة</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+      <span class="av">${av("hind",26)}هند</span><span style="font-size:12px;color:var(--gold)">الذهب</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="av">${av("omar",26)}عمر</span><span style="font-size:12px;color:var(--silver)">الفضة</span></div></div>
+</div></div><div class="foot"><div class="btn p" onclick="go('encE')">الجولة التالية</div></div>`;
+
+V.log = () => header("الجولة 4","فكّ واعتراض","0:29") + keystrip() + `<div class="body"><div class="ct">
+  <div class="seg" style="margin-bottom:12px">
+    <b class="${S.logSide==='silver'?'onl':''}" onclick="S.logSide='silver';draw()">تلميحات الفضة</b>
+    <b class="${S.logSide==='gold'?'on':''}" onclick="S.logSide='gold';draw()">تلميحاتنا</b></div>
+  <div style="display:flex;justify-content:space-between;margin-bottom:12px;padding:0 4px">
+    <span style="font-size:11.5px;color:var(--muted)">${S.logSide==='gold'?'ما قلتموه عن كل مفتاح':'مصنّفة حسب الرقم الذي تبيّن أنها تعنيه'}</span>
+    <span style="font-size:11.5px;color:var(--gold);cursor:pointer">حسب الجولة</span></div>
+  ${S.logSide==='gold'?lanes(OURLANES,"gold",false):lanes(THEIRLANES,"silver",true)}
+</div></div>` + tabbar();
+
+V.team = () => header("الجولة 4","فكّ واعتراض","0:29") + keystrip() + `<div class="body"><div class="ct">
+  ${[["gold",["laila","sami","hind"]],["silver",["noor","omar"]]].map(([t,ms])=>`
+  <div class="card" style="padding:15px;border-color:${HEX[t]}3A;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:11px">
+      <span style="font-family:'Reem Kufi';font-size:16px;color:${HEX[t]}">${LAB[t]}${t==='gold'?'<span class="you">فريقك</span>':''}</span>
+      <span style="font-size:12px;color:var(--muted)">اختراق 1 · خلل 1</span></div>
+    ${ms.map((u,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span class="av">${av(u,26)}${P[u].n}</span>
+      <span style="font-size:10.5px;color:var(--muted)">${i===0?`<span style="color:${HEX[t]}">مُشفِّر هذه الجولة</span>`:i===1&&t==='gold'?'مضيف':''}</span></div>`).join("")}
+  </div>`).join("")}
+  <div class="card" style="padding:15px;margin-bottom:12px"><p class="lbl">كيف تُحسب النتيجة</p>
+    <p style="font-size:13px;line-height:1.9;margin:0 0 8px"><span style="color:var(--ok)">اختراق</span> — التقطتم شفرة الخصم. اختراقان يفوزان.</p>
+    <p style="font-size:13px;line-height:1.9;margin:0 0 8px"><span style="color:var(--bad)">خلل</span> — فريقكم أخطأ في فهم مُشفِّركم. خللان يخسران.</p>
+    <p style="font-size:13px;line-height:1.9;margin:0;color:var(--muted)">أن يفهمكم فريقكم لا يمنحكم شيئًا — يمنعكم فقط من الخسارة.</p></div>
+  <div class="card" style="padding:15px"><p class="lbl">تحكّم المضيف</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <div class="btn g" style="padding:9px 0;font-size:13px">إيقاف</div>
+      <div class="btn g" style="padding:9px 0;font-size:13px">+30ث</div>
+      <div class="btn g" style="padding:9px 0;font-size:13px">تخطٍّ</div></div></div>
+</div></div>` + tabbar();
+
+V.over = () => `<div class="body"><div class="ct" style="padding-top:36px">
+  <div style="text-align:center;margin-bottom:30px">
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px">باختراقين</p>
+    <div style="font-family:'Reem Kufi';font-size:38px;color:var(--silver);line-height:1.2">فاز الفضة</div>
+    <p style="font-size:14px;color:var(--muted);margin:8px 0 0">في المرة القادمة.</p></div>
+  <p class="lbl">كل المفاتيح، وكل ما قيل عنها</p>
+  <div class="card" style="padding:13px;border-color:${HEX.gold}44;margin-bottom:11px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:11px">
+      <span style="font-family:'Reem Kufi';font-size:15px;color:var(--gold)">الذهب</span>
+      <span style="font-size:11.5px;color:var(--muted)">اختراق 1 · خلل 1</span></div>
+    ${lanes(OURLANES,"gold",false)}</div>
+  <div class="card" style="padding:13px;border-color:${HEX.silver}44">
+    <div style="display:flex;justify-content:space-between;margin-bottom:11px">
+      <span style="font-family:'Reem Kufi';font-size:15px;color:var(--silver)">الفضة</span>
+      <span style="font-size:11.5px;color:var(--muted)">اختراق 2 · خلل 1</span></div>
+    ${lanes([{n:1,w:"شمس",c:[[1,"شروق"],[2,"حرارة"]]},{n:2,w:"بحر",c:[[1,"موج"],[2,"زرقة"]]},
+             {n:3,w:"ظلام",c:[[2,"ليل"]]},{n:4,w:"قوقعة",c:[[3,"قاع"]]}],"silver",false)}</div>
+</div></div><div class="foot"><div class="btn p" onclick="go('home')">جولة جديدة بنفس الفريقين</div></div>`;
+
+/* ============================ shell ============================ */
+const FLAT = SCENES.flatMap(([,items]) => items);
+
+window.sheet = open => {
+  document.getElementById("sheet").classList.toggle("open", open);
+  document.body.style.overflow = open ? "hidden" : "";
+};
+window.step = d => {
+  const i = FLAT.findIndex(x => x[0] === S.scene);
+  go(FLAT[(i + d + FLAT.length) % FLAT.length][0]);
+};
+window.go = s => {
+  S.scene = s; S.lane = null; S.tab = "play";
+  if (s !== "gSent") S.sent = null;
+  sheet(false);
+  draw();
+  const b = document.querySelector(".body"); if (b) b.scrollTop = 0;
+};
+
+function draw(){
+  const withTabs = ["encE","encW","gOurs","gInt","gLock","gSent","g1","reveal","log","team"];
+  let scene = S.scene;
+  if (withTabs.includes(scene)) {
+    if (S.tab === "log") scene = "log";
+    else if (S.tab === "team") scene = "team";
+    else if (scene === "log" || scene === "team") scene = "gInt";
+  }
+  el("#app").innerHTML = V[scene]();
+  el("#nav").innerHTML = SCENES.map(([g,items]) =>
+    `<p class="gh">${g}</p>` + items.map(([k,l,d]) =>
+      `<b class="${S.scene===k?'on':''}" onclick="go('${k}')">${l}<i>${d}</i></b>`).join("")).join("");
+
+  const meta = FLAT.find(x => x[0] === S.scene);
+  el("#curname").textContent = meta ? meta[1] : "—";
+  const n = NOTES[S.scene] || NOTES[scene];
+  el("#note").innerHTML = n ? `<b>${n[0]}</b>${n[1]}` : "";
+}
+draw();
+</script>
+</body>
+</html>

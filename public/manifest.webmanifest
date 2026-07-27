@@ -1,0 +1,11 @@
+{
+  "name": "تشفير",
+  "short_name": "تشفير",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080c18",
+  "theme_color": "#080c18",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": []
+}

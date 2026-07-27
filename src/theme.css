@@ -1,0 +1,353 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ */
+/* base                                                                */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --gold: #d9a441;
+  --silver: #AFC0DA;
+  --parch: #efe7d4;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #080c18;
+  color: var(--parch);
+  font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  /* A faint girih lattice. Restraint is the point — it should read as
+     paper texture, not wallpaper. */
+  background-image:
+    radial-gradient(circle at 22% 12%, rgba(175, 192, 218, 0.09), transparent 45%),
+    radial-gradient(circle at 82% 88%, rgba(217, 164, 65, 0.07), transparent 45%);
+  background-attachment: fixed;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea {
+  font-family: inherit;
+}
+
+.font-display {
+  font-family: "Reem Kufi", system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+/* Numerals must never inherit an italic or condensed face — they carry
+   the entire game state. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ------------------------------------------------------------------ */
+/* surfaces                                                            */
+/* ------------------------------------------------------------------ */
+
+.card {
+  background: linear-gradient(180deg, #131c3b 0%, #101832 100%);
+  border: 1px solid #25335f;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(239, 231, 212, 0.05);
+}
+
+.card-gold {
+  border-color: rgba(217, 164, 65, 0.42);
+  background: linear-gradient(180deg, #1c1a2c 0%, #14152a 100%);
+}
+
+.card-silver {
+  border-color: rgba(175, 192, 218, 0.42);
+  background: linear-gradient(180deg, #131c3b 0%, #101a34 100%);
+}
+
+.hairline {
+  border-block-end: 1px solid #25335f;
+}
+
+/* ------------------------------------------------------------------ */
+/* signature: the cartouche                                            */
+/*                                                                     */
+/* Three ordered slots. In RTL the FIRST slot sits on the right, so the */
+/* row is never reversed anywhere in the app — the DOM order is the     */
+/* truth and `dir="rtl"` does the rest.                                */
+/* ------------------------------------------------------------------ */
+
+.cartouche {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.slot {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 10px 10px 20px 20px;
+  border: 1px solid #2b3a68;
+  background: linear-gradient(180deg, #0e1530 0%, #0a1026 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Reem Kufi", sans-serif;
+  font-size: clamp(30px, 11vw, 46px);
+  line-height: 1;
+  color: var(--parch);
+  transition: transform 0.12s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.slot::before {
+  /* the ordinal notch — encodes position, doesn't decorate */
+  content: attr(data-ord);
+  position: absolute;
+  inset-block-start: 6px;
+  inset-inline-end: 8px;
+  font-family: "IBM Plex Sans Arabic", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #6c7ba6;
+}
+
+.slot-empty {
+  color: #38456f;
+}
+
+.slot-active {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px rgba(217, 164, 65, 0.35), 0 0 24px -6px rgba(217, 164, 65, 0.5);
+}
+
+.slot-silver.slot-active {
+  border-color: var(--silver);
+  box-shadow: 0 0 0 1px rgba(175, 192, 218, 0.35), 0 0 24px -6px rgba(175, 192, 218, 0.5);
+}
+
+.slot:active {
+  transform: scale(0.97);
+}
+
+.slot-right {
+  border-color: rgba(79, 160, 122, 0.75);
+  background: linear-gradient(180deg, #10281f 0%, #0c1c17 100%);
+}
+
+.slot-wrong {
+  border-color: rgba(214, 86, 74, 0.7);
+  background: linear-gradient(180deg, #2a1210 0%, #1c0d0c 100%);
+}
+
+/* ------------------------------------------------------------------ */
+/* signature: the stamp                                                */
+/* ------------------------------------------------------------------ */
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px 6px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  font-family: "Reem Kufi", sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  opacity: 0.94;
+  transform: rotate(-3.5deg);
+  animation: stamp-in 0.42s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+
+.stamp-breach {
+  color: #6fbf95;
+  background: rgba(79, 160, 122, 0.1);
+}
+.stamp-fault {
+  color: #e57a6f;
+  background: rgba(214, 86, 74, 0.1);
+}
+
+@keyframes stamp-in {
+  0% {
+    transform: rotate(-14deg) scale(2.4);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-3.5deg) scale(1);
+    opacity: 0.94;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* tokens                                                              */
+/* ------------------------------------------------------------------ */
+
+.pip {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: inline-block;
+}
+.pip-on {
+  background: currentColor;
+  box-shadow: 0 0 8px -1px currentColor;
+}
+
+/* ------------------------------------------------------------------ */
+/* timer                                                               */
+/* ------------------------------------------------------------------ */
+
+.timer-track {
+  height: 3px;
+  background: #1a2444;
+  overflow: hidden;
+}
+.timer-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.95s linear, background-color 0.4s ease;
+}
+.timer-warn {
+  background: #e0913c;
+}
+.timer-crit {
+  background: #d6564a;
+  animation: pulse 0.9s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* misc                                                                */
+/* ------------------------------------------------------------------ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid #2b3a68;
+  background: #101a34;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #cfc7b4;
+}
+
+.btn {
+  border-radius: 11px;
+  padding: 13px 18px;
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid transparent;
+  transition: transform 0.1s ease, opacity 0.15s ease;
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.975);
+}
+.btn:disabled {
+  opacity: 0.4;
+}
+.btn-primary {
+  background: var(--gold);
+  color: #17120a;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: #2b3a68;
+  color: #cfc7b4;
+}
+
+.fade-in {
+  animation: fade 0.35s ease both;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.scroll-y {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-y::-webkit-scrollbar {
+  width: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* range slider                                                        */
+/* ------------------------------------------------------------------ */
+
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 26px;
+  background: transparent;
+  cursor: pointer;
+}
+.range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  /* RTL: the filled portion grows from the right */
+  background: linear-gradient(to left, var(--gold) var(--pct), #1a2444 var(--pct));
+}
+.range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to left, var(--gold) var(--pct), #1a2444 var(--pct));
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: #efe7d4;
+  border: 3px solid var(--gold);
+  box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.7);
+}
+.range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #efe7d4;
+  border: 3px solid var(--gold);
+}
+.range:disabled::-webkit-slider-thumb { background: #4a5680; border-color: #2b3a68; }
