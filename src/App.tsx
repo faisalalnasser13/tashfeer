@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ensureAuth } from "./lib/firebase";
 import { useLocal, useRoom } from "./lib/hooks";
+import { startVersionWatch } from "./lib/version";
 import { Home } from "./screens/Home";
 import { Lobby } from "./screens/Lobby";
 import { Game } from "./screens/Game";
 import { Banner, Btn, Empty } from "./components/ui";
+import { VersionBadge } from "./components/VersionBadge";
 
 function inviteFromUrl(): string | null {
   const r = new URLSearchParams(location.search).get("r");
@@ -18,6 +20,8 @@ export default function App() {
   const [authErr, setAuthErr] = useState("");
   const [roomId, setRoomId] = useLocal<string | null>("tashfeer.room", null);
   const { room, missing } = useRoom(roomId);
+
+  useEffect(() => startVersionWatch(), []);
 
   // Deep link /?r=ABCDE — stash the code and drop any different saved room
   // so the join screen actually appears (stale tashfeer.room used to win).
@@ -50,19 +54,33 @@ export default function App() {
       .catch(() => setAuthErr("تعذّر الاتصال. تحقّق من الشبكة."));
   }, []);
 
+  const shell = (body: ReactNode) => (
+    <div className="h-full flex flex-col">
+      <div className="flex-1 min-h-0">{body}</div>
+      <div
+        className="shrink-0 py-1.5"
+        style={{ paddingBottom: "max(6px, var(--safe-b))" }}
+      >
+        <VersionBadge />
+      </div>
+    </div>
+  );
+
   if (authErr) {
-    return (
+    return shell(
       <div className="p-6 pt-24">
         <Banner tone="warn">{authErr}</Banner>
       </div>
     );
   }
   if (!uid) {
-    return <div className="grid place-items-center h-full text-muted text-[13px]">…</div>;
+    return shell(
+      <div className="grid place-items-center h-full text-muted text-[13px]">…</div>
+    );
   }
 
   if (!roomId || missing) {
-    return (
+    return shell(
       <Home
         onEnter={(id) => {
           setRoomId(id);
@@ -72,12 +90,14 @@ export default function App() {
     );
   }
   if (!room) {
-    return <div className="grid place-items-center h-full text-muted text-[13px]">…</div>;
+    return shell(
+      <div className="grid place-items-center h-full text-muted text-[13px]">…</div>
+    );
   }
 
   // Joined by link but the game already started, or was removed mid-game.
   if (!room.players[uid]) {
-    return (
+    return shell(
       <div className="p-6" style={{ paddingTop: "calc(var(--safe-t) + 60px)" }}>
         <Empty title="لست في هذه الغرفة" body="ربما أخرجك المضيف، أو بدأت اللعبة قبل انضمامك." />
         <Btn className="w-full mt-4" onClick={() => setRoomId(null)}>
@@ -92,9 +112,11 @@ export default function App() {
     setRoomId(null);
   };
 
-  return room.phase === "lobby" ? (
-    <Lobby room={room} uid={uid} onLeave={leave} />
-  ) : (
-    <Game room={room} uid={uid} onLeave={leave} />
+  return shell(
+    room.phase === "lobby" ? (
+      <Lobby room={room} uid={uid} onLeave={leave} />
+    ) : (
+      <Game room={room} uid={uid} onLeave={leave} />
+    )
   );
 }

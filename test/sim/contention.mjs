@@ -10,7 +10,7 @@
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const fbs = require("firebase/firestore");
-const eng = require("./lib/engine.js");
+const eng = require("./lib/engine.cjs");
 const fns = eng.api;
 
 const call = async (fn, uid, data) => { fbs.__setUser(uid); return fn(data); };
@@ -40,7 +40,8 @@ async function throws(fn, needle) {
 
 function clientSetCode(path, field, values) {
   const d = S().get(path);
-  if (d.submitted) return;      // frozen once sent
+  if (field === "decrypt" && d.submittedDecrypt) return;
+  if (field === "intercept" && d.submittedIntercept) return;
   d[field] = values;
 }
 function clientAssign(path, field, slot, digit) {
@@ -48,9 +49,10 @@ function clientAssign(path, field, slot, digit) {
   const cur = S().get(path)[field];
   clientSetCode(path, field, cur.map((v, i) => (i === slot ? digit : v === digit ? null : v)));
 }
-function clientSubmit(path, uid) {
+function clientSubmit(path, uid, field = "decrypt") {
   const d = S().get(path);
-  if (!d.submitted) d.submitted = uid;   // first tap wins
+  const key = field === "decrypt" ? "submittedDecrypt" : "submittedIntercept";
+  if (!d[key]) d[key] = uid;   // first tap wins
 }
 
 /* ---------------- fixture ---------------- */
@@ -128,50 +130,49 @@ console.log("\nsending");
 await it("any teammate can send — no confirmation round", async () => {
   const { roomId, draft, b } = await atGuessPhase();
   clientSetCode(draft, "decrypt", [1, 2, 3]);
-  clientSubmit(draft, b);
-  eq(S().get(draft).submitted, b, "b's tap did not send it");
+  clientSubmit(draft, b, "decrypt");
+  eq(S().get(draft).submittedDecrypt, b, "b's tap did not send it");
 });
 
 await it("the encryptor can send too, even though they can't decrypt", async () => {
   const { draft, enc } = await atGuessPhase();
-  clientSubmit(draft, enc);
-  eq(S().get(draft).submitted, enc, "the encryptor was blocked from sending");
+  clientSubmit(draft, enc, "decrypt");
+  eq(S().get(draft).submittedDecrypt, enc, "the encryptor was blocked from sending");
 });
 
 await it("sending freezes the numbers", async () => {
   const { draft, a, b } = await atGuessPhase();
   clientSetCode(draft, "decrypt", [1, 2, 3]);
-  clientSubmit(draft, a);
+  clientSubmit(draft, a, "decrypt");
   clientSetCode(draft, "decrypt", [4, 3, 2]);   // b keeps arguing
   eq(S().get(draft).decrypt, [1, 2, 3], "a sent answer was edited afterwards");
 });
 
 await it("a second tap does not overwrite who sent it", async () => {
   const { draft, a, b } = await atGuessPhase();
-  clientSubmit(draft, a);
-  clientSubmit(draft, b);
-  eq(S().get(draft).submitted, a, "the first sender should be recorded");
+  clientSubmit(draft, a, "decrypt");
+  clientSubmit(draft, b, "decrypt");
+  eq(S().get(draft).submittedDecrypt, a, "the first sender should be recorded");
 });
 
-await it("one team sending is not enough to advance", async () => {
+await it("round-1 gold half advances when only the owners have sent", async () => {
+  // Official: round 1 has no interception, so the opposing team does nothing.
   const { roomId, draft, a } = await atGuessPhase();
   clientSetCode(draft, "decrypt", [1, 2, 3]);
-  clientSubmit(draft, a);
-  await throws(
-    () => call(fns.advancePhase, a, { roomId, fromPhase: "guess", fromRound: 1 }),
-    "الوقت"
-  );
-  eq(S().get(`rooms/${roomId}`).phase, "guess", "advanced on one team only");
-});
-
-await it("both teams sending advances immediately", async () => {
-  const { roomId, draft, a } = await atGuessPhase();
-  clientSetCode(draft, "decrypt", [1, 2, 3]);
-  clientSubmit(draft, a);
-  const silver = S().get(`rooms/${roomId}`).teams.silver.members[0];
-  clientSubmit(`rooms/${roomId}/drafts/silver_r1`, silver);
+  clientSubmit(draft, a, "decrypt");
   await call(fns.advancePhase, a, { roomId, fromPhase: "guess", fromRound: 1 });
-  eq(S().get(`rooms/${roomId}`).phase, "reveal", "did not advance when both sent");
+  eq(S().get(`rooms/${roomId}`).phase, "reveal", "did not advance on owner submit");
+  eq(S().get(`rooms/${roomId}`).activeTeam, "gold", "wrong half revealed");
+});
+
+await it("after gold reveal, silver half opens", async () => {
+  const { roomId, draft, a, HOST } = await atGuessPhase();
+  clientSetCode(draft, "decrypt", [1, 2, 3]);
+  clientSubmit(draft, a, "decrypt");
+  await call(fns.advancePhase, a, { roomId, fromPhase: "guess", fromRound: 1 });
+  await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "reveal", fromRound: 1 });
+  eq(S().get(`rooms/${roomId}`).phase, "guess", "silver half did not open");
+  eq(S().get(`rooms/${roomId}`).activeTeam, "silver", "active team should be silver");
 });
 
 console.log("\nediting after the deadline");
@@ -237,7 +238,7 @@ await it("every player starts with an empty sheet", async () => {
 await it("a sheet survives the round boundary", async () => {
   const { roomId, HOST, a, draft } = await atGuessPhase();
   S().get(`rooms/${roomId}/guesses/${a}`).words["2"] = "بحر";
-  for (const p of ["guess", "reveal", "roundEnd"]) {
+  for (const p of ["guess", "reveal", "guess", "reveal", "roundEnd"]) {
     await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: p, fromRound: 1 });
   }
   eq(S().get(`rooms/${roomId}`).round, 2, "should be in round 2");

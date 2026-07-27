@@ -20,6 +20,10 @@ body,
   height: 100%;
 }
 
+#root > * {
+  height: 100%;
+}
+
 body {
   margin: 0;
   background: #080c18;
@@ -93,20 +97,22 @@ textarea {
 .cartouche {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 6px;
 }
 
 .slot {
   position: relative;
-  aspect-ratio: 3 / 4;
-  border-radius: 10px 10px 20px 20px;
+  aspect-ratio: 2.4 / 1;
+  min-height: 0;
+  border-radius: 8px;
   border: 1px solid #2b3a68;
   background: linear-gradient(180deg, #0e1530 0%, #0a1026 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Reem Kufi", sans-serif;
-  font-size: clamp(30px, 11vw, 46px);
+  font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  font-size: clamp(12px, 3.2vw, 16px);
+  font-weight: 600;
   line-height: 1;
   color: var(--parch);
   transition: transform 0.12s ease, border-color 0.2s ease, background 0.2s ease;
@@ -116,10 +122,10 @@ textarea {
   /* the ordinal notch — encodes position, doesn't decorate */
   content: attr(data-ord);
   position: absolute;
-  inset-block-start: 6px;
-  inset-inline-end: 8px;
+  inset-block-start: 3px;
+  inset-inline-end: 5px;
   font-family: "IBM Plex Sans Arabic", sans-serif;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: #6c7ba6;
@@ -229,12 +235,40 @@ textarea {
   background: #e0913c;
 }
 .timer-crit {
-  background: #d6564a;
-  animation: pulse 0.9s ease-in-out infinite;
+  background: #f0e8d8;
+  animation: pulse 0.55s ease-in-out infinite;
 }
 @keyframes pulse {
   50% {
-    opacity: 0.45;
+    opacity: 0.35;
+  }
+}
+
+.header-crit {
+  background: #6b1c18;
+  animation: header-flash 0.7s ease-in-out infinite;
+}
+@keyframes header-flash {
+  0%,
+  100% {
+    background-color: #6b1c18;
+  }
+  50% {
+    background-color: #a52822;
+  }
+}
+.header-crit-clock {
+  animation: clock-flash 0.7s ease-in-out infinite;
+}
+@keyframes clock-flash {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: scale(1.06);
   }
 }
 
@@ -246,12 +280,12 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid #2b3a68;
   background: #101a34;
-  font-size: 12.5px;
-  line-height: 1.5;
+  font-size: 19px;
+  line-height: 1.45;
   color: #cfc7b4;
 }
 

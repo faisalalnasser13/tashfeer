@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   useAutoAdvance, useAway, useAwayTracker, useCode, useCountdown, useDraft,
   useEnsureCode, useFinalKeys, usePhaseDriver, useRounds, useTeamGuesses, useTeamPrivate,
@@ -12,11 +12,35 @@ import { GameOver, LogTab, TeamTab } from "./tabs";
 
 type Tab = "play" | "log" | "team";
 
+/**
+ * Keep the top chrome pinned to the *visual* viewport so the soft
+ * keyboard can't shove the timer off-screen on mobile browsers.
+ */
+function useVisualTop() {
+  const [top, setTop] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => setTop(vv.offsetTop);
+    sync();
+    vv.addEventListener("resize", sync);
+    vv.addEventListener("scroll", sync);
+    return () => {
+      vv.removeEventListener("resize", sync);
+      vv.removeEventListener("scroll", sync);
+    };
+  }, []);
+  return top;
+}
+
 export function Game({
   room, uid, onLeave,
 }: { room: Room; uid: string; onLeave: () => void }) {
   const myTeam = (room.players[uid]?.team ?? null) as TeamId | null;
   const [tab, setTab] = useState<Tab>("play");
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const [chromeH, setChromeH] = useState(0);
+  const visualTop = useVisualTop();
 
   const priv = useTeamPrivate(room.id, myTeam);
   const rounds = useRounds(room.id);
@@ -32,13 +56,16 @@ export function Game({
   usePhaseDriver(room, uid);
   useEnsureCode(room.id, myTeam, room.round, amEncryptor, room.phase);
 
-  // Nothing left to wait for on this client's side. The server checks
-  // the other team before it actually moves the phase on.
   const locallyDone =
     room.phase === "encrypt"
       ? room.cluesIn.gold === true && room.cluesIn.silver === true
       : room.phase === "guess"
-      ? Boolean(draft?.submitted)
+      ? (() => {
+          const active = room.activeTeam ?? "gold";
+          if (myTeam === active) return Boolean(draft?.submittedDecrypt);
+          if (room.round < 2) return true; // round-1 spectators; server only needs owners
+          return Boolean(draft?.submittedIntercept);
+        })()
       : false;
   useAutoAdvance(room, locallyDone);
 
@@ -46,6 +73,16 @@ export function Game({
     room.id, room.round, uid,
     room.phase === "encrypt" || room.phase === "guess"
   );
+
+  useEffect(() => {
+    const el = chromeRef.current;
+    if (!el) return;
+    const measure = () => setChromeH(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [myTeam, room.phase, room.paused]);
 
   if (!myTeam) {
     return (
@@ -76,20 +113,25 @@ export function Game({
   };
 
   return (
-    <div className="min-h-full flex flex-col">
-      <Header room={room} remaining={remaining} pct={pct} myTeam={myTeam} />
-      <KeysStrip
-        keys={priv?.keys ?? null}
-        team={myTeam}
-      />
+    <div className="h-full flex flex-col overflow-hidden">
+      <div
+        ref={chromeRef}
+        className="fixed inset-x-0 z-50 bg-ink"
+        style={{ top: visualTop }}
+      >
+        <Header room={room} remaining={remaining} pct={pct} myTeam={myTeam} />
+        <KeysStrip keys={priv?.keys ?? null} team={myTeam} />
+        {room.paused && (
+          <div className="px-4 py-2">
+            <Banner tone="warn">أوقف المضيف اللعبة مؤقتًا.</Banner>
+          </div>
+        )}
+      </div>
 
-      {room.paused && (
-        <div className="px-4 pt-3">
-          <Banner tone="warn">أوقف المضيف اللعبة مؤقتًا.</Banner>
-        </div>
-      )}
-
-      <main className="flex-1 scroll-y">
+      <main
+        className="flex-1 min-h-0 scroll-y"
+        style={{ paddingTop: chromeH || undefined }}
+      >
         {tab === "play" && <PhaseView ctx={ctx} />}
         {tab === "log" && (
           <LogTab room={room} myTeam={myTeam} keys={priv?.keys ?? null} rounds={rounds} />
@@ -125,7 +167,7 @@ function TabBar({
   ];
   return (
     <nav
-      className="sticky bottom-0 z-30 grid grid-cols-3 bg-ink/95 backdrop-blur-sm border-t border-line"
+      className="shrink-0 z-30 grid grid-cols-3 bg-ink/95 backdrop-blur-sm border-t border-line"
       style={{ paddingBottom: "var(--safe-b)" }}
     >
       {items.map((it) => (

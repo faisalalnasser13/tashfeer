@@ -11,6 +11,11 @@ const PHASE_LABEL: Record<string, string> = {
   over: "انتهت",
 };
 
+/** Phases with a player-facing countdown. Transition beats hide the clock. */
+export function phaseShowsTimer(phase: string): boolean {
+  return phase === "encrypt" || phase === "guess";
+}
+
 function clock(ms: number | null): string {
   if (ms == null) return "—";
   const s = Math.ceil(ms / 1000);
@@ -25,55 +30,90 @@ export function Header({
   pct: number;
   myTeam: TeamId | null;
 }) {
-  const crit = remaining != null && remaining <= 10_000;
-  const warn = remaining != null && remaining <= 30_000;
+  const showTimer = phaseShowsTimer(room.phase) && (room.settings.useTimer || remaining != null);
+  const crit = showTimer && remaining != null && remaining <= 10_000;
+  const warn = showTimer && remaining != null && remaining <= 30_000;
+  const active = room.activeTeam;
+  const phaseText =
+    room.phase === "guess" && active
+      ? `شفرة ${TEAM_LABEL[active]}`
+      : room.phase === "reveal" && active
+      ? `كشف ${TEAM_LABEL[active]}`
+      : (PHASE_LABEL[room.phase] ?? "");
 
   return (
     <header
-      className="sticky top-0 z-30 bg-ink/95 backdrop-blur-sm hairline"
+      className={`backdrop-blur-sm hairline transition-colors duration-200 ${
+        crit && !room.paused ? "header-crit" : "bg-ink/95"
+      }`}
       style={{ paddingTop: "var(--safe-t)" }}
     >
-      <div className="flex items-center justify-between px-4 h-11">
+      <div className="flex items-center justify-between px-4 h-12">
         <div className="flex items-baseline gap-2 min-w-0">
-          <span className="font-display text-[15px] text-gold whitespace-nowrap">
+          <span
+            className={`font-display text-[15px] whitespace-nowrap ${
+              crit && !room.paused ? "text-parch" : "text-gold"
+            }`}
+          >
             {room.suddenDeath ? "جولة حاسمة" : `الجولة ${room.round}`}
           </span>
-          <span className="text-[12px] text-muted truncate">
-            {PHASE_LABEL[room.phase] ?? ""}
+          <span
+            className={`text-[12px] truncate ${
+              crit && !room.paused ? "text-parch/70" : "text-muted"
+            }`}
+          >
+            {phaseText}
           </span>
         </div>
-        <span
-          className={`num font-display text-[16px] tabular-nums ${
-            room.paused ? "text-muted" : crit ? "text-alarm" : warn ? "text-[#E0913C]" : "text-parch/80"
-          }`}
-        >
-          {room.paused ? "إيقاف" : room.settings.useTimer || remaining != null
-            ? clock(remaining)
-            : "∞"}
-        </span>
+        {showTimer ? (
+          <span
+            className={`num font-display tabular-nums transition-[font-size,color] duration-200 ${
+              room.paused
+                ? "text-[18px] text-muted"
+                : crit
+                ? "text-[26px] text-parch leading-none header-crit-clock"
+                : warn
+                ? "text-[22px] text-[#E0913C] leading-none"
+                : "text-[22px] text-parch leading-none"
+            }`}
+            aria-live="polite"
+          >
+            {room.paused ? "إيقاف" : remaining != null ? clock(remaining) : "∞"}
+          </span>
+        ) : (
+          <span className="text-[12px] text-muted"> </span>
+        )}
       </div>
 
       <div className="flex items-stretch gap-px bg-line">
         {TEAMS.map((t) => (
-          <TeamScore key={t} room={room} team={t} mine={myTeam === t} />
+          <TeamScore key={t} room={room} team={t} mine={myTeam === t} crit={crit && !room.paused} />
         ))}
       </div>
 
-      <div className="timer-track">
-        <div
-          className={`timer-fill ${crit ? "timer-crit" : warn ? "timer-warn" : ""}`}
-          style={{ width: `${remaining == null ? 100 : pct * 100}%` }}
-        />
-      </div>
+      {showTimer && (
+        <div className="timer-track">
+          <div
+            className={`timer-fill ${crit ? "timer-crit" : warn ? "timer-warn" : ""}`}
+            style={{ width: `${remaining == null ? 100 : pct * 100}%` }}
+          />
+        </div>
+      )}
     </header>
   );
 }
 
-function TeamScore({ room, team, mine }: { room: Room; team: TeamId; mine: boolean }) {
+function TeamScore({
+  room, team, mine, crit,
+}: {
+  room: Room; team: TeamId; mine: boolean; crit?: boolean;
+}) {
   const s = room.teams[team].score;
   return (
     <div
-      className="flex-1 flex items-center justify-between gap-2 px-3 py-1.5 bg-ink"
+      className={`flex-1 flex items-center justify-between gap-2 px-3 py-1.5 ${
+        crit ? "bg-transparent" : "bg-ink"
+      }`}
       style={{ boxShadow: mine ? `inset 0 -2px 0 ${TEAM_HEX[team]}` : undefined }}
     >
       <span

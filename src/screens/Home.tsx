@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, errText } from "../lib/firebase";
 import { useLocal } from "../lib/hooks";
-import { AvatarPicker, Banner, Btn, Field, inputCls } from "../components/ui";
+import { Banner, Btn, Field, inputCls } from "../components/ui";
 
 export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
   const [name, setName] = useLocal("tashfeer.name", "");
-  const [avatar, setAvatar] = useLocal("tashfeer.avatar", 0);
   const [code, setCode] = useState(() => sessionStorage.getItem("tashfeer.invite") ?? "");
   const [busy, setBusy] = useState<"" | "create" | "join">("");
   const [err, setErr] = useState("");
@@ -21,7 +20,7 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
   async function create() {
     setErr(""); setBusy("create");
     try {
-      const { roomId } = await api.createRoom({ name: name.trim(), avatar });
+      const { roomId } = await api.createRoom({ name: name.trim(), avatar: 0 });
       onEnter(roomId);
     } catch (e) { setErr(errText(e)); setBusy(""); }
   }
@@ -30,7 +29,7 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
     setErr(""); setBusy("join");
     try {
       const { roomId } = await api.joinRoom({
-        roomId: code.trim().toUpperCase(), name: name.trim(), avatar,
+        roomId: code.trim().toUpperCase(), name: name.trim(), avatar: 0,
       });
       onEnter(roomId);
     } catch (e) { setErr(errText(e)); setBusy(""); }
@@ -56,10 +55,6 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
             onChange={(e) => setName(e.target.value)}
             placeholder="مثلًا: ليلى"
           />
-        </Field>
-
-        <Field label="رمزك">
-          <AvatarPicker value={avatar} onChange={setAvatar} />
         </Field>
 
         {err && <Banner tone="warn">{err}</Banner>}
@@ -98,7 +93,7 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
       </div>
 
       <div className="flex-1" />
-      <p className="text-center text-[11px] text-muted/70 mt-8">
+      <p className="text-center text-[11px] text-muted/70 mt-6 mb-1">
         مقتبسة من لعبة Decrypto لـ Le Scorpion Masqué
       </p>
     </div>

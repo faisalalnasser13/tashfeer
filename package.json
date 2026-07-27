@@ -1,7 +1,7 @@
 {
   "name": "tashfeer",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,7 @@
     "test": "npm run test:units && npm run test:contention && npm run test:sim",
     "test:units": "node test/sim/run.mjs rules.mjs",
     "test:contention": "node test/sim/run.mjs contention.mjs",
-    "test:sim": "node test/sim/run.mjs sim.js 300",
+    "test:sim": "node test/sim/run.mjs sim.cjs 300",
     "test:rules": "firebase emulators:exec --only firestore \"node test/rules.test.mjs\""
   },
   "dependencies": {

@@ -14,7 +14,7 @@ export function KeysStrip({
 
   if (!keys) {
     return (
-      <div className="px-4 py-2 text-[12px] text-muted hairline bg-ink/90">
+      <div className="px-4 py-1.5 text-[12px] text-muted hairline bg-ink/90">
         جارٍ تحميل مفاتيحكم…
       </div>
     );
@@ -24,11 +24,10 @@ export function KeysStrip({
     <button
       onClick={() => setOpen((o) => !o)}
       aria-expanded={open}
-      className="w-full text-start bg-ink/90 backdrop-blur-sm hairline sticky z-20"
-      style={{ top: "calc(var(--safe-t) + 76px)" }}
+      className="w-full text-start bg-ink/90 backdrop-blur-sm hairline"
     >
       {open ? (
-        <div className="px-3 py-3">
+        <div className="px-3 py-2.5">
           <div className="flex items-center justify-between px-1 pb-2">
             <span className="text-[11px] text-muted">مفاتيحكم السرية</span>
             <span className="text-[11px] text-muted">إخفاء</span>
@@ -37,25 +36,25 @@ export function KeysStrip({
             {keys.map((k, i) => (
               <div
                 key={i}
-                className="card px-3 py-2.5 flex items-center gap-2.5"
+                className="card px-3 py-2 flex items-center gap-2.5"
                 style={{ borderColor: `${color}3A` }}
               >
                 <span
-                  className="num font-display text-[19px] w-6 text-center shrink-0"
+                  className="num text-[16px] font-semibold w-5 text-center shrink-0"
                   style={{ color }}
                 >
                   {i + 1}
                 </span>
-                <span className="text-[15px] truncate">{k}</span>
+                <span className="text-[22px] font-medium truncate">{k}</span>
               </div>
             ))}
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5 px-3 py-2 overflow-x-auto scroll-y">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto">
           {keys.map((k, i) => (
             <span key={i} className="chip shrink-0" style={{ borderColor: `${color}3A` }}>
-              <span className="num font-display text-[13px]" style={{ color }}>
+              <span className="num text-[14px] font-semibold" style={{ color }}>
                 {i + 1}
               </span>
               {k}

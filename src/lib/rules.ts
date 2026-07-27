@@ -7,14 +7,15 @@ export type TeamId = "gold" | "silver";
 export type Phase =
   | "lobby"
   | "keys"     // 12s look at your four keys
-  | "encrypt"  // both encryptors write clues
-  | "guess"    // everyone decrypts + intercepts, simultaneously
-  | "reveal"   // choreographed reveal
-  | "roundEnd" // scoreboard + who left the screen
+  | "encrypt"  // both encryptors write clues (simultaneous)
+  | "guess"    // one team's code: owners decrypt, opponents intercept
+  | "reveal"   // that team's code is revealed and scored
+  | "roundEnd" // scoreboard after both halves
   | "over";
 
 export const OTHER: Record<TeamId, TeamId> = { gold: "silver", silver: "gold" };
 export const TEAMS: TeamId[] = ["gold", "silver"];
+export const HALF_ORDER: TeamId[] = ["gold", "silver"];
 
 export interface Score {
   /** اختراق — you cracked the opponent's code. Two of these wins. */
@@ -55,14 +56,16 @@ export interface Room {
   settings: Settings;
   players: Record<string, Player>;
   teams: Record<TeamId, TeamState>;
-  /** clues are null until the guess phase publishes them */
+  /** clues publish when that team's half begins */
   clues: Record<TeamId, string[] | null>;
   cluesIn: Record<TeamId, boolean>;
   encryptor: Record<TeamId, string | null>;
+  activeTeam: TeamId | null;
   winner: TeamId | "draw" | null;
   endReason: EndReason | null;
   createdAt: number;
   updatedAt: number;
+  phaseStartedAt?: number;
 }
 
 export type EndReason =
@@ -159,11 +162,13 @@ export function evaluate(
   silver: Score,
   round: number,
   settings: Settings,
-  suddenDeath: boolean
+  suddenDeath: boolean,
+  /** False mid half-round so we don't end on the round cap before both sides play. */
+  checkRoundLimit = true
 ): Verdict {
   const gDec = gold.breach >= 2 || gold.fault >= 2;
   const lDec = silver.breach >= 2 || silver.fault >= 2;
-  const limitHit = round >= settings.maxRounds;
+  const limitHit = checkRoundLimit && round >= settings.maxRounds;
 
   if (!gDec && !lDec && !limitHit && !suddenDeath) return { done: false };
 

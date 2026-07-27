@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __APP_VERSION__: string;
+
 interface ImportMetaEnv {
   readonly VITE_FB_API_KEY: string;
   readonly VITE_FB_AUTH_DOMAIN: string;

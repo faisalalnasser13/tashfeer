@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api, errText } from "../lib/firebase";
 import type { Room, TeamId } from "../lib/types";
 import { TEAMS } from "../lib/types";
-import { Avatar, Banner, Btn, TEAM_HEX, TEAM_LABEL } from "../components/ui";
+import { Banner, Btn, TEAM_HEX, TEAM_LABEL } from "../components/ui";
 
 export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave: () => void }) {
   const [err, setErr] = useState("");
@@ -88,7 +88,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
                 <div className="space-y-2 flex-1">
                   {list.map(([u, p]) => (
                     <div key={u} className="flex items-center justify-between gap-1">
-                      <Avatar n={p.avatar} name={p.name} team={t} size={24} />
+                      <span className="truncate text-[14px]">{p.name}</span>
                       {u === room.hostUid && <span className="text-[10px] text-muted shrink-0">مضيف</span>}
                     </div>
                   ))}
@@ -110,7 +110,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {idle.map(([u, p]) => (
                 <span key={u} className="flex items-center gap-1.5">
-                  <Avatar n={p.avatar} name={p.name} size={24} />
+                  <span className="text-[14px]">{p.name}</span>
                   {isHost && u !== uid && (
                     <button
                       className="text-[11px] text-alarm/80 px-1"
@@ -182,24 +182,21 @@ function Settings({
   room, onSave,
 }: { room: Room; onSave: (s: Partial<Room["settings"]>) => void }) {
   const s = room.settings;
+  const timerOpts = [45, 60, 75] as const;
 
   return (
     <div className="card px-4 py-3 space-y-1">
-      <Slider
+      <TimerPick
         label="وقت كتابة التلميحات"
         value={s.encryptSecs}
-        min={30}
-        max={180}
-        step={15}
+        options={timerOpts}
         disabled={!s.useTimer}
         onChange={(v) => onSave({ encryptSecs: v })}
       />
-      <Slider
+      <TimerPick
         label="وقت الفكّ والاعتراض"
         value={s.guessSecs}
-        min={30}
-        max={240}
-        step={15}
+        options={timerOpts}
         disabled={!s.useTimer}
         onChange={(v) => onSave({ guessSecs: v })}
       />
@@ -249,13 +246,15 @@ function Settings({
   );
 }
 
-function Slider({
-  label, value, min, max, step, onChange, disabled,
+function TimerPick({
+  label, value, options, onChange, disabled,
 }: {
-  label: string; value: number; min: number; max: number; step: number;
-  onChange: (v: number) => void; disabled?: boolean;
+  label: string;
+  value: number;
+  options: readonly number[];
+  onChange: (v: number) => void;
+  disabled?: boolean;
 }) {
-  const pct = ((value - min) / (max - min)) * 100;
   return (
     <div className={`py-2.5 ${disabled ? "opacity-40" : ""}`}>
       <div className="flex items-baseline justify-between mb-2.5">
@@ -265,18 +264,23 @@ function Slider({
           <span className="text-[11px] text-muted ms-1">ثانية</span>
         </span>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-        aria-label={label}
-        className="range w-full"
-        style={{ "--pct": `${pct}%` } as React.CSSProperties}
-      />
+      <div className="flex gap-1.5">
+        {options.map((v) => (
+          <button
+            key={v}
+            disabled={disabled}
+            onClick={() => onChange(v)}
+            className="num flex-1 rounded-lg py-2 text-[13px] border transition disabled:pointer-events-none"
+            style={{
+              borderColor: value === v ? "#D9A441" : "#25335F",
+              background: value === v ? "#D9A44118" : "transparent",
+              color: value === v ? "#D9A441" : "#8794B8",
+            }}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

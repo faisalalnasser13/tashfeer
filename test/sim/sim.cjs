@@ -6,9 +6,9 @@
  */
 
 const fbs = require("firebase/firestore");
-const eng = require("./lib/engine.js");
+const eng = require("./lib/engine.cjs");
 const fns = eng.api;
-const { evaluate } = require("./lib/rules.js");
+const { evaluate } = require("./lib/rules.cjs");
 
 // The engine reads the signed-in uid from auth, so acting "as" someone
 // means setting that first. Keeps the old call(fn, uid, data) shape.
@@ -93,23 +93,25 @@ async function playGame(opts = {}) {
     }
 
     if (r.phase === "guess") {
-      for (const team of ["gold", "silver"]) {
-        const opp = team === "gold" ? "silver" : "gold";
-        const mine = S().get(`rooms/${roomId}/secret/${team}_r${r.round}`)?.code;
-        const theirs = S().get(`rooms/${roomId}/secret/${opp}_r${r.round}`)?.code;
-        const wrong = (c) => (c ? [c[1], c[0], c[2]] : [1, 2, 3]);
+      const active = r.activeTeam || "gold";
+      const opp = active === "gold" ? "silver" : "gold";
+      const code = S().get(`rooms/${roomId}/secret/${active}_r${r.round}`)?.code;
+      const wrong = (c) => (c ? [c[1], c[0], c[2]] : [1, 2, 3]);
 
-        const draftPath = `rooms/${roomId}/drafts/${team}_r${r.round}`;
-        const d = S().get(draftPath);
-        check(d, "missing draft", { team, round: r.round });
-        if (!d) continue;
+      const ownerPath = `rooms/${roomId}/drafts/${active}_r${r.round}`;
+      const oppPath = `rooms/${roomId}/drafts/${opp}_r${r.round}`;
+      const owner = S().get(ownerPath);
+      const interceptor = S().get(oppPath);
+      check(owner, "missing owner draft", { active, round: r.round });
+      check(interceptor, "missing interceptor draft", { opp, round: r.round });
 
-        d.decrypt = Math.random() < decryptAcc ? [...mine] : wrong(mine);
-        d.intercept = Math.random() < interceptAcc ? [...theirs] : wrong(theirs);
-        if (useReadyPath) {
-          // any teammate may send; pick one arbitrarily
-          d.submitted = r.teams[team].members[0];
-        }
+      if (owner) {
+        owner.decrypt = Math.random() < decryptAcc ? [...code] : wrong(code);
+        if (useReadyPath) owner.submittedDecrypt = r.teams[active].members[0];
+      }
+      if (interceptor && r.round >= 2) {
+        interceptor.intercept = Math.random() < interceptAcc ? [...code] : wrong(code);
+        if (useReadyPath) interceptor.submittedIntercept = r.teams[opp].members[0];
       }
     }
 

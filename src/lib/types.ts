@@ -6,6 +6,9 @@ export type Phase =
 export const OTHER: Record<TeamId, TeamId> = { gold: "silver", silver: "gold" };
 export const TEAMS: TeamId[] = ["gold", "silver"];
 
+/** Official order: White (gold) first each round, then Black (silver). */
+export const HALF_ORDER: TeamId[] = ["gold", "silver"];
+
 export interface Score { breach: number; fault: number }
 
 export interface Player {
@@ -40,9 +43,15 @@ export interface Room {
   settings: Settings;
   players: Record<string, Player>;
   teams: Record<TeamId, TeamState>;
+  /** Published clue sets — only the active half's clues need be live. */
   clues: Record<TeamId, string[] | null>;
   cluesIn: Record<TeamId, boolean>;
   encryptor: Record<TeamId, string | null>;
+  /**
+   * Which team's code is being guessed / revealed right now.
+   * Null outside guess/reveal. Gold always goes first (official White).
+   */
+  activeTeam: TeamId | null;
   winner: TeamId | "draw" | null;
   endReason: "breach" | "opponentFault" | "points" | "exhausted" | "abandoned" | null;
   createdAt: number;
@@ -56,8 +65,10 @@ export interface Draft {
   lockedFor: string | null;
   decrypt: (number | null)[];
   intercept: (number | null)[];
-  /** uid of whoever sent it, or null while still open */
-  submitted: string | null;
+  /** uid who locked in this team's decryption of its own code */
+  submittedDecrypt: string | null;
+  /** uid who locked in this team's interception of the opponent */
+  submittedIntercept: string | null;
 }
 
 /** One player's running theory about the opponent's four words. */

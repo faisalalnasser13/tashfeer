@@ -76,7 +76,7 @@ export function ClueGrid({
               className="w-full flex items-center gap-2 text-start mb-2"
             >
               <span
-                className="num font-display text-[17px] w-6 h-6 grid place-items-center rounded-md shrink-0"
+                className="num text-[16px] font-semibold w-7 h-7 grid place-items-center rounded-md shrink-0"
                 style={{ color, background: `${color}18`, border: `1px solid ${color}40` }}
               >
                 {lane.n}
@@ -87,23 +87,23 @@ export function ClueGrid({
                 opinions={opinions(lane.n)}
                 color={color}
               />
-              <span className="num text-[11px] text-muted shrink-0">
+              <span className="num text-[12px] text-muted shrink-0">
                 {lane.clues.length}
               </span>
             </button>
 
             {lane.clues.length === 0 ? (
-              <p className="text-[11.5px] text-muted px-1 pb-1">لا تلميحات بعد</p>
+              <p className="text-[14px] text-muted px-1 pb-1">لا تلميحات بعد</p>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {hidden > 0 && !expanded && (
-                  <span className="chip !text-[11px] text-muted">
+                  <span className="chip text-muted">
                     +{hidden}
                   </span>
                 )}
                 {shown.map((c, i) => (
-                  <span key={i} className="chip !text-[12.5px]">
-                    <span className="num text-[10px] text-muted">
+                  <span key={i} className="chip">
+                    <span className="num text-[12px] text-muted">
                       {c.round}
                     </span>
                     {c.text}
@@ -119,8 +119,8 @@ export function ClueGrid({
                   onChange={(e) => onGuess(String(lane.n), e.target.value)}
                   placeholder="تخمينك لهذه الكلمة"
                   maxLength={24}
-                  className="w-full bg-[#0C1330] border border-line rounded-lg px-3 py-2.5
-                             text-[14px] placeholder:text-[#4A5680] focus:border-gold
+                  className="w-full bg-[#0C1330] border border-line rounded-lg px-3 py-2
+                             text-[15px] placeholder:text-[#4A5680] focus:border-gold
                              focus:outline-none transition"
                 />
                 {opinions(lane.n).filter((o) => o.uid !== myUid).length > 0 && (
@@ -128,8 +128,8 @@ export function ClueGrid({
                     {opinions(lane.n)
                       .filter((o) => o.uid !== myUid)
                       .map((o) => (
-                        <span key={o.uid} className="chip !text-[12px]">
-                          <span className="text-[10px] text-muted">
+                        <span key={o.uid} className="chip">
+                          <span className="text-[12px] text-muted">
                             {names?.[o.uid] ?? "زميل"}
                           </span>
                           {o.word}
@@ -159,18 +159,18 @@ function LaneTitle({
   opinions: { uid: string; word: string }[];
   color: string;
 }) {
-  if (label) return <span className="text-[14px] truncate flex-1">{label}</span>;
+  if (label) return <span className="text-[21px] font-medium truncate flex-1">{label}</span>;
 
   const distinct = new Set(opinions.map((o) => o.word.toLowerCase()));
   const agreed = opinions.length > 1 && distinct.size === 1;
 
   if (!mine && opinions.length === 0) {
-    return <span className="text-[14px] truncate flex-1 text-muted">؟</span>;
+    return <span className="text-[21px] truncate flex-1 text-muted">؟</span>;
   }
 
   return (
     <span className="flex-1 min-w-0 flex items-center gap-1.5">
-      <span className="text-[14px] truncate" style={{ color: mine ? color : "#8794B8" }}>
+      <span className="text-[21px] font-medium truncate" style={{ color: mine ? color : "#8794B8" }}>
         {mine || opinions[0].word}
       </span>
       {agreed ? (

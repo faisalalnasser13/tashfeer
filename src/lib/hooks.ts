@@ -3,7 +3,7 @@ import {
   doc, collection, onSnapshot, setDoc, updateDoc, increment, query, orderBy,
 } from "firebase/firestore";
 import { db, api } from "./firebase";
-import { ensureCode } from "./engine";
+import { ensureCode, TIMER_GRACE_MS } from "./engine";
 import type { AwayRecord, Draft, PlayerGuess, Room, RoundRecord, TeamId } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -86,16 +86,24 @@ export function useDraft(roomId: string | null, team: TeamId | null, round: numb
   const actions = useMemo(() => {
     if (!path) return null;
     const ref = doc(db, path);
+    // Serialise writes so a fast second tap can't overwrite an in-flight first.
+    let chain: Promise<unknown> = Promise.resolve();
+    const write = (payload: Record<string, unknown>) => {
+      const p = chain.then(() => updateDoc(ref, payload));
+      // Keep the queue moving even if one write fails.
+      chain = p.catch(() => {});
+      return p;
+    };
     return {
       /**
        * One write per interaction. Assigning a digit can clear it from
        * another slot, and sending those as two writes loses the clear.
        */
       setCode: (field: "decrypt" | "intercept", values: (number | null)[]) =>
-        updateDoc(ref, { [field]: values }).catch(() => {}),
-      /** Whoever taps first, sends. Any teammate can end the round. */
-      submit: (uid: string) =>
-        updateDoc(ref, { submitted: uid }).catch(() => {}),
+        write({ [field]: values }),
+      /** Whoever taps first locks that field. Role depends on the half. */
+      submit: (uid: string, field: "decrypt" | "intercept") =>
+        write(field === "decrypt" ? { submittedDecrypt: uid } : { submittedIntercept: uid }),
     };
   }, [path]);
 
@@ -190,20 +198,14 @@ export function useAway(roomId: string | null, round: number) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Counts down against the server's absolute deadline rather than a
- * local duration, so a backgrounded phone catches up instantly instead
- * of drifting further behind every round.
+ * Counts down against the absolute `phaseEndsAt` deadline.
+ *
+ * Digits hit 0:00 at `phaseEndsAt`. A hidden grace (`TIMER_GRACE_MS`)
+ * then runs before `expired` flips, so a refresh can't reset the clock
+ * and the cushion never shows on the face.
  */
 export function useCountdown(room: Room | null) {
   const [now, setNow] = useState(Date.now());
-  const offset = useRef(0);
-
-  useEffect(() => {
-    if (!room?.phaseStartedAt) return;
-    // Network latency makes this slightly negative, which errs towards
-    // firing late. Late is safe; early gets rejected by the server.
-    offset.current = room.phaseStartedAt - Date.now();
-  }, [room?.phaseStartedAt]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 250);
@@ -213,14 +215,14 @@ export function useCountdown(room: Room | null) {
   if (!room || room.phaseEndsAt == null) {
     return { remaining: null, total: null, pct: 1, expired: false };
   }
-  const serverNow = now + offset.current;
+
   const total = Math.max(1, room.phaseEndsAt - room.phaseStartedAt);
-  const remaining = Math.max(0, room.phaseEndsAt - serverNow);
+  const remaining = Math.max(0, room.phaseEndsAt - now);
   return {
     remaining: room.paused ? null : remaining,
     total,
     pct: Math.max(0, Math.min(1, remaining / total)),
-    expired: !room.paused && remaining <= 0,
+    expired: !room.paused && now >= room.phaseEndsAt + TIMER_GRACE_MS,
   };
 }
 

@@ -6,65 +6,6 @@ export const TEAM_HEX: Record<TeamId, string> = { gold: "#D9A441", silver: "#AFC
 
 /* ------------------------------------------------------------------ */
 
-const AVATARS = ["◈", "◉", "▲", "✦", "❖", "◐", "⬢", "✜", "◇", "⬣"];
-
-export function Avatar({
-  n, name, size = 30, team, dim,
-}: {
-  n: number; name?: string; size?: number; team?: TeamId | null; dim?: boolean;
-}) {
-  const color = team ? TEAM_HEX[team] : "#8794B8";
-  return (
-    <span className="inline-flex items-center gap-2 min-w-0">
-      <span
-        className="grid place-items-center rounded-full shrink-0"
-        style={{
-          width: size, height: size,
-          border: `1px solid ${color}66`,
-          background: `${color}18`,
-          color, fontSize: size * 0.5,
-          opacity: dim ? 0.45 : 1,
-        }}
-        aria-hidden
-      >
-        {AVATARS[n % AVATARS.length]}
-      </span>
-      {name && (
-        <span className="truncate text-[13px]" style={{ opacity: dim ? 0.45 : 1 }}>
-          {name}
-        </span>
-      )}
-    </span>
-  );
-}
-
-export function AvatarPicker({
-  value, onChange,
-}: { value: number; onChange: (n: number) => void }) {
-  return (
-    <div className="grid grid-cols-5 gap-2">
-      {AVATARS.map((g, i) => (
-        <button
-          key={i}
-          onClick={() => onChange(i)}
-          aria-label={`رمز ${i + 1}`}
-          aria-pressed={value === i}
-          className="aspect-square rounded-xl grid place-items-center text-xl transition"
-          style={{
-            border: `1px solid ${value === i ? "#D9A441" : "#25335F"}`,
-            background: value === i ? "#D9A44118" : "#101A34",
-            color: value === i ? "#D9A441" : "#8794B8",
-          }}
-        >
-          {g}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-
 /** Two slots per token type. Filling both ends the game. */
 export function Pips({
   n, max = 2, color, title,

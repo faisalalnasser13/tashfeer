@@ -27,7 +27,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import {
-  TeamId, TEAMS, OTHER, Phase, Room, Settings, RoundRecord,
+  TeamId, TEAMS, OTHER, HALF_ORDER, Phase, Room, Settings, RoundRecord,
   allCodes, shuffle, codesEqual, evaluate, encodeCode, decodeCode,
 } from "./rules";
 import { normalizeAr, normalizeKey } from "./arabic";
@@ -38,7 +38,15 @@ import { dealWords } from "./words";
 /* ------------------------------------------------------------------ */
 
 const ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no I L O 0 1
-const CLOCK_TOLERANCE_MS = 1500;
+/** Small skew so a slightly-fast phone isn't rejected at the true deadline. */
+const CLOCK_SKEW_MS = 250;
+/**
+ * Hidden cushion after the visible timer hits 0:00. Not baked into
+ * `phaseEndsAt` — the clock shows the real budget, then this grace runs
+ * silently before the phase advances.
+ */
+export const TIMER_GRACE_MS = 2500;
+const TIMER_OPTIONS = [45, 60, 75] as const;
 
 export const DEFAULTS: Settings = {
   encryptSecs: 60,
@@ -46,6 +54,16 @@ export const DEFAULTS: Settings = {
   maxRounds: 8,
   useTimer: true,
 };
+
+function snapTimer(n: number): number {
+  let best: number = TIMER_OPTIONS[1];
+  let dist = Infinity;
+  for (const opt of TIMER_OPTIONS) {
+    const d = Math.abs(opt - n);
+    if (d < dist) { best = opt; dist = d; }
+  }
+  return best;
+}
 
 /** Mirrors HttpsError so the screens' error handling is unchanged. */
 export class GameError extends Error {
@@ -115,6 +133,7 @@ function phasePatch(settings: Settings, phase: Phase) {
   return {
     phase,
     phaseStartedAt: now,
+    // Visible 0:00. A hidden TIMER_GRACE_MS follows before advance.
     phaseEndsAt: dur === null ? null : now + dur,
     updatedAt: now,
   };
@@ -152,6 +171,7 @@ async function createRoom({ name, avatar }: { name: string; avatar: number }) {
         clues: { gold: null, silver: null },
         cluesIn: { gold: false, silver: false },
         encryptor: { gold: null, silver: null },
+        activeTeam: null,
         winner: null,
         endReason: null,
         createdAt: now,
@@ -265,8 +285,8 @@ async function updateSettings({ roomId, settings }: { roomId: string; settings: 
   if (room.phase !== "lobby") throw new GameError("failed-precondition", "الإعدادات تُضبط قبل البدء.");
   const s = settings ?? {};
   const next: Settings = {
-    encryptSecs: clamp(Number(s.encryptSecs ?? room.settings.encryptSecs), 30, 300),
-    guessSecs: clamp(Number(s.guessSecs ?? room.settings.guessSecs), 30, 400),
+    encryptSecs: snapTimer(Number(s.encryptSecs ?? room.settings.encryptSecs)),
+    guessSecs: snapTimer(Number(s.guessSecs ?? room.settings.guessSecs)),
     maxRounds: clamp(Number(s.maxRounds ?? room.settings.maxRounds), 4, 12),
     useTimer: Boolean(s.useTimer ?? room.settings.useTimer),
   };
@@ -326,6 +346,7 @@ async function startGame({ roomId }: { roomId: string }) {
     clues: { gold: null, silver: null },
     cluesIn: { gold: false, silver: false },
     encryptor: { gold: gold[0], silver: silver[0] },
+    activeTeam: null,
     "teams.gold.members": gold,
     "teams.silver.members": silver,
     "teams.gold.encryptorIdx": 0,
@@ -440,7 +461,8 @@ async function advancePhase({
     if (fromPhase && (room.phase !== fromPhase || room.round !== fromRound)) return;
 
     const expired =
-      room.phaseEndsAt !== null && Date.now() + CLOCK_TOLERANCE_MS >= room.phaseEndsAt;
+      room.phaseEndsAt !== null
+      && Date.now() + CLOCK_SKEW_MS >= room.phaseEndsAt + TIMER_GRACE_MS;
 
     if (!expired) {
       if (force) requireHost(room, uid);
@@ -453,19 +475,80 @@ async function advancePhase({
   return { ok: true };
 }
 
-/** Nothing left to wait for: both clue sets in, or both teams sent. */
+/** Nothing left to wait for: both clue sets in, or the active half is done. */
 async function everyoneReady(tx: Transaction, room: Room): Promise<boolean> {
   if (room.phase === "encrypt") {
     return room.cluesIn.gold === true && room.cluesIn.silver === true;
   }
   if (room.phase === "guess") {
-    for (const team of TEAMS) {
-      const d = await tx.get(draftRef(room.id, team, room.round));
-      if (!d.data()?.submitted) return false;
-    }
-    return true;
+    const active = room.activeTeam ?? "gold";
+    const opp = OTHER[active];
+    const owner = await tx.get(draftRef(room.id, active, room.round));
+    if (!owner.data()?.submittedDecrypt) return false;
+    // Round 1: no interception — only the owning team must send.
+    if (room.round < 2) return true;
+    const interceptor = await tx.get(draftRef(room.id, opp, room.round));
+    return Boolean(interceptor.data()?.submittedIntercept);
   }
   return false;
+}
+
+/**
+ * Open a half-round for `active`: publish that team's clues and ensure
+ * both draft docs exist. Gold always precedes silver (official White→Black).
+ *
+ * All reads precede all writes — Firestore rejects the reverse.
+ */
+async function beginHalf(tx: Transaction, room: Room, active: TeamId): Promise<void> {
+  const id = room.id;
+  const round = room.round;
+
+  const secretSnaps = {
+    gold: await tx.get(secretRef(id, "gold", round)),
+    silver: await tx.get(secretRef(id, "silver", round)),
+  };
+  const draftSnaps = {
+    gold: await tx.get(draftRef(id, "gold", round)),
+    silver: await tx.get(draftRef(id, "silver", round)),
+  };
+
+  const published: Record<TeamId, string[] | null> = {
+    gold: room.clues.gold,
+    silver: room.clues.silver,
+  };
+  for (const t of TEAMS) {
+    if (t === active || HALF_ORDER.indexOf(t) < HALF_ORDER.indexOf(active)) {
+      const d = secretSnaps[t].data() as { clues?: string[] } | undefined;
+      published[t] = d?.clues && d.clues.length === 3 ? d.clues : [];
+    }
+  }
+
+  for (const team of TEAMS) {
+    const prev = draftSnaps[team].data() as {
+      decrypt?: (number | null)[];
+      intercept?: (number | null)[];
+      submittedDecrypt?: string | null;
+      submittedIntercept?: string | null;
+    } | undefined;
+    tx.set(draftRef(id, team, round), {
+      team,
+      round,
+      members: room.teams[team].members,
+      lockedFor: room.encryptor[team] ?? null,
+      decrypt: team === active ? [null, null, null] : (prev?.decrypt ?? [null, null, null]),
+      intercept: team === OTHER[active]
+        ? [null, null, null]
+        : (prev?.intercept ?? [null, null, null]),
+      submittedDecrypt: team === active ? null : (prev?.submittedDecrypt ?? null),
+      submittedIntercept: team === OTHER[active] ? null : (prev?.submittedIntercept ?? null),
+    });
+  }
+
+  tx.update(roomRef(id), {
+    ...phasePatch(room.settings, "guess"),
+    activeTeam: active,
+    clues: published,
+  });
 }
 
 async function runTransition(tx: Transaction, room: Room): Promise<void> {
@@ -473,45 +556,40 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
 
   switch (room.phase) {
     case "keys": {
-      tx.update(roomRef(id), phasePatch(room.settings, "encrypt"));
+      tx.update(roomRef(id), { ...phasePatch(room.settings, "encrypt"), activeTeam: null });
       return;
     }
 
     case "encrypt": {
-      const clues: Record<TeamId, string[]> = { gold: [], silver: [] };
-      for (const team of TEAMS) {
-        const s = await tx.get(secretRef(id, team, room.round));
-        const d = s.data() as { clues?: string[] } | undefined;
-        clues[team] = d?.clues && d.clues.length === 3 ? d.clues : [];
-      }
-      for (const team of TEAMS) {
-        tx.set(draftRef(id, team, room.round), {
-          team,
-          round: room.round,
-          members: room.teams[team].members,
-          lockedFor: room.encryptor[team] ?? null,
-          decrypt: [null, null, null],
-          intercept: [null, null, null],
-          submitted: null,
-        });
-      }
-      tx.update(roomRef(id), { ...phasePatch(room.settings, "guess"), clues });
+      // Official: both wrote; White (gold) reads first.
+      await beginHalf(tx, room, "gold");
       return;
     }
 
     case "guess": {
-      await resolveRound(tx, room);
+      await resolveHalf(tx, room);
       return;
     }
 
     case "reveal": {
-      tx.update(roomRef(id), phasePatch(room.settings, "roundEnd"));
+      // Token win after White's half — skip Black and close the round.
+      if (room.winner) {
+        tx.update(roomRef(id), { ...phasePatch(room.settings, "roundEnd"), activeTeam: null });
+        return;
+      }
+      const active = room.activeTeam ?? "gold";
+      if (active === "gold") {
+        // Flip sides — Black (silver) half.
+        await beginHalf(tx, room, "silver");
+        return;
+      }
+      tx.update(roomRef(id), { ...phasePatch(room.settings, "roundEnd"), activeTeam: null });
       return;
     }
 
     case "roundEnd": {
       if (room.winner) {
-        tx.update(roomRef(id), phasePatch(room.settings, "over"));
+        tx.update(roomRef(id), { ...phasePatch(room.settings, "over"), activeTeam: null });
         return;
       }
       const nextRound = room.round + 1;
@@ -526,9 +604,11 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
       tx.update(roomRef(id), {
         ...phasePatch(room.settings, "encrypt"),
         round: nextRound,
+        suddenDeath: room.suddenDeath,
         clues: { gold: null, silver: null },
         cluesIn: { gold: false, silver: false },
         encryptor,
+        activeTeam: null,
         "teams.gold.encryptorIdx": idx.gold,
         "teams.silver.encryptorIdx": idx.silver,
       });
@@ -540,66 +620,98 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
   }
 }
 
-async function resolveRound(tx: Transaction, room: Room): Promise<void> {
+/**
+ * Score the active team's code (owners' decrypt + opponents' intercept),
+ * merge into the round log, then open the reveal beat.
+ */
+async function resolveHalf(tx: Transaction, room: Room): Promise<void> {
   const id = room.id;
   const round = room.round;
+  const active = room.activeTeam ?? "gold";
+  const opp = OTHER[active];
 
-  const codes: Record<string, number[]> = {};
-  const encs: Record<string, string | null> = {};
-  const drafts: Record<string, { decrypt: (number | null)[]; intercept: (number | null)[] }> = {};
+  const secret = await tx.get(secretRef(id, active, round));
+  const ownerDraft = await tx.get(draftRef(id, active, round));
+  const oppDraft = await tx.get(draftRef(id, opp, round));
+  const prevRec = await tx.get(doc(db, "rooms", id, "rounds", String(round)));
 
-  for (const team of TEAMS) {
-    const s = await tx.get(secretRef(id, team, round));
-    codes[team] = (s.data()?.code as number[]) || [0, 0, 0];
-    encs[team] = (s.data()?.encryptorUid as string) ?? null;
-    const d = await tx.get(draftRef(id, team, round));
-    drafts[team] = {
-      decrypt: (d.data()?.decrypt as (number | null)[]) || [null, null, null],
-      intercept: (d.data()?.intercept as (number | null)[]) || [null, null, null],
-    };
-  }
+  const code = (secret.data()?.code as number[]) || [0, 0, 0];
+  const encUid = (secret.data()?.encryptorUid as string) ?? null;
+  const clues = room.clues[active] || [];
+  const noClues = clues.length !== 3;
+  const decrypt = (ownerDraft.data()?.decrypt as (number | null)[]) || [null, null, null];
+  const intercept = (oppDraft.data()?.intercept as (number | null)[]) || [null, null, null];
+
+  const faulted = noClues || !codesEqual(decrypt, code);
+  const wasBreached = !noClues && round >= 2 && codesEqual(intercept, code);
 
   const score = {
     gold: { ...room.teams.gold.score },
     silver: { ...room.teams.silver.score },
   };
-  const record: RoundRecord = {
-    round, suddenDeath: room.suddenDeath, at: Date.now(),
-    data: {} as RoundRecord["data"],
+  if (faulted) score[active].fault += 1;
+  if (wasBreached) score[opp].breach += 1;
+
+  const side = {
+    encryptorUid: encUid,
+    clues: noClues ? [] : clues,
+    code,
+    decrypt,
+    intercept,
+    noClues,
+    faulted,
+    wasBreached,
   };
 
-  for (const team of TEAMS) {
-    const opp = OTHER[team];
-    const code = codes[team];
-    const clues = room.clues[team] || [];
-    const noClues = clues.length !== 3;
+  // Placeholder for a half that has not been played yet (not a silent encryptor).
+  const emptySide = {
+    encryptorUid: null as string | null,
+    clues: [] as string[],
+    code: [0, 0, 0],
+    decrypt: [null, null, null] as (number | null)[],
+    intercept: [null, null, null] as (number | null)[],
+    noClues: false,
+    faulted: false,
+    wasBreached: false,
+  };
 
-    const decrypt = drafts[team].decrypt;
-    const intercept = drafts[opp].intercept;
-
-    const faulted = noClues || !codesEqual(decrypt, code);
-    const wasBreached = !noClues && round >= 2 && codesEqual(intercept, code);
-
-    if (faulted) score[team].fault += 1;
-    if (wasBreached) score[opp].breach += 1;
-
-    record.data[team] = {
-      encryptorUid: encs[team], clues: noClues ? [] : clues, code,
-      decrypt, intercept, noClues, faulted, wasBreached,
-    };
-  }
-
-  const verdict = evaluate(score.gold, score.silver, round, room.settings, room.suddenDeath);
+  const prev = prevRec.data() as RoundRecord | undefined;
+  const record: RoundRecord = {
+    round,
+    suddenDeath: room.suddenDeath,
+    at: Date.now(),
+    data: {
+      gold: prev?.data?.gold ?? emptySide,
+      silver: prev?.data?.silver ?? emptySide,
+      [active]: side,
+    },
+  };
 
   tx.set(doc(db, "rooms", id, "rounds", String(round)), record);
-  tx.update(roomRef(id), {
+
+  const patch: Record<string, unknown> = {
     ...phasePatch(room.settings, "reveal"),
+    activeTeam: active,
     "teams.gold.score": score.gold,
     "teams.silver.score": score.silver,
-    suddenDeath: room.suddenDeath || Boolean(verdict.suddenDeath),
-    winner: verdict.done ? verdict.winner ?? null : null,
-    endReason: verdict.done ? verdict.reason ?? null : null,
-  });
+  };
+
+  // Official: a 2-token win can end the game mid-round (after White's half).
+  // The round-limit check waits until both halves have been scored.
+  const tokenHit =
+    score.gold.breach >= 2 || score.gold.fault >= 2
+    || score.silver.breach >= 2 || score.silver.fault >= 2;
+  if (active === "silver" || tokenHit) {
+    const verdict = evaluate(
+      score.gold, score.silver, round, room.settings, room.suddenDeath,
+      active === "silver"
+    );
+    patch.suddenDeath = room.suddenDeath || Boolean(verdict.suddenDeath);
+    patch.winner = verdict.done ? verdict.winner ?? null : null;
+    patch.endReason = verdict.done ? verdict.reason ?? null : null;
+  }
+
+  tx.update(roomRef(id), patch);
 }
 
 /* ------------------------------------------------------------------ */
@@ -664,6 +776,7 @@ async function rematch({ roomId }: { roomId: string }) {
       clues: { gold: null, silver: null },
       cluesIn: { gold: false, silver: false },
       encryptor: { gold: null, silver: null },
+      activeTeam: null,
       "teams.gold.score": { breach: 0, fault: 0 },
       "teams.silver.score": { breach: 0, fault: 0 },
       "teams.gold.encryptorIdx": 0,

@@ -88,10 +88,10 @@ export function Cartouche({
           if (!clues) return slot;
           return (
             <div key={i} className="flex flex-col gap-1.5">
-              <div className="text-center px-1">
+              <div className="text-center px-0.5">
                 <p className="text-[10px] text-muted leading-none mb-1">{ORDINALS[i]}</p>
                 <p
-                  className="font-display text-[16px] leading-tight truncate"
+                  className="text-[26px] font-medium leading-snug"
                   style={{ color: tone === "silver" ? "#AFC0DA" : "#D9A441" }}
                   title={clue}
                 >
@@ -105,14 +105,14 @@ export function Cartouche({
       </div>
 
       {editable && (
-        <div className="mt-3 grid grid-cols-5 gap-2">
+        <div className="mt-2 grid grid-cols-5 gap-1.5">
           {[1, 2, 3, 4].map((n) => {
             const used = values.includes(n);
             return (
               <button
                 key={n}
                 onClick={() => assign(n)}
-                className="num rounded-xl py-3 font-display text-[22px] transition active:scale-95"
+                className="num rounded-lg py-1.5 font-display text-[14px] transition active:scale-95"
                 style={{
                   border: `1px solid ${used ? "#2B3A68" : "#3A4C86"}`,
                   background: used ? "#0C1330" : "#16204200",
@@ -127,7 +127,7 @@ export function Cartouche({
           <button
             onClick={clear}
             aria-label="مسح"
-            className="rounded-xl py-3 text-[13px] text-muted border border-line active:scale-95 transition"
+            className="rounded-lg py-1.5 text-[12px] text-muted border border-line active:scale-95 transition"
           >
             مسح
           </button>

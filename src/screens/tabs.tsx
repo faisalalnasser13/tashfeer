@@ -4,7 +4,7 @@ import { ORDINALS } from "../lib/arabic";
 import type { Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
-import { Avatar, Banner, Btn, Empty, TEAM_HEX, TEAM_LABEL } from "../components/ui";
+import { Banner, Btn, Empty, TEAM_HEX, TEAM_LABEL } from "../components/ui";
 
 /* ================================================================== */
 /* log                                                                */
@@ -80,7 +80,7 @@ function Chrono({
                 {side.clues.map((c, i) => (
                   <div key={i} className="flex items-center gap-2.5">
                     <span
-                      className="num font-display text-[15px] w-6 h-6 grid place-items-center rounded-md"
+                      className="num text-[14px] font-semibold w-6 h-6 grid place-items-center rounded-md"
                       style={{
                         color: TEAM_HEX[team],
                         background: `${TEAM_HEX[team]}18`,
@@ -89,7 +89,7 @@ function Chrono({
                     >
                       {side.code[i]}
                     </span>
-                    <span className="text-[14px]">{c}</span>
+                    <span className="text-[21px] font-medium">{c}</span>
                     <span className="text-[10px] text-muted">{ORDINALS[i]}</span>
                   </div>
                 ))}
@@ -129,12 +129,9 @@ export function TeamTab({
           <div className="space-y-2">
             {room.teams[t].members.map((m) => (
               <div key={m} className="flex items-center justify-between gap-2">
-                <Avatar
-                  n={room.players[m]?.avatar ?? 0}
-                  name={room.players[m]?.name ?? "—"}
-                  team={t}
-                  size={26}
-                />
+                <span className="truncate text-[14px]">
+                  {room.players[m]?.name ?? "—"}
+                </span>
                 <span className="flex gap-2 text-[10.5px] text-muted shrink-0">
                   {room.encryptor[t] === m && (
                     <span style={{ color: TEAM_HEX[t] }}>مُشفِّر هذه الجولة</span>
