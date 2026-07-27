@@ -118,13 +118,19 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 function phaseDuration(settings: Settings, phase: Phase): number | null {
-  if (phase === "keys") return 12_000;
-  if (phase === "reveal") return 15_000;
-  if (phase === "roundEnd") return 25_000;
+  // Transition beats — short, host can skip. Keys is the keyword glance.
+  if (phase === "keys") return 5_000;
+  if (phase === "reveal") return 2_000;
+  if (phase === "roundEnd") return 2_000;
   if (!settings.useTimer) return null;
   if (phase === "encrypt") return settings.encryptSecs * 1000;
   if (phase === "guess") return settings.guessSecs * 1000;
   return null;
+}
+
+/** Grace only on the timed play phases — not on 2s transition beats. */
+function phaseGraceMs(phase: Phase): number {
+  return phase === "encrypt" || phase === "guess" ? TIMER_GRACE_MS : 0;
 }
 
 function phasePatch(settings: Settings, phase: Phase) {
@@ -373,10 +379,12 @@ export async function ensureCode(roomId: string, team: TeamId, round: number) {
   await runTransaction(db, async (tx) => {
     const existing = await tx.get(secretRef(roomId, team, round));
     const deckSnap = await tx.get(deckRef(roomId, team));
-    if (existing.exists()) return;
+    const prev = existing.data() as { code?: number[]; clues?: string[] } | undefined;
+    if (prev?.code && prev.code.length === 3) return;
 
     const raw = (deckSnap.data()?.deck as (string | number[])[]) || [];
     let deck = raw.length > 0 ? raw.map(decodeCode) : shuffle(allCodes());
+    if (deck.length === 0) deck = shuffle(allCodes());
 
     tx.set(deckRef(roomId, team), {
       team,
@@ -384,7 +392,11 @@ export async function ensureCode(roomId: string, team: TeamId, round: number) {
       deck: deck.slice(1).map(encodeCode),
     });
     tx.set(secretRef(roomId, team, round), {
-      team, round, code: deck[0], encryptorUid: uid,
+      team,
+      round,
+      code: deck[0],
+      encryptorUid: uid,
+      ...(prev?.clues ? { clues: prev.clues } : {}),
     });
   });
 }
@@ -462,7 +474,7 @@ async function advancePhase({
 
     const expired =
       room.phaseEndsAt !== null
-      && Date.now() + CLOCK_SKEW_MS >= room.phaseEndsAt + TIMER_GRACE_MS;
+      && Date.now() + CLOCK_SKEW_MS >= room.phaseEndsAt + phaseGraceMs(room.phase);
 
     if (!expired) {
       if (force) requireHost(room, uid);
@@ -572,14 +584,9 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
     }
 
     case "reveal": {
-      // Token win after White's half — skip Black and close the round.
-      if (room.winner) {
-        tx.update(roomRef(id), { ...phasePatch(room.settings, "roundEnd"), activeTeam: null });
-        return;
-      }
       const active = room.activeTeam ?? "gold";
       if (active === "gold") {
-        // Flip sides — Black (silver) half.
+        // Flip sides — Black (silver) half. Never end mid-round.
         await beginHalf(tx, room, "silver");
         return;
       }
@@ -696,15 +703,11 @@ async function resolveHalf(tx: Transaction, room: Room): Promise<void> {
     "teams.silver.score": score.silver,
   };
 
-  // Official: a 2-token win can end the game mid-round (after White's half).
-  // The round-limit check waits until both halves have been scored.
-  const tokenHit =
-    score.gold.breach >= 2 || score.gold.fault >= 2
-    || score.silver.breach >= 2 || score.silver.fault >= 2;
-  if (active === "silver" || tokenHit) {
+  // Win/lose only after both halves — a mid-round token lead can still
+  // be tied (or overturned) before the round ends.
+  if (active === "silver") {
     const verdict = evaluate(
-      score.gold, score.silver, round, room.settings, room.suddenDeath,
-      active === "silver"
+      score.gold, score.silver, round, room.settings, room.suddenDeath
     );
     patch.suddenDeath = room.suddenDeath || Boolean(verdict.suddenDeath);
     patch.winner = verdict.done ? verdict.winner ?? null : null;

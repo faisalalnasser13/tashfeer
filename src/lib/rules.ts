@@ -6,7 +6,7 @@
 export type TeamId = "gold" | "silver";
 export type Phase =
   | "lobby"
-  | "keys"     // 12s look at your four keys
+  | "keys"     // keyword glance at deal
   | "encrypt"  // both encryptors write clues (simultaneous)
   | "guess"    // one team's code: owners decrypt, opponents intercept
   | "reveal"   // that team's code is revealed and scored
@@ -162,13 +162,11 @@ export function evaluate(
   silver: Score,
   round: number,
   settings: Settings,
-  suddenDeath: boolean,
-  /** False mid half-round so we don't end on the round cap before both sides play. */
-  checkRoundLimit = true
+  suddenDeath: boolean
 ): Verdict {
   const gDec = gold.breach >= 2 || gold.fault >= 2;
   const lDec = silver.breach >= 2 || silver.fault >= 2;
-  const limitHit = checkRoundLimit && round >= settings.maxRounds;
+  const limitHit = round >= settings.maxRounds;
 
   if (!gDec && !lDec && !limitHit && !suddenDeath) return { done: false };
 

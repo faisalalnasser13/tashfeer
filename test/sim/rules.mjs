@@ -130,7 +130,7 @@ await it("a clue cannot be reused in a later round", async () => {
   }
   eq(room(roomId).round, 2, "did not reach round 2");
   await throws(
-    () => call(fns.submitClues, room(roomId).encryptor.gold, { roomId, clues: ["نار", "شيء", "آخر"] }),
+    () => call(fns.submitClues, room(roomId).encryptor.gold, { roomId, clues: ["نار", "ققق", "ففف"] }),
     "جولة سابقة"
   );
 });

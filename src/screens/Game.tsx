@@ -130,7 +130,10 @@ export function Game({
 
       <main
         className="flex-1 min-h-0 scroll-y"
-        style={{ paddingTop: chromeH || undefined }}
+        style={{
+          paddingTop: chromeH || undefined,
+          ["--chrome-h" as string]: `${chromeH || 120}px`,
+        }}
       >
         {tab === "play" && <PhaseView ctx={ctx} />}
         {tab === "log" && (

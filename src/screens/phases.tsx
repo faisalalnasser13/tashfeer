@@ -25,14 +25,40 @@ interface Ctx {
   setGuessWord: ((uid: string, n: string, text: string) => void) | null;
 }
 
+/** Host skip for short transition beats (keys / reveal / roundEnd). */
+function HostContinue({
+  room, uid, label,
+}: {
+  room: Room; uid: string; label: string;
+}) {
+  if (room.hostUid !== uid) return null;
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3 z-20"
+      style={{ paddingBottom: "calc(var(--safe-b) + 10px)" }}
+    >
+      <Btn
+        className="w-full"
+        onClick={() =>
+          api.advancePhase({
+            roomId: room.id, force: true, fromPhase: room.phase, fromRound: room.round,
+          }).catch(() => {})
+        }
+      >
+        {label}
+      </Btn>
+    </div>
+  );
+}
+
 /* ================================================================== */
 /* keys                                                               */
 /* ================================================================== */
 
-export function KeysPhase({ room, myTeam, keys }: Ctx) {
+export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
   const color = TEAM_HEX[myTeam];
   return (
-    <div className="px-5 py-6 fade-in">
+    <div className="px-5 py-6 fade-in pb-28">
       <h2 className="text-[22px] font-semibold text-center mb-1.5">مفاتيحكم الأربعة</h2>
       <p className="text-[15px] text-muted text-center mb-5 leading-relaxed">
         لن تتغيّر طوال اللعبة. الخصم لا يراها — بعد.
@@ -51,6 +77,7 @@ export function KeysPhase({ room, myTeam, keys }: Ctx) {
           </div>
         ))}
       </div>
+      <HostContinue room={room} uid={uid} label="متابعة" />
     </div>
   );
 }
@@ -70,6 +97,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [focusIdx, setFocusIdx] = useState<number | null>(null);
 
   const usedSet = useMemo(() => new Set(usedClues.map(normalizeAr)), [usedClues]);
   const keySet = useMemo(() => new Set((keys ?? []).map(normalizeKey)), [keys]);
@@ -95,6 +123,15 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
     } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   }
 
+  /** Keep past clues visible above the focused field when the keyboard opens. */
+  function pinClueBlock(el: HTMLElement) {
+    const block = el.closest("[data-clue-block]") as HTMLElement | null;
+    if (!block) return;
+    window.setTimeout(() => {
+      block.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 320);
+  }
+
   if (sent) {
     return (
       <div className="px-5 py-8 fade-in">
@@ -112,59 +149,99 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
   }
 
   const lanes = buildLanes(rounds, myTeam, keys);
+  const editing = focusIdx != null;
 
   return (
-    <div className="px-4 py-4 space-y-4 fade-in pb-8">
-      <div>
-        <p className="text-[12px] text-muted mb-2">شفرتك — اجعل فريقك يقولها</p>
-        <Cartouche values={code ?? [null, null, null]} tone={myTeam} />
-      </div>
+    <div className="px-4 py-3 fade-in pb-8">
+      {/* Slim code strip while typing frees room for past clues above the keyboard. */}
+      {editing ? (
+        <div className="flex items-center gap-2 mb-3 px-0.5">
+          <span className="text-[11px] text-muted shrink-0">الشفرة</span>
+          <div className="flex gap-1.5">
+            {(code ?? [null, null, null]).map((d, i) => (
+              <span
+                key={i}
+                className={`num text-[14px] font-semibold w-7 h-7 grid place-items-center rounded-md border ${
+                  focusIdx === i ? "border-gold text-parch" : "border-line text-muted"
+                }`}
+              >
+                {d ?? "—"}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mb-3">
+          <p className="text-[12px] text-muted mb-2">شفرتك — اجعل فريقك يقولها</p>
+          {code ? (
+            <Cartouche values={code} tone={myTeam} />
+          ) : (
+            <div className="card px-4 py-6 text-center text-[14px] text-muted">
+              جارٍ سحب الشفرة…
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {[0, 1, 2].map((i) => {
           const target = code?.[i];
           const word = target && keys ? keys[target - 1] : null;
           const issue = problem(i);
-          // Everything this team has already said about THIS keyword.
-          // Without it the encryptor writes blind and repeats themselves.
           const past = target ? lanes[target - 1].clues : [];
           return (
-            <div key={i}>
-              <div className="flex items-center gap-2 mb-2 px-0.5">
-                <span className="text-[12px] text-muted">التلميح {ORDINALS[i]}</span>
+            <div key={i} data-clue-block className="clue-block">
+              <div className="flex items-center gap-2 mb-1.5 px-0.5">
+                <span className="text-[11px] text-muted">التلميح {ORDINALS[i]}</span>
                 <span className="flex-1 h-px bg-line" />
                 {word && (
-                  <span className="chip" style={{ borderColor: `${TEAM_HEX[myTeam]}55` }}>
-                    <span className="num text-[14px]" style={{ color: TEAM_HEX[myTeam] }}>{target}</span>
+                  <span className="chip !py-0.5 !text-[13px]" style={{ borderColor: `${TEAM_HEX[myTeam]}55` }}>
+                    <span className="num text-[12px]" style={{ color: TEAM_HEX[myTeam] }}>{target}</span>
                     {word}
                   </span>
                 )}
               </div>
 
               {past.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5 mb-2 px-0.5">
-                  <span className="text-[10.5px] text-muted shrink-0">قلتم سابقًا</span>
+                <div className="flex flex-wrap items-center gap-1 mb-1.5 px-0.5">
+                  <span className="text-[10px] text-muted shrink-0">سابقًا</span>
                   {past.map((c, k) => (
-                    <span key={k} className="chip !py-0.5">
-                      <span className="num text-[12px] text-muted">{c.round}</span>
+                    <span key={k} className="chip !py-0.5 !px-2 !text-[12px]">
+                      <span className="num text-[10px] text-muted">{c.round}</span>
                       {c.text}
                     </span>
                   ))}
                 </div>
               ) : (
-                <p className="text-[10.5px] text-muted mb-2 px-0.5">لم تلمّحوا لهذه الكلمة بعد</p>
+                <p className="text-[10px] text-muted mb-1.5 px-0.5">لم تلمّحوا لهذه الكلمة بعد</p>
               )}
 
               <input
                 value={clues[i]}
                 maxLength={40}
+                enterKeyHint={i < 2 ? "next" : "done"}
+                autoComplete="off"
+                autoCorrect="off"
                 onChange={(e) => setClues((c) => c.map((v, j) => (j === i ? e.target.value : v)))}
+                onFocus={(e) => {
+                  setFocusIdx(i);
+                  pinClueBlock(e.currentTarget);
+                }}
+                onBlur={() => {
+                  window.setTimeout(() => {
+                    setFocusIdx((cur) => (cur === i ? null : cur));
+                  }, 80);
+                }}
                 placeholder="كلمة أو عبارة"
-                className="w-full bg-[#0C1330] rounded-xl px-3.5 py-3 text-[24px] font-medium text-parch
+                className="w-full bg-[#0C1330] rounded-lg px-3 py-2 font-medium text-parch
                            placeholder:text-[#4A5680] focus:outline-none transition border"
-                style={{ borderColor: issue ? "#D6564A" : "#25335F" }}
+                style={{
+                  borderColor: issue ? "#D6564A" : "#25335F",
+                  // 16px avoids iOS zoom-on-focus; still much smaller than the old 24px.
+                  fontSize: "16px",
+                }}
               />
-              {issue && <p className="text-[11.5px] text-alarm mt-1 px-1">{issue}</p>}
+              {issue && <p className="text-[11px] text-alarm mt-1 px-1">{issue}</p>}
             </div>
           );
         })}
@@ -172,17 +249,19 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
 
       {err && <Banner tone="warn">{err}</Banner>}
 
-      <Btn className="w-full" disabled={!clean || busy} onClick={send}>
+      <Btn className="w-full mt-3" disabled={!clean || busy} onClick={send}>
         {busy ? "جارٍ الإرسال…" : "أرسل التلميحات"}
       </Btn>
-      <p className="text-[11.5px] text-muted text-center leading-relaxed">
+      <p className="text-[11.5px] text-muted text-center leading-relaxed mt-2">
         ممنوع التلميح للهجاء أو عدد الحروف أو الترتيب على الشاشة.
       </p>
 
-      <div>
-        <SectionLine>سجلّ فريقكم كاملًا</SectionLine>
-        <ClueGrid lanes={lanes} team={myTeam} />
-      </div>
+      {!editing && (
+        <div className="mt-4">
+          <SectionLine>سجلّ فريقكم كاملًا</SectionLine>
+          <ClueGrid lanes={lanes} team={myTeam} />
+        </div>
+      )}
     </div>
   );
 }
@@ -409,14 +488,14 @@ function SectionLine({ children }: { children: React.ReactNode }) {
 /* reveal                                                             */
 /* ================================================================== */
 
-export function RevealPhase({ room, myTeam, rounds }: Ctx) {
+export function RevealPhase({ room, uid, myTeam, rounds }: Ctx) {
   const active = room.activeTeam ?? "gold";
   const rec = rounds.find((r) => r.round === room.round);
 
   if (!rec?.data?.[active]) return <Empty title="جارٍ الكشف…" />;
 
   return (
-    <div className="px-4 py-4 space-y-3">
+    <div className="px-4 py-4 space-y-3 pb-28">
       <RevealCard
         team={active}
         rec={rec}
@@ -424,6 +503,7 @@ export function RevealPhase({ room, myTeam, rounds }: Ctx) {
         mine={active === myTeam}
         visible
       />
+      <HostContinue room={room} uid={uid} label="متابعة" />
     </div>
   );
 }
@@ -614,20 +694,11 @@ export function RoundEndPhase({ room, uid, myTeam, rounds, away }: Ctx) {
       </div>
 
       {isHost && (
-        <div
-          className="fixed inset-x-0 bottom-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3"
-          style={{ paddingBottom: "calc(var(--safe-b) + 10px)" }}
-        >
-          <Btn
-            className="w-full"
-            onClick={() =>
-              api.advancePhase({ roomId: room.id, force: true, fromPhase: "roundEnd", fromRound: room.round })
-                .catch(() => {})
-            }
-          >
-            {room.winner ? "النتيجة النهائية" : "الجولة التالية"}
-          </Btn>
-        </div>
+        <HostContinue
+          room={room}
+          uid={uid}
+          label={room.winner ? "النتيجة النهائية" : "الجولة التالية"}
+        />
       )}
     </div>
   );

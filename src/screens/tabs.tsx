@@ -186,7 +186,7 @@ export function TeamTab({
                 }).catch(() => {})
               }
             >
-              تخطٍّ
+              تخطٍّ / متابعة
             </Btn>
           </div>
           <button

@@ -66,8 +66,21 @@ export function useCode(roomId: string | null, team: TeamId | null, round: numbe
     if (!roomId || !team || !round || !isEncryptor) { setCode(null); return; }
     return onSnapshot(
       doc(db, "rooms", roomId, "secret", `${team}_r${round}`),
-      (s) => setCode(s.exists() ? ((s.data().code as number[]) ?? null) : null),
-      () => setCode(null)
+      (s) => {
+        if (!s.exists()) {
+          setCode(null);
+          // Doc missing → deal (or re-deal after a dropped write).
+          ensureCode(roomId, team, round).catch(() => {});
+          return;
+        }
+        const c = s.data().code as number[] | undefined;
+        setCode(c && c.length === 3 ? c : null);
+        if (!c || c.length !== 3) ensureCode(roomId, team, round).catch(() => {});
+      },
+      () => {
+        setCode(null);
+        ensureCode(roomId, team, round).catch(() => {});
+      }
     );
   }, [roomId, team, round, isEncryptor]);
   return code;
@@ -153,8 +166,8 @@ export function useFinalKeys(roomId: string | null, over: boolean) {
 }
 
 /**
- * The encryptor's device draws its own code, so no other browser — not
- * even the host's — ever holds it.
+ * The encryptor's device draws its own code. Retries a few times so a
+ * dropped write doesn't leave the cartouche blank until a refresh.
  */
 export function useEnsureCode(
   roomId: string | null, team: TeamId | null, round: number,
@@ -163,7 +176,19 @@ export function useEnsureCode(
   useEffect(() => {
     if (!roomId || !team || !round || !isEncryptor) return;
     if (phase !== "encrypt" && phase !== "keys") return;
-    ensureCode(roomId, team, round).catch(() => {});
+
+    let cancelled = false;
+    (async () => {
+      for (let i = 0; i < 6 && !cancelled; i++) {
+        try {
+          await ensureCode(roomId, team, round);
+          return;
+        } catch {
+          await new Promise((r) => setTimeout(r, 350 * (i + 1)));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, [roomId, team, round, isEncryptor, phase]);
 }
 
@@ -200,9 +225,9 @@ export function useAway(roomId: string | null, round: number) {
 /**
  * Counts down against the absolute `phaseEndsAt` deadline.
  *
- * Digits hit 0:00 at `phaseEndsAt`. A hidden grace (`TIMER_GRACE_MS`)
- * then runs before `expired` flips, so a refresh can't reset the clock
- * and the cushion never shows on the face.
+ * On encrypt/guess, digits hit 0:00 at `phaseEndsAt` and a hidden grace
+ * (`TIMER_GRACE_MS`) runs before `expired` flips. Transition beats
+ * (keys / reveal / roundEnd) expire exactly at the deadline.
  */
 export function useCountdown(room: Room | null) {
   const [now, setNow] = useState(Date.now());
@@ -218,11 +243,13 @@ export function useCountdown(room: Room | null) {
 
   const total = Math.max(1, room.phaseEndsAt - room.phaseStartedAt);
   const remaining = Math.max(0, room.phaseEndsAt - now);
+  const grace =
+    room.phase === "encrypt" || room.phase === "guess" ? TIMER_GRACE_MS : 0;
   return {
     remaining: room.paused ? null : remaining,
     total,
     pct: Math.max(0, Math.min(1, remaining / total)),
-    expired: !room.paused && now >= room.phaseEndsAt + TIMER_GRACE_MS,
+    expired: !room.paused && now >= room.phaseEndsAt + grace,
   };
 }
 
