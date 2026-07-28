@@ -34,15 +34,19 @@ function HostContinue({
   if (room.hostUid !== uid) return null;
   return (
     <div
-      className="fixed inset-x-0 bottom-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3 z-20"
-      style={{ paddingBottom: "calc(var(--safe-b) + 10px)" }}
+      className="fixed inset-x-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3 z-40"
+      style={{
+        // Sit above the tab bar (same offset as the guess dock).
+        bottom: "calc(3.25rem + var(--safe-b))",
+        paddingBottom: "10px",
+      }}
     >
       <Btn
         className="w-full"
         onClick={() =>
           api.advancePhase({
             roomId: room.id, force: true, fromPhase: room.phase, fromRound: room.round,
-          }).catch(() => {})
+          }).catch((e) => { alert(errText(e)); })
         }
       >
         {label}
@@ -576,11 +580,16 @@ export function RevealPhase({ room, uid, myTeam, rounds }: Ctx) {
   const teams: TeamId[] = dual ? TEAMS : [room.activeTeam ?? "gold"];
 
   if (!rec || teams.some((t) => !rec.data?.[t])) {
-    return <Empty title="جارٍ الكشف…" />;
+    return (
+      <div className="px-4 py-8 pb-36">
+        <Empty title="جارٍ الكشف…" />
+        <HostContinue room={room} uid={uid} label="متابعة" />
+      </div>
+    );
   }
 
   return (
-    <div className="px-4 py-4 space-y-3 pb-28">
+    <div className="px-4 py-4 space-y-3 pb-36">
       {teams.map((t) => (
         <RevealCard
           key={t}

@@ -46,6 +46,11 @@ const CLOCK_SKEW_MS = 250;
  * silently before the phase advances.
  */
 export const TIMER_GRACE_MS = 2500;
+/**
+ * Lead-in before the visible encrypt/guess clock starts draining —
+ * covers network/snapshot lag after a phase flip.
+ */
+export const TIMER_START_GRACE_MS = 500;
 const TIMER_OPTIONS = [45, 60, 75] as const;
 
 export const DEFAULTS: Settings = {
@@ -118,9 +123,9 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 function phaseDuration(settings: Settings, phase: Phase): number | null {
-  // Keys: host-driven only (preview + optional reshuffle). No auto clock.
+  // Keys + reveal: host-driven only (no auto clock).
   if (phase === "keys") return null;
-  if (phase === "reveal") return 10_000;
+  if (phase === "reveal") return null;
   if (phase === "roundEnd") return 2_000;
   if (!settings.useTimer) return null;
   if (phase === "encrypt") return settings.encryptSecs * 1000;
@@ -136,11 +141,16 @@ function phaseGraceMs(phase: Phase): number {
 function phasePatch(settings: Settings, phase: Phase) {
   const now = Date.now();
   const dur = phaseDuration(settings, phase);
+  const startGrace =
+    dur != null && (phase === "encrypt" || phase === "guess")
+      ? TIMER_START_GRACE_MS
+      : 0;
   return {
     phase,
     phaseStartedAt: now,
     // Visible 0:00. A hidden TIMER_GRACE_MS follows before advance.
-    phaseEndsAt: dur === null ? null : now + dur,
+    // Encrypt/guess also get TIMER_START_GRACE_MS before the clock drains.
+    phaseEndsAt: dur === null ? null : now + startGrace + dur,
     updatedAt: now,
   };
 }

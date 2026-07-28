@@ -3,7 +3,7 @@ import {
   doc, collection, onSnapshot, setDoc, updateDoc, increment, query, orderBy,
 } from "firebase/firestore";
 import { db, api } from "./firebase";
-import { ensureCode, TIMER_GRACE_MS } from "./engine";
+import { ensureCode, TIMER_GRACE_MS, TIMER_START_GRACE_MS } from "./engine";
 import type { AwayRecord, Draft, PlayerGuess, Room, RoundRecord, TeamId } from "./types";
 
 /* ------------------------------------------------------------------ */
@@ -255,7 +255,8 @@ export function useAway(roomId: string | null, round: number) {
 /**
  * Counts down against the absolute `phaseEndsAt` deadline.
  *
- * On encrypt/guess, digits hit 0:00 at `phaseEndsAt` and a hidden grace
+ * On encrypt/guess: a short start grace keeps the visible clock full,
+ * then digits drain to 0:00 at `phaseEndsAt`, then a hidden end grace
  * (`TIMER_GRACE_MS`) runs before `expired` flips. Transition beats
  * (keys / reveal / roundEnd) expire exactly at the deadline.
  */
@@ -271,15 +272,17 @@ export function useCountdown(room: Room | null) {
     return { remaining: null, total: null, pct: 1, expired: false };
   }
 
-  const total = Math.max(1, room.phaseEndsAt - room.phaseStartedAt);
-  const remaining = Math.max(0, room.phaseEndsAt - now);
-  const grace =
-    room.phase === "encrypt" || room.phase === "guess" ? TIMER_GRACE_MS : 0;
+  const playPhase = room.phase === "encrypt" || room.phase === "guess";
+  const startGrace = playPhase ? TIMER_START_GRACE_MS : 0;
+  const total = Math.max(1, room.phaseEndsAt - room.phaseStartedAt - startGrace);
+  // Cap at `total` so the first startGrace ms show a frozen full clock.
+  const remaining = Math.max(0, Math.min(total, room.phaseEndsAt - now));
+  const endGrace = playPhase ? TIMER_GRACE_MS : 0;
   return {
     remaining: room.paused ? null : remaining,
     total,
     pct: Math.max(0, Math.min(1, remaining / total)),
-    expired: !room.paused && now >= room.phaseEndsAt + grace,
+    expired: !room.paused && now >= room.phaseEndsAt + endGrace,
   };
 }
 
