@@ -108,14 +108,56 @@ textarea {
   border: 1px solid #2b3a68;
   background: linear-gradient(180deg, #0e1530 0%, #0a1026 100%);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  padding: 6px 4px 4px;
   font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
-  font-size: clamp(12px, 3.2vw, 16px);
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.15;
   color: var(--parch);
   transition: transform 0.12s ease, border-color 0.2s ease, background 0.2s ease;
+  overflow: hidden;
+}
+
+.slot-has-extra {
+  aspect-ratio: auto;
+  min-height: 52px;
+}
+
+.slot-digit {
+  font-size: clamp(12px, 3.2vw, 16px);
+  line-height: 1;
+}
+
+.slot-word {
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #c8d0e8;
+}
+
+.slot-hints {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 100%;
+}
+
+.slot-hint {
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.2;
+  text-align: center;
+  color: #8794b8;
+  max-width: 100%;
+  word-break: break-word;
 }
 
 .slot::before {
@@ -157,6 +199,70 @@ textarea {
 .slot-wrong {
   border-color: rgba(214, 86, 74, 0.7);
   background: linear-gradient(180deg, #2a1210 0%, #1c0d0c 100%);
+}
+
+/* Digit pad — grows to hold keywords (decrypt) or past hints (intercept). */
+.pad-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 40px;
+  padding: 6px 6px 5px;
+  border-radius: 8px;
+  border: 1px solid #25335f;
+  color: var(--parch);
+  transition: transform 0.1s ease, opacity 0.15s ease;
+}
+
+.pad-btn:active {
+  transform: scale(0.97);
+}
+
+.pad-has-extra {
+  min-height: 52px;
+  align-items: stretch;
+}
+
+.pad-digit {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+}
+
+.pad-word {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.2;
+  color: #c8d0e8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pad-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+}
+
+.pad-hint {
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: center;
+  color: #8794b8;
+  word-break: break-word;
+}
+
+.pad-clear {
+  min-height: 34px;
+  font-size: 12px;
+  color: #8794b8;
 }
 
 /* ------------------------------------------------------------------ */

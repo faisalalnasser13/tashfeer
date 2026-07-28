@@ -392,6 +392,12 @@ export function GuessPhase(ctx: Ctx) {
             sent || (amOwner && amEncryptor) ? undefined : (next) => setField(next)
           }
           tone={active}
+          keyWords={amOwner ? keys : null}
+          historyByDigit={
+            amInterceptor
+              ? ownerLanes.map((lane) => lane.clues.map((c) => c.text))
+              : null
+          }
         />
 
         <p className="text-[11.5px] text-muted text-center">

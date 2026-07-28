@@ -16,6 +16,10 @@ export function Cartouche({
   tone = "gold",
   truth,
   clues,
+  /** Own team's four keywords — under pad buttons + placed slots (decrypt). */
+  keyWords,
+  /** Past clue texts indexed by digit 1–4 — under pad buttons + placed slots (intercept). */
+  historyByDigit,
 }: {
   values: (number | null)[];
   onChange?: (next: (number | null)[]) => void;
@@ -28,6 +32,8 @@ export function Cartouche({
    * height and removes the mental hop between two separate lists.
    */
   clues?: string[];
+  keyWords?: string[] | null;
+  historyByDigit?: string[][] | null;
 }) {
   const editable = Boolean(onChange);
   const [focus, setFocus] = useState<number>(0);
@@ -57,6 +63,12 @@ export function Cartouche({
     navigator.vibrate?.(8);
   }
 
+  function labelFor(digit: number): { word?: string; hints: string[] } {
+    const word = keyWords?.[digit - 1] || undefined;
+    const hints = historyByDigit?.[digit - 1] ?? [];
+    return { word, hints };
+  }
+
   return (
     <div>
       <div className="cartouche">
@@ -65,6 +77,8 @@ export function Cartouche({
           const clue = clues?.[i];
           const verdict =
             truth && truth.length === 3 ? (v === truth[i] ? "right" : "wrong") : null;
+          const { word, hints } = v != null ? labelFor(v) : { word: undefined, hints: [] as string[] };
+          const hasExtra = Boolean(word) || hints.length > 0;
           const cls = [
             "slot",
             tone === "silver" ? "slot-silver" : "",
@@ -72,6 +86,7 @@ export function Cartouche({
             editable && focus === i ? "slot-active" : "",
             verdict === "right" ? "slot-right" : "",
             verdict === "wrong" ? "slot-wrong" : "",
+            hasExtra ? "slot-has-extra" : "",
           ].join(" ");
           const slot = (
             <button
@@ -82,16 +97,24 @@ export function Cartouche({
               onClick={() => setFocus(i)}
               aria-label={`${ORDINALS[i]}: ${v == null ? "فارغ" : v}`}
             >
-              <span className="num">{v == null ? "—" : v}</span>
+              <span className="num slot-digit">{v == null ? "—" : v}</span>
+              {word ? <span className="slot-word">{word}</span> : null}
+              {hints.length > 0 ? (
+                <span className="slot-hints">
+                  {hints.map((h, hi) => (
+                    <span key={hi} className="slot-hint">{h}</span>
+                  ))}
+                </span>
+              ) : null}
             </button>
           );
           if (!clues) return slot;
           return (
-            <div key={i} className="flex flex-col gap-1.5">
+            <div key={i} className="flex flex-col gap-1">
               <div className="text-center px-0.5">
-                <p className="text-[10px] text-muted leading-none mb-1">{ORDINALS[i]}</p>
+                <p className="text-[10px] text-muted leading-none mb-0.5">{ORDINALS[i]}</p>
                 <p
-                  className="text-[26px] font-medium leading-snug"
+                  className="text-[18px] font-medium leading-snug"
                   style={{ color: tone === "silver" ? "#AFC0DA" : "#D9A441" }}
                   title={clue}
                 >
@@ -105,29 +128,38 @@ export function Cartouche({
       </div>
 
       {editable && (
-        <div className="mt-2 grid grid-cols-5 gap-1.5">
+        <div className="mt-2 grid grid-cols-2 gap-1.5">
           {[1, 2, 3, 4].map((n) => {
             const used = values.includes(n);
+            const { word, hints } = labelFor(n);
+            const hasExtra = Boolean(word) || hints.length > 0;
             return (
               <button
                 key={n}
                 onClick={() => assign(n)}
-                className="num rounded-lg py-1.5 font-display text-[14px] transition active:scale-95"
+                className={`pad-btn ${hasExtra ? "pad-has-extra" : ""}`}
                 style={{
-                  border: `1px solid ${used ? "#2B3A68" : "#3A4C86"}`,
-                  background: used ? "#0C1330" : "#16204200",
-                  color: used ? "#5B6789" : "#EFE7D4",
-                  opacity: used ? 0.5 : 1,
+                  borderColor: used ? "#2B3A68" : "#3A4C86",
+                  background: used ? "#0C1330" : "transparent",
+                  opacity: used ? 0.55 : 1,
                 }}
               >
-                {n}
+                <span className="num pad-digit">{n}</span>
+                {word ? <span className="pad-word">{word}</span> : null}
+                {hints.length > 0 ? (
+                  <span className="pad-hints">
+                    {hints.map((h, hi) => (
+                      <span key={hi} className="pad-hint">{h}</span>
+                    ))}
+                  </span>
+                ) : null}
               </button>
             );
           })}
           <button
             onClick={clear}
             aria-label="مسح"
-            className="rounded-lg py-1.5 text-[12px] text-muted border border-line active:scale-95 transition"
+            className="pad-btn pad-clear col-span-2"
           >
             مسح
           </button>
