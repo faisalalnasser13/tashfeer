@@ -193,12 +193,15 @@ export function TeamTab({
             className="w-full text-[12px] text-alarm/80 pt-2"
             onClick={() => api.hostControl({ roomId: room.id, action: "endGame" })}
           >
-            إنهاء اللعبة
+            إنهاء اللعبة والعودة للردهة
           </button>
         </div>
       )}
 
-      <button className="w-full text-[12px] text-muted/70 py-3" onClick={onLeave}>
+      <button
+        className="w-full text-[12px] text-muted/70 py-3"
+        onClick={() => api.leaveRoom({ roomId: room.id }).finally(onLeave)}
+      >
         مغادرة الغرفة
       </button>
     </div>
@@ -271,14 +274,17 @@ export function GameOver({
       >
         {isHost ? (
           <Btn className="w-full" onClick={() => api.rematch({ roomId: room.id })}>
-            جولة جديدة بنفس الفريقين
+            إنهاء اللعبة والعودة للردهة
           </Btn>
         ) : (
           <p className="text-center text-[13px] text-muted py-3">
             بانتظار المضيف…
           </p>
         )}
-        <button className="w-full text-[12px] text-muted/70 pt-3" onClick={onLeave}>
+        <button
+          className="w-full text-[12px] text-muted/70 pt-3"
+          onClick={() => api.leaveRoom({ roomId: room.id }).finally(onLeave)}
+        >
           مغادرة الغرفة
         </button>
       </div>

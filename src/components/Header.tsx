@@ -22,8 +22,8 @@ function clock(ms: number | null): string {
 }
 
 /**
- * Sticky chrome is timer-only so the play surface stays tall on phones.
- * Round / phase / scores live elsewhere (tabs, round-end).
+ * Sticky chrome stays short: round label + timer (when counting down).
+ * Scores live elsewhere (tabs, round-end).
  */
 export function Header({
   room, remaining, pct,
@@ -47,6 +47,7 @@ export function Header({
       : room.phase === "reveal" && active
       ? `كشف ${TEAM_LABEL[active]}`
       : (PHASE_LABEL[room.phase] ?? "");
+  const roundLabel = room.suddenDeath ? "جولة حاسمة" : `الجولة ${room.round}`;
 
   return (
     <header
@@ -55,7 +56,10 @@ export function Header({
       }`}
       style={{ paddingTop: "var(--safe-t)" }}
     >
-      <div className="flex items-center justify-center px-4 h-9">
+      <div className="relative flex items-center justify-center px-4 h-9">
+        <span className="absolute inset-inline-start-4 text-[12px] text-muted truncate max-w-[40%]">
+          {roundLabel}
+        </span>
         {showTimer ? (
           <span
             className={`num font-display tabular-nums transition-[font-size,color] duration-200 ${
@@ -72,9 +76,8 @@ export function Header({
             {room.paused ? "إيقاف" : remaining != null ? clock(remaining) : "∞"}
           </span>
         ) : (
-          <span className="text-[12px] text-muted truncate">
-            {room.suddenDeath ? "جولة حاسمة" : `الجولة ${room.round}`}
-            {phaseText ? ` · ${phaseText}` : ""}
+          <span className="text-[12px] text-muted truncate ps-20">
+            {phaseText}
           </span>
         )}
       </div>

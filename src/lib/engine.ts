@@ -275,6 +275,11 @@ async function leaveRoom({ roomId }: { roomId: string }) {
       [`players.${uid}`]: deleteField(),
       updatedAt: Date.now(),
     };
+    for (const t of ["gold", "silver"] as TeamId[]) {
+      if (room.teams[t].members.includes(uid)) {
+        patch[`teams.${t}.members`] = room.teams[t].members.filter((u) => u !== uid);
+      }
+    }
     if (room.hostUid === uid) {
       remaining.sort((a, b) => room.players[a].joinedAt - room.players[b].joinedAt);
       patch.hostUid = remaining[0];
@@ -938,24 +943,17 @@ async function hostControl({ roomId, action }: { roomId: string; action: string 
       tx.update(roomRef(roomId), { phaseEndsAt: room.phaseEndsAt! + 30_000, updatedAt: now });
     });
   } else if (action === "endGame") {
-    await runTransaction(db, async (tx) => {
-      tx.update(roomRef(roomId), {
-        phase: "over", winner: "draw",
-        endReason: "abandoned", phaseEndsAt: null, updatedAt: now,
-      });
-    });
+    // Host bail-out: skip the results screen and reopen the lobby.
+    if (room.phase === "lobby") return { ok: true };
+    await returnToLobby(roomId);
   } else {
     throw new GameError("invalid-argument", "أمر غير معروف.");
   }
   return { ok: true };
 }
 
-async function rematch({ roomId }: { roomId: string }) {
-  const uid = me();
-  const room = await loadRoom(roomId);
-  requireHost(room, uid);
-  if (room.phase !== "over") throw new GameError("failed-precondition", "اللعبة لم تنتهِ بعد.");
-
+/** Wipe round state and reopen the lobby; teams/players stay. */
+async function returnToLobby(roomId: string) {
   for (const sub of ["rounds", "drafts", "secret", "away", "guesses", "final"]) {
     const snap = await getDocs(collection(db, "rooms", roomId, sub));
     await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
@@ -977,6 +975,14 @@ async function rematch({ roomId }: { roomId: string }) {
       updatedAt: Date.now(),
     });
   });
+}
+
+async function rematch({ roomId }: { roomId: string }) {
+  const uid = me();
+  const room = await loadRoom(roomId);
+  requireHost(room, uid);
+  if (room.phase !== "over") throw new GameError("failed-precondition", "اللعبة لم تنتهِ بعد.");
+  await returnToLobby(roomId);
   return { ok: true };
 }
 

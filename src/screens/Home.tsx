@@ -53,7 +53,7 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
             value={name}
             maxLength={16}
             onChange={(e) => setName(e.target.value)}
-            placeholder="مثلًا: ليلى"
+            placeholder="مثلًا: سعد بن صالح"
           />
         </Field>
 

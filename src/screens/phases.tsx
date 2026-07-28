@@ -198,14 +198,31 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
       <div className="space-y-2">
         {[0, 1, 2].map((i) => {
           const target = code?.[i];
+          const word = target && keys ? keys[target - 1] : null;
           const issue = problem(i);
           const past = target ? lanes[target - 1].clues : [];
+          const on = focusIdx === i;
           return (
             <div key={i} data-clue-block className="clue-block">
               <div className="flex items-center gap-1.5 mb-1 px-0.5">
                 <span className="text-[10px] text-muted shrink-0">
                   التلميح {ORDINALS[i]}
                 </span>
+                {word && (
+                  <span
+                    className={`chip !py-0.5 !px-2 !text-[14px] font-medium transition ${
+                      on ? "" : "opacity-90"
+                    }`}
+                    style={{
+                      borderColor: on ? `${color}99` : `${color}55`,
+                      background: on ? `${color}18` : undefined,
+                      color,
+                    }}
+                  >
+                    <span className="num text-[12px]">{target}</span>
+                    {word}
+                  </span>
+                )}
                 <span className="flex-1 h-px bg-line" />
               </div>
 
