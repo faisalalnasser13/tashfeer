@@ -443,6 +443,10 @@ export function GuessPhase(ctx: Ctx) {
     }
   }
 
+  const encUid = room.encryptor[active];
+  const encName = encUid ? (room.players[encUid]?.name ?? "—") : "—";
+  const encColor = TEAM_HEX[active];
+
   // Silent encryptor: no clue set → skip this team's guess entirely.
   if (amOwner && activeClues.length !== 3) {
     return (
@@ -459,11 +463,17 @@ export function GuessPhase(ctx: Ctx) {
     <div className="pb-36">
       <div className="px-4 pt-3 space-y-3 fade-in">
         <Banner>
-          {simultaneous
-            ? "الجولة الأولى — الفريقان يفكّان شفرتيهما معًا (بلا اعتراض)"
-            : amOwner
-            ? `فكّوا شفرة ${TEAM_LABEL[active]} — تلميحات مُشفِّركم`
-            : `اعترضوا على شفرة ${TEAM_LABEL[active]}`}
+          {amOwner ? (
+            <>
+              فكّوا شفرة فريقكم، من{" "}
+              <span className="font-medium" style={{ color: encColor }}>{encName}</span>
+            </>
+          ) : (
+            <>
+              اعترضوا شفرة الخصم، من{" "}
+              <span className="font-medium" style={{ color: encColor }}>{encName}</span>
+            </>
+          )}
         </Banner>
 
         {amOwner && amEncryptor && (
