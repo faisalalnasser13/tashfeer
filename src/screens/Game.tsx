@@ -140,7 +140,13 @@ export function Game({
         }}
       >
         {/* Keys scroll with content — sticky chrome is timer-only. */}
-        <KeysStrip keys={priv?.keys ?? null} team={myTeam} />
+        <KeysStrip
+          keys={priv?.keys ?? null}
+          team={myTeam}
+          highlight={
+            amEncryptor && room.phase === "encrypt" && code ? code : null
+          }
+        />
         {tab === "play" && <PhaseView ctx={ctx} />}
         {tab === "log" && (
           <LogTab room={room} myTeam={myTeam} keys={priv?.keys ?? null} rounds={rounds} />

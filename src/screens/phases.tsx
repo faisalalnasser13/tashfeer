@@ -123,13 +123,24 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
     } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   }
 
-  /** Keep past clues visible above the focused field when the keyboard opens. */
-  function pinClueBlock(el: HTMLElement) {
-    const block = el.closest("[data-clue-block]") as HTMLElement | null;
-    if (!block) return;
-    window.setTimeout(() => {
-      block.scrollIntoView({ block: "start", behavior: "smooth" });
-    }, 320);
+  /**
+   * Mobile browsers scroll a focused input toward the top of the visual
+   * viewport (especially the last field). Undo that so the consolidated
+   * encrypt layout stays put.
+   */
+  function holdScrollOnFocus() {
+    const scroller = document.querySelector(".scroll-y") as HTMLElement | null;
+    const yWin = window.scrollY;
+    const yMain = scroller?.scrollTop ?? 0;
+    const restore = () => {
+      if (window.scrollY !== yWin) window.scrollTo(0, yWin);
+      if (scroller && scroller.scrollTop !== yMain) scroller.scrollTop = yMain;
+    };
+    restore();
+    requestAnimationFrame(restore);
+    window.setTimeout(restore, 50);
+    window.setTimeout(restore, 150);
+    window.setTimeout(restore, 350);
   }
 
   if (sent) {
@@ -149,48 +160,52 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
   }
 
   const lanes = buildLanes(rounds, myTeam, keys);
+  const color = TEAM_HEX[myTeam];
 
   return (
     <div className="px-3 pt-2 pb-4 fade-in">
-      {/* Always a slim digit strip — the big cartouche forced too much scroll. */}
-      <div className="flex items-center gap-2 mb-2 px-0.5">
-        <span className="text-[11px] text-muted shrink-0">الشفرة</span>
-        <div className="flex gap-1">
-          {(code ?? [null, null, null]).map((d, i) => (
-            <span
-              key={i}
-              className={`num text-[13px] font-semibold w-6 h-6 grid place-items-center rounded border ${
-                focusIdx === i ? "border-gold text-parch" : "border-line text-muted"
-              }`}
-            >
-              {d ?? "—"}
-            </span>
-          ))}
-        </div>
-        {!code && (
-          <span className="text-[11px] text-muted">جارٍ السحب…</span>
-        )}
+      {/* Centered code + lit keywords — order is the job; strip above lights the set. */}
+      <div className="flex justify-center gap-4 mb-3 px-1">
+        {(code ?? [null, null, null]).map((d, i) => {
+          const word = d && keys ? keys[d - 1] : null;
+          const on = focusIdx === i;
+          return (
+            <div key={i} className="flex flex-col items-center gap-1 min-w-[4.5rem]">
+              <span
+                className={`num font-semibold w-9 h-9 grid place-items-center rounded-lg border transition ${
+                  on ? "border-gold text-parch text-[18px]" : "border-line text-muted text-[16px]"
+                }`}
+              >
+                {d ?? "—"}
+              </span>
+              <span
+                className={`text-center font-medium leading-tight transition ${
+                  on ? "text-[16px]" : "text-[14px]"
+                }`}
+                style={{ color: word ? color : "#4A5680" }}
+              >
+                {word ?? (code ? "…" : "…")}
+              </span>
+              <span className="text-[9px] text-muted">{ORDINALS[i]}</span>
+            </div>
+          );
+        })}
       </div>
+      {!code && (
+        <p className="text-[11px] text-muted text-center mb-2">جارٍ سحب الشفرة…</p>
+      )}
 
       <div className="space-y-2">
         {[0, 1, 2].map((i) => {
           const target = code?.[i];
-          const word = target && keys ? keys[target - 1] : null;
           const issue = problem(i);
           const past = target ? lanes[target - 1].clues : [];
           return (
             <div key={i} data-clue-block className="clue-block">
               <div className="flex items-center gap-1.5 mb-1 px-0.5">
-                <span className="text-[10px] text-muted shrink-0">{ORDINALS[i]}</span>
-                {word && (
-                  <span
-                    className="chip !py-0 !px-1.5 !text-[12px]"
-                    style={{ borderColor: `${TEAM_HEX[myTeam]}55` }}
-                  >
-                    <span className="num text-[11px]" style={{ color: TEAM_HEX[myTeam] }}>{target}</span>
-                    {word}
-                  </span>
-                )}
+                <span className="text-[10px] text-muted shrink-0">
+                  التلميح {ORDINALS[i]}
+                </span>
                 <span className="flex-1 h-px bg-line" />
               </div>
 
@@ -214,9 +229,9 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
                 autoComplete="off"
                 autoCorrect="off"
                 onChange={(e) => setClues((c) => c.map((v, j) => (j === i ? e.target.value : v)))}
-                onFocus={(e) => {
+                onFocus={() => {
+                  holdScrollOnFocus();
                   setFocusIdx(i);
-                  pinClueBlock(e.currentTarget);
                 }}
                 onBlur={() => {
                   window.setTimeout(() => {
