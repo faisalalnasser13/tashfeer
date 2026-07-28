@@ -123,10 +123,8 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 function phaseDuration(settings: Settings, phase: Phase): number | null {
-  // Keys + reveal: host-driven only (no auto clock).
-  if (phase === "keys") return null;
-  if (phase === "reveal") return null;
-  if (phase === "roundEnd") return 2_000;
+  // Keys / reveal / roundEnd: host-driven only (no auto clock).
+  if (phase === "keys" || phase === "reveal" || phase === "roundEnd") return null;
   if (!settings.useTimer) return null;
   if (phase === "encrypt") return settings.encryptSecs * 1000;
   if (phase === "guess") return settings.guessSecs * 1000;

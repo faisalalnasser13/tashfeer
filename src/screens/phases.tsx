@@ -760,7 +760,7 @@ export function RoundEndPhase({ room, uid, myTeam, rounds, away }: Ctx) {
   });
 
   return (
-    <div className="px-4 py-5 space-y-4 pb-28 fade-in">
+    <div className="px-4 py-5 space-y-4 pb-36 fade-in">
       <div className="card p-4">
         <p className="text-[12px] text-muted mb-3">الحصيلة</p>
         <div className="space-y-2.5">
