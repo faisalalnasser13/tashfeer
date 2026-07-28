@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   useAutoAdvance, useAway, useAwayTracker, useCode, useCountdown, useDraft,
-  useEnsureCode, useFinalKeys, usePhaseDriver, useRounds, useTeamGuesses, useTeamPrivate,
+  useEnsureCode, useFinalKeys, usePhaseDriver, useRounds, useTeamPrivate,
 } from "../lib/hooks";
 import type { Room, TeamId } from "../lib/types";
 import { Header } from "../components/Header";
@@ -43,7 +43,7 @@ export function Game({
   const [chromeH, setChromeH] = useState(0);
   const visualTop = useVisualTop();
 
-  const priv = useTeamPrivate(room.id, myTeam);
+  const { data: priv, setTheory } = useTeamPrivate(room.id, myTeam);
   const rounds = useRounds(room.id);
   const away = useAway(room.id, room.round);
   const amEncryptor = myTeam ? room.encryptor[myTeam] === uid : false;
@@ -51,7 +51,6 @@ export function Game({
   const { draft, actions } = useDraft(
     room.id, myTeam, room.phase === "guess" ? room.round : 0
   );
-  const { guesses, setWord } = useTeamGuesses(room.id, myTeam);
   const { remaining, pct } = useCountdown(room);
 
   usePhaseDriver(room, uid);
@@ -114,8 +113,9 @@ export function Game({
     room, uid, myTeam,
     keys: priv?.keys ?? null,
     usedClues: priv?.usedClues ?? [],
+    theories: priv?.theories ?? { "1": "", "2": "", "3": "", "4": "" },
     rounds, draft, actions, code, away,
-    guesses, setGuessWord: setWord,
+    setTheory,
   };
 
   return (
@@ -151,7 +151,14 @@ export function Game({
         <ScoreStrip room={room} myTeam={myTeam} />
         {tab === "play" && <PhaseView ctx={ctx} />}
         {tab === "log" && (
-          <LogTab room={room} myTeam={myTeam} keys={priv?.keys ?? null} rounds={rounds} />
+          <LogTab
+            room={room}
+            myTeam={myTeam}
+            keys={priv?.keys ?? null}
+            rounds={rounds}
+            theories={priv?.theories ?? { "1": "", "2": "", "3": "", "4": "" }}
+            setTheory={setTheory}
+          />
         )}
         {tab === "team" && (
           <TeamTab room={room} uid={uid} myTeam={myTeam} onLeave={onLeave} />

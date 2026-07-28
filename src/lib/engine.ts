@@ -23,7 +23,7 @@
 
 import {
   doc, collection, getDoc, getDocs, deleteDoc, runTransaction,
-  arrayUnion, deleteField, writeBatch, Transaction, DocumentReference,
+  arrayUnion, deleteField, writeBatch, updateDoc, Transaction, DocumentReference,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import {
@@ -117,6 +117,20 @@ function membersOf(room: Room, team: TeamId): string[] {
     .map(([uid]) => uid);
 }
 
+/** Prefer the smaller side; on a tie, stable pick from uid (txn-safe). */
+function pickBalancedTeam(goldN: number, silverN: number, uid: string): TeamId {
+  if (goldN >= 4 && silverN >= 4) {
+    throw new GameError("resource-exhausted", "كلا الفريقين مكتملان (4 لاعبين).");
+  }
+  if (goldN >= 4) return "silver";
+  if (silverN >= 4) return "gold";
+  if (goldN < silverN) return "gold";
+  if (silverN < goldN) return "silver";
+  let h = 0;
+  for (let i = 0; i < uid.length; i++) h = (h + uid.charCodeAt(i) * (i + 1)) % 2;
+  return h === 0 ? "gold" : "silver";
+}
+
 function clamp(n: number, lo: number, hi: number) {
   if (!Number.isFinite(n)) return lo;
   return Math.max(lo, Math.min(hi, Math.round(n)));
@@ -204,24 +218,84 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
   const clean = String(name || "").trim().slice(0, 16);
   if (!clean) throw new GameError("invalid-argument", "اكتب اسمك.");
 
+  let assigned: TeamId | null = null;
+
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(id));
     if (!snap.exists()) throw new GameError("not-found", "لا توجد غرفة بهذا الرمز.");
     const room = snap.data() as Room;
     const existing = room.players[uid];
-    if (!existing && room.phase !== "lobby") {
-      throw new GameError("failed-precondition", "بدأت الجولة. انتظر انتهاء اللعبة.");
+    const now = Date.now();
+
+    if (existing) {
+      // Re-entry / rename — keep seat. If somehow team-less mid-game, seat them.
+      let team = existing.team;
+      const patch: Record<string, unknown> = {
+        [`players.${uid}`]: {
+          ...existing,
+          name: clean,
+          avatar: Number(avatar) || 0,
+        },
+        updatedAt: now,
+      };
+      if (!team && room.phase !== "lobby") {
+        team = pickBalancedTeam(
+          room.teams.gold.members.length,
+          room.teams.silver.members.length,
+          uid
+        );
+        patch[`players.${uid}`] = {
+          ...existing,
+          name: clean,
+          avatar: Number(avatar) || 0,
+          team,
+        };
+        patch[`teams.${team}.members`] = arrayUnion(uid);
+        assigned = team;
+      }
+      tx.update(roomRef(id), patch);
+      return;
     }
-    if (!existing && Object.keys(room.players).length >= 10) {
+
+    if (Object.keys(room.players).length >= 10) {
       throw new GameError("resource-exhausted", "الغرفة ممتلئة.");
     }
+
+    // Lobby: sit unassigned until they pick a side.
+    if (room.phase === "lobby") {
+      tx.update(roomRef(id), {
+        [`players.${uid}`]: {
+          name: clean, avatar: Number(avatar) || 0, team: null, joinedAt: now,
+        },
+        updatedAt: now,
+      });
+      return;
+    }
+
+    // Mid-game (and post-game over): auto-seat on the shorter team.
+    const team = pickBalancedTeam(
+      room.teams.gold.members.length,
+      room.teams.silver.members.length,
+      uid
+    );
+    assigned = team;
     tx.update(roomRef(id), {
-      [`players.${uid}`]: existing
-        ? { ...existing, name: clean, avatar: Number(avatar) || 0 }
-        : { name: clean, avatar: Number(avatar) || 0, team: null, joinedAt: Date.now() },
-      updatedAt: Date.now(),
+      [`players.${uid}`]: {
+        name: clean, avatar: Number(avatar) || 0, team, joinedAt: now,
+      },
+      [`teams.${team}.members`]: arrayUnion(uid),
+      updatedAt: now,
     });
   });
+
+  // Patch private/deck membership after the room write so rules see our team.
+  if (assigned) {
+    await Promise.all([
+      updateDoc(privateRef(id, assigned), { members: arrayUnion(uid) }).catch(() => {}),
+      updateDoc(deckRef(id, assigned), { members: arrayUnion(uid) }).catch(() => {}),
+    ]);
+  }
+
   return { roomId: id };
 }
 
@@ -338,7 +412,11 @@ async function startGame({ roomId }: { roomId: string }) {
   for (const team of TEAMS) {
     const members = team === "gold" ? gold : silver;
     const keys = team === "gold" ? words.slice(0, 4) : words.slice(4, 8);
-    batch.set(privateRef(roomId, team), { team, keys, members, usedClues: [] });
+    batch.set(privateRef(roomId, team), {
+      team, keys, members, usedClues: [],
+      // Shared opponent-word theories — one sheet for the whole team.
+      theories: { "1": "", "2": "", "3": "", "4": "" },
+    });
     finalKeys[team] = keys;
     batch.set(deckRef(roomId, team), {
       team,

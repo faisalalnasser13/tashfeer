@@ -1,4 +1,5 @@
-import type { PlayerGuess, RoundRecord, TeamId } from "../lib/types";
+import { useEffect, useRef, useState } from "react";
+import type { RoundRecord, TeamId } from "../lib/types";
 import { TEAM_HEX } from "./ui";
 
 export interface Lane {
@@ -36,33 +37,24 @@ export function buildLanes(
 /**
  * Four columns: digit + word/guess on top, clue history stacked under.
  * Opponent columns are editable when `onGuess` is set — one shared theory
- * per digit for the whole team.
+ * per digit for the whole team (stored on private/{team}.theories).
  */
 export function ClueGrid({
-  lanes, team, guesses, onGuess,
+  lanes, team, theories, onGuess,
 }: {
   lanes: Lane[];
   team: TeamId;
-  guesses?: PlayerGuess[];
+  theories?: Record<string, string>;
   onGuess?: (n: string, text: string) => void;
 }) {
   const color = TEAM_HEX[team];
   const dense = lanes.some((l) => l.clues.length > 4);
 
-  /** Shared team theory for a digit — any non-empty sheet wins (they sync). */
-  function teamWord(n: number): string {
-    for (const g of guesses ?? []) {
-      const w = (g.words?.[String(n)] ?? "").trim();
-      if (w) return w;
-    }
-    return "";
-  }
-
   return (
     <div className="grid grid-cols-4 gap-1.5">
       {lanes.map((lane) => {
         const known = lane.label;
-        const guess = teamWord(lane.n);
+        const remote = theories?.[String(lane.n)] ?? "";
         const editable = Boolean(onGuess) && !known;
 
         return (
@@ -73,7 +65,7 @@ export function ClueGrid({
           >
             <span
               className={`num font-semibold mx-auto grid place-items-center rounded-md shrink-0 ${
-                dense ? "text-[12px] w-5 h-5 mb-1" : "text-[14px] w-6 h-6 mb-1.5"
+                dense ? "text-[11px] w-5 h-5 mb-1" : "text-[12px] w-5 h-5 mb-1"
               }`}
               style={{ color, background: `${color}18`, border: `1px solid ${color}40` }}
             >
@@ -82,8 +74,8 @@ export function ClueGrid({
 
             {known ? (
               <p
-                className={`text-center font-medium leading-tight mb-1.5 px-0.5 ${
-                  dense ? "text-[13px]" : "text-[15px]"
+                className={`text-center font-medium leading-tight mb-1 px-0.5 ${
+                  dense ? "text-[11px]" : "text-[12px]"
                 }`}
                 style={{ color }}
                 title={known}
@@ -91,25 +83,15 @@ export function ClueGrid({
                 {known}
               </p>
             ) : editable ? (
-              <input
-                value={guess}
-                onChange={(e) => onGuess?.(String(lane.n), e.target.value)}
-                placeholder="؟"
-                maxLength={24}
-                className={`w-full bg-[#1B1A14] border border-line rounded-md text-center
-                            font-medium text-parch placeholder:text-muted/80
-                            focus:border-gold focus:outline-none transition mb-1.5
-                            ${dense ? "text-[13px] py-1 px-0.5" : "text-[15px] py-1.5 px-1"}`}
-                style={{ color: guess ? color : undefined }}
-                aria-label={`تخمين الكلمة ${lane.n}`}
+              <SharedGuessInput
+                n={lane.n}
+                remote={remote}
+                color={color}
+                onGuess={onGuess!}
               />
             ) : (
-              <p
-                className={`text-center font-medium text-muted mb-1.5 ${
-                  dense ? "text-[13px]" : "text-[15px]"
-                }`}
-              >
-                {guess || "؟"}
+              <p className="text-center font-medium text-muted mb-1 text-[11px]">
+                {remote || "؟"}
               </p>
             )}
 
@@ -135,5 +117,46 @@ export function ClueGrid({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Local draft so keystrokes paint immediately; Firestore is async.
+ * While focused, ignore remote overwrites so a lagging snapshot can't
+ * wipe the caret.
+ */
+function SharedGuessInput({
+  n, remote, color, onGuess,
+}: {
+  n: number;
+  remote: string;
+  color: string;
+  onGuess: (n: string, text: string) => void;
+}) {
+  const [value, setValue] = useState(remote);
+  const focused = useRef(false);
+
+  useEffect(() => {
+    if (!focused.current) setValue(remote);
+  }, [remote]);
+
+  return (
+    <input
+      value={value}
+      onFocus={() => { focused.current = true; }}
+      onBlur={() => { focused.current = false; }}
+      onChange={(e) => {
+        const t = e.target.value.slice(0, 24);
+        setValue(t);
+        onGuess(String(n), t);
+      }}
+      placeholder="؟"
+      maxLength={24}
+      className="w-full bg-[#1B1A14] border border-line rounded-md text-center
+                 font-medium text-[11px] text-parch placeholder:text-muted/80
+                 focus:border-gold focus:outline-none transition mb-1 py-1 px-0.5"
+      style={{ color: value ? color : undefined }}
+      aria-label={`تخمين الكلمة ${n}`}
+    />
   );
 }

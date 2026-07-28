@@ -65,7 +65,7 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
 
         <div className="flex items-center gap-3 py-1">
           <span className="flex-1 h-px bg-line" />
-          <span className="text-[11px] text-muted">أو انضم بغرفة قائمة</span>
+          <span className="text-[11px] text-muted">أو انضم بغرفة قائمة — حتى أثناء اللعب</span>
           <span className="flex-1 h-px bg-line" />
         </div>
 

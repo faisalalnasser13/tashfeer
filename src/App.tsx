@@ -99,7 +99,7 @@ export default function App() {
   if (!room.players[uid]) {
     return shell(
       <div className="p-6" style={{ paddingTop: "calc(var(--safe-t) + 60px)" }}>
-        <Empty title="لست في هذه الغرفة" body="ربما أخرجك المضيف، أو بدأت اللعبة قبل انضمامك." />
+        <Empty title="لست في هذه الغرفة" body="ربما أخرجك المضيف." />
         <Btn className="w-full mt-4" onClick={() => setRoomId(null)}>
           العودة
         </Btn>

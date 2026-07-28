@@ -4,7 +4,7 @@ import {
 } from "firebase/firestore";
 import { db, api } from "./firebase";
 import { ensureCode, TIMER_GRACE_MS, TIMER_START_GRACE_MS } from "./engine";
-import type { AwayRecord, Draft, PlayerGuess, Room, RoundRecord, TeamId } from "./types";
+import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "./types";
 
 /* ------------------------------------------------------------------ */
 /* subscriptions                                                      */
@@ -42,7 +42,11 @@ export function useRoom(roomId: string | null) {
  * listener forever until refresh.
  */
 export function useTeamPrivate(roomId: string | null, team: TeamId | null) {
-  const [data, setData] = useState<{ keys: string[]; usedClues: string[] } | null>(null);
+  const [data, setData] = useState<{
+    keys: string[];
+    usedClues: string[];
+    theories: Record<string, string>;
+  } | null>(null);
   useEffect(() => {
     if (!roomId || !team) { setData(null); return; }
 
@@ -62,6 +66,9 @@ export function useTeamPrivate(roomId: string | null, team: TeamId | null) {
               ? {
                   keys: (s.data().keys as string[]) ?? [],
                   usedClues: (s.data().usedClues as string[]) ?? [],
+                  theories: (s.data().theories as Record<string, string>) ?? {
+                    "1": "", "2": "", "3": "", "4": "",
+                  },
                 }
               : null
           );
@@ -86,7 +93,17 @@ export function useTeamPrivate(roomId: string | null, team: TeamId | null) {
       unsub?.();
     };
   }, [roomId, team]);
-  return data;
+
+  /** Shared opponent-word theory — lives on private/{team}, readable by the team. */
+  const setTheory = useMemo(() => {
+    if (!roomId || !team) return null;
+    return (n: string, text: string) =>
+      updateDoc(doc(db, "rooms", roomId, "private", team), {
+        [`theories.${n}`]: text.slice(0, 24),
+      }).catch(() => {});
+  }, [roomId, team]);
+
+  return { data, setTheory };
 }
 
 /** The round's code. Only this round's encryptor can read it. */
@@ -151,43 +168,6 @@ export function useDraft(roomId: string | null, team: TeamId | null, round: numb
   }, [path]);
 
   return { draft, actions };
-}
-
-/**
- * Every teammate's guess sheet, including your own. Rules keep these
- * inside the team; the opponent can't read them.
- *
- * Writes fan out to every teammate sheet so the note view stays shared.
- */
-export function useTeamGuesses(roomId: string | null, team: TeamId | null) {
-  const [guesses, setGuesses] = useState<PlayerGuess[]>([]);
-  useEffect(() => {
-    if (!roomId || !team) { setGuesses([]); return; }
-    return onSnapshot(
-      collection(db, "rooms", roomId, "guesses"),
-      (s) => setGuesses(
-        s.docs.map((d) => d.data() as PlayerGuess).filter((g) => g.team === team)
-      ),
-      () => setGuesses([])
-    );
-  }, [roomId, team]);
-
-  const setWord = useMemo(() => {
-    if (!roomId) return null;
-    return (uid: string, n: string, text: string) => {
-      const clipped = text.slice(0, 24);
-      const targets = new Set<string>([uid, ...guesses.map((g) => g.uid)]);
-      return Promise.all(
-        [...targets].map((u) =>
-          updateDoc(doc(db, "rooms", roomId, "guesses", u), {
-            [`words.${n}`]: clipped,
-          })
-        )
-      ).catch(() => {});
-    };
-  }, [roomId, guesses]);
-
-  return { guesses, setWord };
 }
 
 /** All eight keywords. Rules refuse this until the game is over. */

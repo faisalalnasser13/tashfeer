@@ -52,18 +52,25 @@ service cloud.firestore {
 
     // The four keywords. Still sealed from the opposing team — this is
     // the secret that lasts the whole game, so it's worth keeping.
+    // Mid-game joiners get players.{uid}.team before private.members is
+    // patched, so team membership on the room doc also grants access.
     match /rooms/{roomId}/private/{teamId} {
+      function onThisTeam() {
+        return inRoom(roomId)
+               && roomData(roomId).players[request.auth.uid].team == teamId;
+      }
       // Missing doc: any room member may listen (startGame race). Existing
       // doc: team members only. Host may update during keys to reshuffle
       // (without a live read of the other side — see shuffleTeamKeys).
       allow read: if signedIn() && (
                     resource == null
                       ? inRoom(roomId)
-                      : request.auth.uid in resource.data.members
+                      : request.auth.uid in resource.data.members || onThisTeam()
                   );
       allow create: if inRoom(roomId);
       allow update: if signedIn() && (
                       request.auth.uid in resource.data.members
+                      || onThisTeam()
                       || (inRoom(roomId)
                           && roomData(roomId).hostUid == request.auth.uid
                           && roomData(roomId).phase == 'keys')

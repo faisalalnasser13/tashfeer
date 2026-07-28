@@ -11,13 +11,21 @@ import { Banner, Btn, Empty, TEAM_HEX, TEAM_LABEL } from "../components/ui";
 /* ================================================================== */
 
 export function LogTab({
-  room, myTeam, keys, rounds,
-}: { room: Room; myTeam: TeamId; keys: string[] | null; rounds: RoundRecord[] }) {
+  room, myTeam, keys, rounds, theories, setTheory,
+}: {
+  room: Room;
+  myTeam: TeamId;
+  keys: string[] | null;
+  rounds: RoundRecord[];
+  theories: Record<string, string>;
+  setTheory: ((n: string, text: string) => void) | null;
+}) {
   const theirTeam = OTHER[myTeam];
   const [side, setSide] = useState<TeamId>(theirTeam);
   const [chrono, setChrono] = useState(false);
 
   const lanes = buildLanes(rounds, side, side === myTeam ? keys : null);
+  const editingTheirs = side === theirTeam;
 
   return (
     <div className="px-4 py-3 pb-8">
@@ -42,19 +50,26 @@ export function LogTab({
         <p className="text-[11.5px] text-muted">
           {side === myTeam
             ? "ما قلتموه عن كل مفتاح"
-            : "مصنّفة حسب الرقم الذي تبيّن أنها تعنيه"}
+            : "تخميناتكم لكل رقم · مشتركة بين الفريق"}
         </p>
         <button className="text-[11.5px] text-gold" onClick={() => setChrono((c) => !c)}>
           {chrono ? "حسب الرقم" : "حسب الجولة"}
         </button>
       </div>
 
-      {rounds.length === 0 ? (
-        <Empty title="السجل فارغ" body="يمتلئ بعد أول كشف." />
-      ) : chrono ? (
-        <Chrono rounds={rounds} team={side} />
+      {chrono ? (
+        rounds.length === 0 ? (
+          <Empty title="السجل فارغ" body="يمتلئ بعد أول كشف." />
+        ) : (
+          <Chrono rounds={rounds} team={side} />
+        )
       ) : (
-        <ClueGrid lanes={lanes} team={side} />
+        <ClueGrid
+          lanes={lanes}
+          team={side}
+          theories={editingTheirs ? theories : undefined}
+          onGuess={editingTheirs ? (n, t) => setTheory?.(n, t) : undefined}
+        />
       )}
     </div>
   );

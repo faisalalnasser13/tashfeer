@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, errText } from "../lib/firebase";
 import { normalizeAr, normalizeKey, ORDINALS } from "../lib/arabic";
-import type { AwayRecord, Draft, PlayerGuess, Room, RoundRecord, TeamId } from "../lib/types";
+import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { Cartouche } from "../components/Cartouche";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
@@ -13,6 +13,7 @@ interface Ctx {
   myTeam: TeamId;
   keys: string[] | null;
   usedClues: string[];
+  theories: Record<string, string>;
   rounds: RoundRecord[];
   draft: Draft | null;
   actions: {
@@ -21,8 +22,7 @@ interface Ctx {
   } | null;
   code: number[] | null;
   away: AwayRecord[];
-  guesses: PlayerGuess[];
-  setGuessWord: ((uid: string, n: string, text: string) => void) | null;
+  setTheory: ((n: string, text: string) => void) | null;
 }
 
 /** Host skip for short transition beats (keys / reveal / roundEnd). */
@@ -384,7 +384,7 @@ function EncryptWaiting({ room, myTeam, rounds, keys }: Ctx) {
 /* ================================================================== */
 
 export function GuessPhase(ctx: Ctx) {
-  const { room, uid, myTeam, keys, rounds, draft, actions, guesses, setGuessWord } = ctx;
+  const { room, uid, myTeam, keys, rounds, draft, actions, theories, setTheory } = ctx;
   // Round 1: both teams decrypt simultaneously — each owns their own half.
   const simultaneous = room.round < 2;
   const active = simultaneous ? myTeam : (room.activeTeam ?? "gold");
@@ -515,12 +515,8 @@ export function GuessPhase(ctx: Ctx) {
         <ClueGrid
           lanes={ownerLanes}
           team={active}
-          guesses={amInterceptor ? guesses : undefined}
-          onGuess={
-            amInterceptor
-              ? (n, t) => setGuessWord?.(uid, n, t)
-              : undefined
-          }
+          theories={amInterceptor ? theories : undefined}
+          onGuess={amInterceptor ? (n, t) => setTheory?.(n, t) : undefined}
         />
 
         {err && <Banner tone="warn">{err}</Banner>}
