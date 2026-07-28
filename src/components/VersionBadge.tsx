@@ -4,11 +4,11 @@ import { APP_VERSION } from "../lib/version";
 export function VersionBadge() {
   return (
     <p
-      className="text-center text-[10px] text-muted/50 tabular-nums select-all"
+      className="text-center text-[10px] text-muted/50 select-none tracking-wide"
       dir="ltr"
-      title="إصدار التطبيق"
+      title={`v${APP_VERSION}`}
     >
-      v{APP_VERSION}
+      AboMona Studios™
     </p>
   );
 }

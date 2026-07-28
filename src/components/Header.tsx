@@ -25,7 +25,7 @@ export function Header({
 }) {
   const showTimer = phaseShowsTimer(room.phase) && (room.settings.useTimer || remaining != null);
   // Thresholds use visible remaining (phaseEndsAt), not the hidden grace.
-  const crit = showTimer && remaining != null && remaining <= 5_000;
+  const crit = showTimer && remaining != null && remaining <= 10_000;
   const warn = showTimer && remaining != null && remaining <= 15_000 && !crit;
   const roundLabel = room.suddenDeath ? "جولة حاسمة" : `الجولة ${room.round}`;
 
@@ -54,7 +54,7 @@ export function Header({
                 : crit
                 ? "text-[24px] text-parch leading-none header-crit-clock"
                 : warn
-                ? "text-[22px] text-[#E09A2E] leading-none header-warn-clock"
+                ? "text-[22px] text-[#FFB020] leading-none header-warn-clock"
                 : "text-[20px] text-parch leading-none"
             }`}
             aria-live="polite"

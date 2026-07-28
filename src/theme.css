@@ -386,8 +386,8 @@ textarea {
   transition: width 0.95s linear, background-color 0.4s ease;
 }
 .timer-warn {
-  background: #e09a2e;
-  animation: timer-warn-pulse 1.6s ease-in-out infinite;
+  background: #ffb020;
+  animation: timer-warn-pulse 1.15s ease-in-out infinite;
 }
 .timer-crit {
   background: #f0e8d8;
@@ -404,25 +404,25 @@ textarea {
     opacity: 1;
   }
   50% {
-    opacity: 0.55;
+    opacity: 0.45;
   }
 }
 
 .header-warn {
-  background: #2a1c0c;
-  animation: header-warn-flash 1.8s ease-in-out infinite;
+  background: #3a2408;
+  animation: header-warn-flash 1.15s ease-in-out infinite;
 }
 @keyframes header-warn-flash {
   0%,
   100% {
-    background-color: #1a140c;
+    background-color: #241608;
   }
   50% {
-    background-color: #3d2810;
+    background-color: #5c3a0c;
   }
 }
 .header-warn-clock {
-  animation: clock-warn-flash 1.8s ease-in-out infinite;
+  animation: clock-warn-flash 1.15s ease-in-out infinite;
 }
 @keyframes clock-warn-flash {
   0%,
@@ -430,7 +430,7 @@ textarea {
     opacity: 1;
   }
   50% {
-    opacity: 0.55;
+    opacity: 0.5;
   }
 }
 
