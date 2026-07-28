@@ -121,9 +121,9 @@ export function TeamTab({
               {t === myTeam && <span className="text-[11px] text-muted ms-2">فريقك</span>}
             </span>
             <span className="text-[12px] text-muted">
-              اختراق <span className="num">{room.teams[t].score.breach}</span>
+              التقاط <span className="num">{room.teams[t].score.breach}</span>
               {" · "}
-              خلل <span className="num">{room.teams[t].score.fault}</span>
+              تشويش <span className="num">{room.teams[t].score.fault}</span>
             </span>
           </div>
           <div className="space-y-2">
@@ -148,10 +148,10 @@ export function TeamTab({
         <p className="text-[12px] text-muted mb-2.5">كيف تُحسب النتيجة</p>
         <ul className="space-y-2 text-[13px] leading-relaxed">
           <li>
-            <span style={{ color: "#6FBF95" }}>اختراق</span> — التقطتم شفرة الخصم. اختراقان يفوزان.
+            <span style={{ color: "#8FAE5C" }}>التقاط</span> — التقطتم شفرة الخصم. التقاطان يفوزان.
           </li>
           <li>
-            <span style={{ color: "#E57A6F" }}>خلل</span> — فريقكم أخطأ في فهم مُشفِّركم. خللان يخسران.
+            <span style={{ color: "#F03B2E" }}>تشويش</span> — فريقكم أخطأ في فهم مُشفِّركم. تشويشان يخسران.
           </li>
           <li className="text-muted">
             أن يفهمكم فريقكم لا يمنحكم شيئًا — يمنعكم فقط من الخسارة.
@@ -213,8 +213,8 @@ export function TeamTab({
 /* ================================================================== */
 
 const REASON: Record<string, string> = {
-  breach: "باختراقين",
-  opponentFault: "بخللين على الخصم",
+  breach: "بالتقاطين",
+  opponentFault: "بتشويشين على الخصم",
   points: "بفارق النقاط",
   exhausted: "نفدت الجولات",
   abandoned: "أُنهيت اللعبة",
@@ -256,8 +256,8 @@ export function GameOver({
                 {TEAM_LABEL[t]}
               </span>
               <span className="text-[11.5px] text-muted">
-                اختراق <span className="num">{room.teams[t].score.breach}</span>
-                {" · "}خلل <span className="num">{room.teams[t].score.fault}</span>
+                التقاط <span className="num">{room.teams[t].score.breach}</span>
+                {" · "}تشويش <span className="num">{room.teams[t].score.fault}</span>
               </span>
             </div>
             <ClueGrid

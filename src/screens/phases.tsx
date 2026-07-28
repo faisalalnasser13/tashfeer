@@ -564,7 +564,7 @@ function RevealCard({
 
       {side.noClues ? (
         <Banner tone="warn">
-          لم يقدّم المُشفِّر تلميحات — سوء تفاهم (خلل). لا اعتراض.
+          لم يقدّم المُشفِّر تلميحات — سوء تفاهم (تشويش). لا اعتراض.
         </Banner>
       ) : (
         <>
@@ -666,11 +666,11 @@ export function RoundEndPhase({ room, uid, myTeam, rounds, away }: Ctx) {
                   {TEAM_LABEL[t]}
                 </span>
                 <span className="flex items-center gap-4 text-[12.5px]">
-                  <span style={{ color: "#6FBF95" }}>
-                    اختراق <span className="num">{s.breach}</span>/<span className="num">{2}</span>
+                  <span style={{ color: "#8FAE5C" }}>
+                    التقاط <span className="num">{s.breach}</span>/<span className="num">{2}</span>
                   </span>
-                  <span style={{ color: "#E57A6F" }}>
-                    خلل <span className="num">{s.fault}</span>/<span className="num">{2}</span>
+                  <span style={{ color: "#F03B2E" }}>
+                    تشويش <span className="num">{s.fault}</span>/<span className="num">{2}</span>
                   </span>
                 </span>
               </div>
@@ -678,7 +678,7 @@ export function RoundEndPhase({ room, uid, myTeam, rounds, away }: Ctx) {
           })}
         </div>
         <p className="text-[11.5px] text-muted mt-3.5 leading-relaxed border-t border-line pt-3">
-          اختراقان يفوزان باللعبة. خللان يخسرانها.
+          التقاطان يفوزان باللعبة. تشويشان يخسرانها.
         </p>
       </div>
 

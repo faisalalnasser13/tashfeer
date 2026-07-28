@@ -1,8 +1,8 @@
 import React from "react";
 import type { TeamId } from "../lib/types";
 
-export const TEAM_LABEL: Record<TeamId, string> = { gold: "الذهب", silver: "الفضة" };
-export const TEAM_HEX: Record<TeamId, string> = { gold: "#D9A441", silver: "#AFC0DA" };
+export const TEAM_LABEL: Record<TeamId, string> = { gold: "الحلفاء", silver: "المحور" };
+export const TEAM_HEX: Record<TeamId, string> = { gold: "#4E86C6", silver: "#E07B35" };
 
 /* ------------------------------------------------------------------ */
 
@@ -22,7 +22,7 @@ export function Pips({
 export function Stamp({ kind }: { kind: "breach" | "fault" }) {
   return (
     <span className={`stamp stamp-${kind}`}>
-      {kind === "breach" ? "اختراق" : "خلل"}
+      {kind === "breach" ? "التقاط" : "تشويش"}
     </span>
   );
 }
@@ -46,14 +46,14 @@ export function Field({
 }
 
 export const inputCls =
-  "w-full bg-[#0C1330] border border-line rounded-xl px-3.5 py-3 text-[15px] " +
-  "text-parch placeholder:text-[#4A5680] focus:border-gold focus:outline-none transition";
+  "w-full bg-[#1B1A14] border border-line rounded-xl px-3.5 py-3 text-[15px] " +
+  "text-parch placeholder:text-[#6E6858] focus:border-gold focus:outline-none transition";
 
 export function Banner({
   tone = "info", children,
 }: { tone?: "info" | "warn" | "lock"; children: React.ReactNode }) {
   const map = {
-    info: "border-line bg-[#101A34] text-muted",
+    info: "border-line bg-[#1B1A14] text-muted",
     warn: "border-[#7A4A2A] bg-[#2A1A10] text-[#E0A46C]",
     lock: "border-[#3A2A5A] bg-[#1A1230] text-[#B49CD8]",
   } as const;
