@@ -1,14 +1,4 @@
 import type { Room, TeamId } from "../lib/types";
-import { TEAM_LABEL } from "./ui";
-
-const PHASE_LABEL: Record<string, string> = {
-  keys: "احفظوا مفاتيحكم",
-  encrypt: "كتابة التلميحات",
-  guess: "فكّ واعتراض",
-  reveal: "الكشف",
-  roundEnd: "نهاية الجولة",
-  over: "انتهت",
-};
 
 /** Phases with a player-facing countdown. Transition beats hide the clock. */
 export function phaseShowsTimer(phase: string): boolean {
@@ -22,8 +12,8 @@ function clock(ms: number | null): string {
 }
 
 /**
- * Sticky chrome stays short: round label + timer (when counting down).
- * Scores live elsewhere (tabs, round-end).
+ * Sticky chrome: timer (screen-left) + round (screen-right). Nothing else.
+ * In RTL, DOM order [round, timer] + justify-between puts them there.
  */
 export function Header({
   room, remaining, pct,
@@ -36,17 +26,6 @@ export function Header({
   const showTimer = phaseShowsTimer(room.phase) && (room.settings.useTimer || remaining != null);
   const crit = showTimer && remaining != null && remaining <= 10_000;
   const warn = showTimer && remaining != null && remaining <= 30_000;
-  const active = room.activeTeam;
-  const phaseText =
-    room.phase === "guess" && room.round < 2
-      ? "فكّ الشفرة"
-      : room.phase === "guess" && active
-      ? `شفرة ${TEAM_LABEL[active]}`
-      : room.phase === "reveal" && room.round < 2
-      ? "الكشف"
-      : room.phase === "reveal" && active
-      ? `كشف ${TEAM_LABEL[active]}`
-      : (PHASE_LABEL[room.phase] ?? "");
   const roundLabel = room.suddenDeath ? "جولة حاسمة" : `الجولة ${room.round}`;
 
   return (
@@ -56,8 +35,8 @@ export function Header({
       }`}
       style={{ paddingTop: "var(--safe-t)" }}
     >
-      <div className="relative flex items-center justify-center px-4 h-9">
-        <span className="absolute inset-inline-start-4 text-[12px] text-muted truncate max-w-[40%]">
+      <div className="flex items-center justify-between px-4 h-9">
+        <span className="text-[12px] text-muted truncate">
           {roundLabel}
         </span>
         {showTimer ? (
@@ -68,7 +47,7 @@ export function Header({
                 : crit
                 ? "text-[24px] text-parch leading-none header-crit-clock"
                 : warn
-                ? "text-[20px] text-[#E0913C] leading-none"
+                ? "text-[20px] text-[#E09A2E] leading-none"
                 : "text-[20px] text-parch leading-none"
             }`}
             aria-live="polite"
@@ -76,9 +55,7 @@ export function Header({
             {room.paused ? "إيقاف" : remaining != null ? clock(remaining) : "∞"}
           </span>
         ) : (
-          <span className="text-[12px] text-muted truncate ps-20">
-            {phaseText}
-          </span>
+          <span className="w-0" aria-hidden />
         )}
       </div>
 

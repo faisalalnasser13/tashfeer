@@ -954,12 +954,19 @@ async function hostControl({ roomId, action }: { roomId: string; action: string 
 
 /** Wipe round state and reopen the lobby; teams/players stay. */
 async function returnToLobby(roomId: string) {
-  for (const sub of ["rounds", "drafts", "secret", "away", "guesses", "final"]) {
+  // Include `private` so a fresh deal can't leak last game's keywords
+  // via a stale read before startGame overwrites.
+  for (const sub of ["rounds", "drafts", "secret", "away", "guesses", "final", "private"]) {
     const snap = await getDocs(collection(db, "rooms", roomId, sub));
-    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+    // allSettled: one stubborn doc must not leave the table stuck mid-game.
+    await Promise.allSettled(snap.docs.map((d) => deleteDoc(d.ref)));
   }
 
   await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef(roomId));
+    if (!snap.exists()) return;
+    const room = snap.data() as Room;
+    if (room.phase === "lobby") return;
     tx.update(roomRef(roomId), {
       phase: "lobby", round: 0, suddenDeath: false, paused: false,
       phaseEndsAt: null, phaseStartedAt: Date.now(),

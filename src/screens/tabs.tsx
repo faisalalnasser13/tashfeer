@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api } from "../lib/firebase";
+import { api, errText } from "../lib/firebase";
 import { ORDINALS } from "../lib/arabic";
 import type { Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
@@ -191,7 +191,11 @@ export function TeamTab({
           </div>
           <button
             className="w-full text-[12px] text-alarm/80 pt-2"
-            onClick={() => api.hostControl({ roomId: room.id, action: "endGame" })}
+            onClick={() =>
+              api.hostControl({ roomId: room.id, action: "endGame" }).catch((e) => {
+                alert(errText(e));
+              })
+            }
           >
             إنهاء اللعبة والعودة للردهة
           </button>
@@ -273,7 +277,14 @@ export function GameOver({
         style={{ paddingBottom: "calc(var(--safe-b) + 10px)" }}
       >
         {isHost ? (
-          <Btn className="w-full" onClick={() => api.rematch({ roomId: room.id })}>
+          <Btn
+            className="w-full"
+            onClick={() =>
+              api.rematch({ roomId: room.id }).catch((e) => {
+                alert(errText(e));
+              })
+            }
+          >
             إنهاء اللعبة والعودة للردهة
           </Btn>
         ) : (

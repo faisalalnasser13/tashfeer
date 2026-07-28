@@ -89,8 +89,11 @@ service cloud.firestore {
     // "Who wandered off" — everyone sees it, that's the point.
     match /rooms/{roomId}/away/{docId} {
       allow read: if inRoom(roomId);
-      allow write: if inRoom(roomId)
-                   && request.resource.data.uid == request.auth.uid;
+      // create/update: only your own row. delete: any member (host wipe
+      // on return-to-lobby must clear everyone's away docs).
+      allow create, update: if inRoom(roomId)
+                            && request.resource.data.uid == request.auth.uid;
+      allow delete: if inRoom(roomId);
     }
 
     // All eight keywords, written at deal time and unreadable until the
