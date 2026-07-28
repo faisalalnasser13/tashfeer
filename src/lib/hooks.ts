@@ -37,24 +37,54 @@ export function useRoom(roomId: string | null) {
 /**
  * Your team's four keywords, plus every clue your team has already
  * burned. Security rules make this document unreadable to the opponent.
+ *
+ * Retries on error — a permission blip at deal time used to kill the
+ * listener forever until refresh.
  */
 export function useTeamPrivate(roomId: string | null, team: TeamId | null) {
   const [data, setData] = useState<{ keys: string[]; usedClues: string[] } | null>(null);
   useEffect(() => {
     if (!roomId || !team) { setData(null); return; }
-    return onSnapshot(
-      doc(db, "rooms", roomId, "private", team),
-      (s) =>
-        setData(
-          s.exists()
-            ? {
-                keys: (s.data().keys as string[]) ?? [],
-                usedClues: (s.data().usedClues as string[]) ?? [],
-              }
-            : null
-        ),
-      () => setData(null)
-    );
+
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let attempt = 0;
+
+    const subscribe = () => {
+      if (cancelled) return;
+      unsub = onSnapshot(
+        doc(db, "rooms", roomId, "private", team),
+        (s) => {
+          attempt = 0;
+          setData(
+            s.exists()
+              ? {
+                  keys: (s.data().keys as string[]) ?? [],
+                  usedClues: (s.data().usedClues as string[]) ?? [],
+                }
+              : null
+          );
+        },
+        () => {
+          setData(null);
+          if (cancelled) return;
+          const delay = Math.min(8_000, 300 * 2 ** attempt);
+          attempt += 1;
+          retryTimer = setTimeout(() => {
+            unsub?.();
+            subscribe();
+          }, delay);
+        }
+      );
+    };
+
+    subscribe();
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      unsub?.();
+    };
   }, [roomId, team]);
   return data;
 }

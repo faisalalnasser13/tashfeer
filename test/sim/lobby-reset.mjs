@@ -94,5 +94,32 @@ await it("can start again after endGame", async () => {
   assert(S().has(`rooms/${roomId}/private/gold`), "redealt");
 });
 
+await it("host can reshuffle one team's keys without touching decks", async () => {
+  admin.__reset();
+  const HOST = "u0";
+  const { roomId } = await call(fns.createRoom, HOST, { name: "host", avatar: 0 });
+  for (let i = 1; i < 4; i++) {
+    await call(fns.joinRoom, `u${i}`, { roomId, name: `p${i}`, avatar: i });
+  }
+  for (let i = 0; i < 4; i++) {
+    await call(fns.setTeam, `u${i}`, { roomId, team: i % 2 === 0 ? "gold" : "silver" });
+  }
+  await call(fns.startGame, HOST, { roomId });
+
+  const beforeGold = [...S().get(`rooms/${roomId}/private/gold`).keys];
+  const beforeSilver = [...S().get(`rooms/${roomId}/private/silver`).keys];
+  const deckBefore = S().get(`rooms/${roomId}/secret/deck_gold`).deck;
+
+  await call(fns.shuffleTeamKeys, HOST, { roomId, team: "gold" });
+
+  const afterGold = S().get(`rooms/${roomId}/private/gold`).keys;
+  const afterSilver = S().get(`rooms/${roomId}/private/silver`).keys;
+  assert(JSON.stringify(afterGold) !== JSON.stringify(beforeGold), "gold keys changed");
+  eq(afterSilver, beforeSilver, "silver untouched");
+  eq(S().get(`rooms/${roomId}/final/keys`).gold, afterGold, "final synced");
+  eq(S().get(`rooms/${roomId}/secret/deck_gold`).deck, deckBefore, "deck untouched");
+  eq(S().get(`rooms/${roomId}`).phase, "keys", "still keys");
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

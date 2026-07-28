@@ -10,6 +10,8 @@
  *  - singular, no definite article.
  */
 
+import { normalizeKey } from "./arabic";
+
 export const WORDS: string[] = [
   // nature & sky
   "شمس", "قمر", "نجمة", "سحابة", "مطر", "ثلج", "برق", "رعد", "ضباب", "قوس قزح",
@@ -77,10 +79,18 @@ export const WORDS: string[] = [
 
 /** Deals `n` distinct keywords. */
 export function dealWords(n: number): string[] {
-  const pool = [...WORDS];
+  return dealWordsExcluding(n, new Set());
+}
+
+/** Deals `n` keywords whose normalised forms are not in `exclude`. */
+export function dealWordsExcluding(n: number, exclude: Set<string>): string[] {
+  const pool = WORDS.filter((w) => !exclude.has(normalizeKey(w)));
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  if (pool.length < n) {
+    throw new Error(`word bank too small: need ${n}, have ${pool.length}`);
   }
   return pool.slice(0, n);
 }

@@ -31,7 +31,7 @@ import {
   allCodes, shuffle, codesEqual, evaluate, encodeCode, decodeCode,
 } from "./rules";
 import { normalizeAr, normalizeKey } from "./arabic";
-import { dealWords } from "./words";
+import { dealWords, dealWordsExcluding } from "./words";
 
 /* ------------------------------------------------------------------ */
 /* plumbing                                                           */
@@ -118,8 +118,8 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 function phaseDuration(settings: Settings, phase: Phase): number | null {
-  // Transition beats — short, host can skip. Keys is the keyword glance.
-  if (phase === "keys") return 5_000;
+  // Keys: host-driven only (preview + optional reshuffle). No auto clock.
+  if (phase === "keys") return null;
   if (phase === "reveal") return 10_000;
   if (phase === "roundEnd") return 2_000;
   if (!settings.useTimer) return null;
@@ -367,6 +367,73 @@ async function startGame({ roomId }: { roomId: string }) {
   });
 
   await batch.commit();
+  return { ok: true };
+}
+
+/**
+ * Host-only, keys phase only. Redeals one team's four keywords from the
+ * bank, excluding the other team's current four. Codes/decks are digit
+ * slots — they stay valid. Syncs `final/keys` for the end reveal.
+ */
+async function shuffleTeamKeys({ roomId, team }: { roomId: string; team: string }) {
+  const uid = me();
+  if (team !== "gold" && team !== "silver") {
+    throw new GameError("invalid-argument", "فريق غير معروف.");
+  }
+  const side = team as TeamId;
+  const room = await loadRoom(roomId);
+  requireHost(room, uid);
+  if (room.phase !== "keys") {
+    throw new GameError("failed-precondition", "خلط المفاتيح قبل بدء التشفير فقط.");
+  }
+
+  await runTransaction(db, async (tx) => {
+    const roomSnap = await tx.get(roomRef(roomId));
+    if (!roomSnap.exists()) throw new GameError("not-found", "الغرفة غير موجودة.");
+    const cur = roomSnap.data() as Room;
+    if (cur.phase !== "keys") return;
+
+    const privGold = await tx.get(privateRef(roomId, "gold"));
+    const privSilver = await tx.get(privateRef(roomId, "silver"));
+    const finalSnap = await tx.get(doc(db, "rooms", roomId, "final", "keys"));
+
+    const other = OTHER[side];
+    const otherPriv = other === "gold" ? privGold : privSilver;
+    const selfPriv = side === "gold" ? privGold : privSilver;
+    if (!selfPriv.exists()) throw new GameError("failed-precondition", "مفاتيح الفريق غير جاهزة.");
+
+    const exclude = new Set<string>();
+    for (const w of (otherPriv.data()?.keys as string[] | undefined) ?? []) {
+      exclude.add(normalizeKey(w));
+    }
+    // Prefer a different set than what's on screen now.
+    for (const w of (selfPriv.data()?.keys as string[] | undefined) ?? []) {
+      exclude.add(normalizeKey(w));
+    }
+
+    let fresh: string[];
+    try {
+      fresh = dealWordsExcluding(4, exclude);
+    } catch {
+      // Bank nearly exhausted of unused words — only avoid the other team.
+      const soft = new Set<string>();
+      for (const w of (otherPriv.data()?.keys as string[] | undefined) ?? []) {
+        soft.add(normalizeKey(w));
+      }
+      fresh = dealWordsExcluding(4, soft);
+    }
+
+    tx.update(privateRef(roomId, side), { keys: fresh });
+    if (finalSnap.exists()) {
+      tx.update(finalSnap.ref, { [side]: fresh });
+    } else {
+      const otherKeys = (otherPriv.data()?.keys as string[] | undefined) ?? [];
+      tx.set(finalSnap.ref, {
+        gold: side === "gold" ? fresh : otherKeys,
+        silver: side === "silver" ? fresh : otherKeys,
+      });
+    }
+  });
   return { ok: true };
 }
 
@@ -1033,6 +1100,7 @@ async function rematch({ roomId }: { roomId: string }) {
 export const api = {
   createRoom, joinRoom, setTeam, shuffleTeams, kickPlayer, leaveRoom,
   updateSettings, startGame, submitClues, advancePhase, hostControl, rematch,
+  shuffleTeamKeys,
 };
 
 export function errText(e: unknown): string {
