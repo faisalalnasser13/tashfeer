@@ -106,31 +106,40 @@ export function useTeamPrivate(roomId: string | null, team: TeamId | null) {
   return { data, setTheory };
 }
 
-/** The round's code. Only this round's encryptor can read it. */
+/** The round's code (+ submitted clues). Only this round's encryptor can read it. */
 export function useCode(roomId: string | null, team: TeamId | null, round: number, isEncryptor: boolean) {
-  const [code, setCode] = useState<number[] | null>(null);
+  const [state, setState] = useState<{ code: number[] | null; clues: string[] | null }>({
+    code: null, clues: null,
+  });
   useEffect(() => {
-    if (!roomId || !team || !round || !isEncryptor) { setCode(null); return; }
+    if (!roomId || !team || !round || !isEncryptor) {
+      setState({ code: null, clues: null });
+      return;
+    }
     return onSnapshot(
       doc(db, "rooms", roomId, "secret", `${team}_r${round}`),
       (s) => {
         if (!s.exists()) {
-          setCode(null);
-          // Doc missing → deal (or re-deal after a dropped write).
+          setState({ code: null, clues: null });
           ensureCode(roomId, team, round).catch(() => {});
           return;
         }
-        const c = s.data().code as number[] | undefined;
-        setCode(c && c.length === 3 ? c : null);
+        const data = s.data();
+        const c = data.code as number[] | undefined;
+        const clues = data.clues as string[] | undefined;
+        setState({
+          code: c && c.length === 3 ? c : null,
+          clues: clues && clues.length === 3 ? clues : null,
+        });
         if (!c || c.length !== 3) ensureCode(roomId, team, round).catch(() => {});
       },
       () => {
-        setCode(null);
+        setState({ code: null, clues: null });
         ensureCode(roomId, team, round).catch(() => {});
       }
     );
   }, [roomId, team, round, isEncryptor]);
-  return code;
+  return state;
 }
 
 /** The shared live draft — the one document clients write to directly. */

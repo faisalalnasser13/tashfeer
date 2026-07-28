@@ -90,8 +90,9 @@ export function ClueGrid({
                 onGuess={onGuess!}
               />
             ) : (
-              <p className="text-center font-medium text-muted mb-1 text-[11px]">
-                {remote || "؟"}
+              <p className="text-center font-medium mb-1 text-[11px]" style={{ color: remote ? color : undefined }}>
+                <span className={remote ? "" : "text-muted"}>{remote || "—"}</span>
+                <span style={{ color }} aria-hidden>؟</span>
               </p>
             )}
 
@@ -141,22 +142,33 @@ function SharedGuessInput({
   }, [remote]);
 
   return (
-    <input
-      value={value}
-      onFocus={() => { focused.current = true; }}
-      onBlur={() => { focused.current = false; }}
-      onChange={(e) => {
-        const t = e.target.value.slice(0, 24);
-        setValue(t);
-        onGuess(String(n), t);
-      }}
-      placeholder="؟"
-      maxLength={24}
-      className="w-full bg-[#1B1A14] border border-line rounded-md text-center
-                 font-medium text-[11px] text-parch placeholder:text-muted/80
-                 focus:border-gold focus:outline-none transition mb-1 py-1 px-0.5"
-      style={{ color: value ? color : undefined }}
-      aria-label={`تخمين الكلمة ${n}`}
-    />
+    <div className="relative mb-1">
+      <input
+        value={value}
+        onFocus={() => { focused.current = true; }}
+        onBlur={() => { focused.current = false; }}
+        onChange={(e) => {
+          const t = e.target.value.slice(0, 24);
+          setValue(t);
+          onGuess(String(n), t);
+        }}
+        placeholder="—"
+        maxLength={24}
+        className="w-full min-w-0 bg-[#1B1A14] border border-line rounded-md text-center
+                   font-medium text-[11px] text-parch pe-3.5
+                   focus:border-gold focus:outline-none transition py-1 px-0.5
+                   placeholder:text-muted/50"
+        style={{ color: value ? color : undefined, borderColor: `${color}55` }}
+        aria-label={`تخمين الكلمة ${n}`}
+      />
+      <span
+        className="pointer-events-none absolute top-1/2 -translate-y-1/2
+                   text-[11px] font-medium"
+        style={{ color, insetInlineEnd: "0.35rem" }}
+        aria-hidden
+      >
+        ؟
+      </span>
+    </div>
   );
 }

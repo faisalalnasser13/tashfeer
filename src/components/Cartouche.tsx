@@ -18,6 +18,8 @@ export function Cartouche({
   clues,
   /** Own team's four keywords — under pad buttons + placed slots (decrypt). */
   keyWords,
+  /** Shared guesses for opponent digits — shown with trailing ؟ (intercept). */
+  guessWords,
   /** Past clue texts indexed by digit 1–4 — under pad buttons + placed slots (intercept). */
   historyByDigit,
 }: {
@@ -33,6 +35,7 @@ export function Cartouche({
    */
   clues?: string[];
   keyWords?: string[] | null;
+  guessWords?: (string | null | undefined)[] | null;
   historyByDigit?: string[][] | null;
 }) {
   const editable = Boolean(onChange);
@@ -63,10 +66,30 @@ export function Cartouche({
     navigator.vibrate?.(8);
   }
 
-  function labelFor(digit: number): { word?: string; hints: string[] } {
+  function labelFor(digit: number): {
+    word?: string;
+    guess?: string;
+    hints: string[];
+  } {
     const word = keyWords?.[digit - 1] || undefined;
+    const rawGuess = guessWords?.[digit - 1];
+    const guess =
+      typeof rawGuess === "string" && rawGuess.trim()
+        ? rawGuess.trim()
+        : guessWords
+          ? ""
+          : undefined;
     const hints = historyByDigit?.[digit - 1] ?? [];
-    return { word, hints };
+    return { word, guess, hints };
+  }
+
+  function GuessLabel({ text }: { text: string }) {
+    return (
+      <span className="pad-word" style={{ color: tone === "silver" ? "#E07B35" : "#4E86C6" }}>
+        {text || "—"}
+        <span aria-hidden>؟</span>
+      </span>
+    );
   }
 
   return (
@@ -77,8 +100,9 @@ export function Cartouche({
           const clue = clues?.[i];
           const verdict =
             truth && truth.length === 3 ? (v === truth[i] ? "right" : "wrong") : null;
-          const { word, hints } = v != null ? labelFor(v) : { word: undefined, hints: [] as string[] };
-          const hasExtra = Boolean(word) || hints.length > 0;
+          const { word, guess, hints } =
+            v != null ? labelFor(v) : { word: undefined, guess: undefined, hints: [] as string[] };
+          const hasExtra = Boolean(word) || guess !== undefined || hints.length > 0;
           const cls = [
             "slot",
             tone === "silver" ? "slot-silver" : "",
@@ -99,6 +123,15 @@ export function Cartouche({
             >
               <span className="num slot-digit">{v == null ? "—" : v}</span>
               {word ? <span className="slot-word">{word}</span> : null}
+              {guess !== undefined ? (
+                <span
+                  className="slot-word"
+                  style={{ color: tone === "silver" ? "#E07B35" : "#4E86C6" }}
+                >
+                  {guess || "—"}
+                  <span aria-hidden>؟</span>
+                </span>
+              ) : null}
               {hints.length > 0 ? (
                 <span className="slot-hints">
                   {hints.map((h, hi) => (
@@ -131,8 +164,8 @@ export function Cartouche({
         <div className="mt-2 grid grid-cols-2 gap-1.5">
           {[1, 2, 3, 4].map((n) => {
             const used = values.includes(n);
-            const { word, hints } = labelFor(n);
-            const hasExtra = Boolean(word) || hints.length > 0;
+            const { word, guess, hints } = labelFor(n);
+            const hasExtra = Boolean(word) || guess !== undefined || hints.length > 0;
             return (
               <button
                 key={n}
@@ -146,6 +179,7 @@ export function Cartouche({
               >
                 <span className="num pad-digit">{n}</span>
                 {word ? <span className="pad-word">{word}</span> : null}
+                {guess !== undefined ? <GuessLabel text={guess} /> : null}
                 {hints.length > 0 ? (
                   <span className="pad-hints">
                     {hints.map((h, hi) => (

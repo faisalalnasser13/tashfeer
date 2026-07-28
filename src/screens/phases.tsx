@@ -21,6 +21,8 @@ interface Ctx {
     submit: (uid: string, field: "decrypt" | "intercept") => Promise<unknown>;
   } | null;
   code: number[] | null;
+  /** Clues this encryptor already wrote to the secret doc (survives remount). */
+  mySubmittedClues: string[] | null;
   away: AwayRecord[];
   setTheory: ((n: string, text: string) => void) | null;
 }
@@ -151,12 +153,23 @@ export function EncryptPhase(ctx: Ctx) {
   return amEncryptor ? <EncryptorView {...ctx} /> : <EncryptWaiting {...ctx} />;
 }
 
-function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
+function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmittedClues }: Ctx) {
+  // Prefer Firestore so tab switches / +30s remounts don't wipe the form.
+  const alreadyIn = room.cluesIn[myTeam] === true;
   const [clues, setClues] = useState(["", "", ""]);
-  const [sent, setSent] = useState(false);
+  const [sentLocal, setSentLocal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [focusIdx, setFocusIdx] = useState<number | null>(null);
+
+  const sent = alreadyIn || sentLocal || Boolean(mySubmittedClues);
+
+  useEffect(() => {
+    if (mySubmittedClues && mySubmittedClues.length === 3) {
+      setClues(mySubmittedClues);
+      setSentLocal(true);
+    }
+  }, [mySubmittedClues]);
 
   const usedSet = useMemo(() => new Set(usedClues.map(normalizeAr)), [usedClues]);
   const keySet = useMemo(() => new Set((keys ?? []).map(normalizeKey)), [keys]);
@@ -178,7 +191,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
     setBusy(true); setErr("");
     try {
       await api.submitClues({ roomId: room.id, clues: clues.map((c) => c.trim()) });
-      setSent(true);
+      setSentLocal(true);
     } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   }
 
@@ -203,11 +216,15 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
   }
 
   if (sent) {
+    const shown =
+      clues.some((c) => c.trim())
+        ? clues
+        : (mySubmittedClues ?? ["…", "…", "…"]);
     return (
       <div className="px-5 py-8 fade-in">
         <Empty title="أُرسلت تلميحاتك" body="بانتظار المُشفِّر الآخر. لا تلمّح لأحد بشيء." />
         <div className="max-w-sm mx-auto mt-2 space-y-2">
-          {clues.map((c, i) => (
+          {shown.map((c, i) => (
             <div key={i} className="card px-4 py-3 flex items-center gap-3">
               <span className="text-[11px] text-muted w-10 shrink-0">{ORDINALS[i]}</span>
               <span className="text-[22px] font-medium">{c}</span>
@@ -494,6 +511,11 @@ export function GuessPhase(ctx: Ctx) {
           }
           tone={active}
           keyWords={amOwner ? keys : null}
+          guessWords={
+            amInterceptor
+              ? [1, 2, 3, 4].map((n) => theories[String(n)] ?? "")
+              : null
+          }
           historyByDigit={
             amInterceptor
               ? ownerLanes.map((lane) => lane.clues.map((c) => c.text))

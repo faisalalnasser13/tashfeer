@@ -47,7 +47,7 @@ export function Game({
   const rounds = useRounds(room.id);
   const away = useAway(room.id, room.round);
   const amEncryptor = myTeam ? room.encryptor[myTeam] === uid : false;
-  const code = useCode(room.id, myTeam, room.round, amEncryptor);
+  const { code, clues: mySubmittedClues } = useCode(room.id, myTeam, room.round, amEncryptor);
   const { draft, actions } = useDraft(
     room.id, myTeam, room.phase === "guess" ? room.round : 0
   );
@@ -114,7 +114,7 @@ export function Game({
     keys: priv?.keys ?? null,
     usedClues: priv?.usedClues ?? [],
     theories: priv?.theories ?? { "1": "", "2": "", "3": "", "4": "" },
-    rounds, draft, actions, code, away,
+    rounds, draft, actions, code, mySubmittedClues, away,
     setTheory,
   };
 
@@ -144,6 +144,8 @@ export function Game({
         <KeysStrip
           keys={priv?.keys ?? null}
           team={myTeam}
+          theories={priv?.theories ?? { "1": "", "2": "", "3": "", "4": "" }}
+          setTheory={setTheory}
           highlight={
             amEncryptor && room.phase === "encrypt" && code ? code : null
           }
