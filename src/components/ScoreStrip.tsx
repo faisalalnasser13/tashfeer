@@ -6,7 +6,7 @@ const BREACH = "#8FAE5C";
 const FAULT = "#F03B2E";
 
 /**
- * Slim two-team score row from the Map Room mock: name + التقاط/تشويش pips.
+ * Slim two-team score row from the Map Room mock: name + اختراق/خلل pips.
  * Your side gets a team-coloured underline and an أنت marker.
  */
 export function ScoreStrip({
@@ -41,7 +41,7 @@ export function ScoreStrip({
                 </span>
               )}
             </span>
-            <span className="flex items-center gap-2 shrink-0" title="التقاط · تشويش">
+            <span className="flex items-center gap-2 shrink-0" title="اختراق · خلل">
               <PipGroup n={s.breach} color={BREACH} />
               <span className="w-px h-[11px] bg-line" />
               <PipGroup n={s.fault} color={FAULT} />

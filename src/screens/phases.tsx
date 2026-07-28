@@ -586,7 +586,6 @@ export function RevealPhase({ room, uid, myTeam, rounds }: Ctx) {
           key={t}
           team={t}
           rec={rec}
-          room={room}
           mine={t === myTeam}
           visible
           compact={dual}
@@ -598,14 +597,19 @@ export function RevealPhase({ room, uid, myTeam, rounds }: Ctx) {
 }
 
 function RevealCard({
-  team, rec, room, mine, visible, compact,
+  team, rec, mine, visible, compact,
 }: {
-  team: TeamId; rec: RoundRecord; room: Room; mine: boolean;
+  team: TeamId; rec: RoundRecord; mine: boolean;
   visible: boolean; compact?: boolean;
 }) {
   const side = rec.data[team];
   const opp = OTHER[team];
   const color = TEAM_HEX[team];
+  // On this card: outcomes that hurt `team` help the viewer when !mine.
+  const goodForViewer = !mine;
+  const hasBreach = side.wasBreached;
+  const hasFault = side.faulted;
+  const dramatic = hasBreach || hasFault;
 
   if (!visible) {
     return <div className="card h-32 grid place-items-center text-[13px] text-muted">…</div>;
@@ -613,23 +617,51 @@ function RevealCard({
 
   return (
     <div
-      className={`card fade-in ${compact ? "p-3" : "p-4"}`}
-      style={{ borderColor: `${color}44` }}
+      className={`card fade-in ${dramatic ? "reveal-card-hit" : ""} ${compact ? "p-3" : "p-4"}`}
+      style={{
+        borderColor: dramatic
+          ? (goodForViewer ? "#8FAE5C66" : "#F03B2E66")
+          : `${color}44`,
+      }}
     >
       <div className={`flex items-center justify-between ${compact ? "mb-2" : "mb-3"} min-h-[2rem]`}>
         <span className={`font-display ${compact ? "text-[15px]" : "text-[16px]"}`} style={{ color }}>
           شفرة {TEAM_LABEL[team]}
           {mine && <span className="text-[11px] text-muted ms-2">فريقكم</span>}
         </span>
-        <span className="flex gap-1.5">
-          {side.wasBreached && <Stamp kind="breach" />}
-          {side.faulted && <Stamp kind="fault" />}
-        </span>
       </div>
+
+      {(hasBreach || hasFault) && (
+        <div className="reveal-outcomes">
+          {hasBreach && (
+            <div className="reveal-outcome" style={{ animationDelay: "0.08s" }}>
+              <Stamp kind="breach" good={goodForViewer} />
+              <span className="reveal-outcome-copy">
+                {mine
+                  ? `اخترقكم ${TEAM_LABEL[opp]}`
+                  : `اخترقتم شفرة ${TEAM_LABEL[team]}`}
+              </span>
+            </div>
+          )}
+          {hasFault && (
+            <div
+              className="reveal-outcome"
+              style={{ animationDelay: hasBreach ? "0.28s" : "0.08s" }}
+            >
+              <Stamp kind="fault" good={goodForViewer} />
+              <span className="reveal-outcome-copy">
+                {mine
+                  ? "خلل — فريقكم أخطأ في فكّ الشفرة"
+                  : `خلل — ${TEAM_LABEL[team]} أخطأوا في فكّ شفرتهم`}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {side.noClues ? (
         <Banner tone="warn">
-          لم يقدّم المُشفِّر تلميحات — سوء تفاهم (تشويش). لا اعتراض.
+          لم يقدّم المُشفِّر تلميحات — سوء تفاهم (خلل). لا اعتراض.
         </Banner>
       ) : (
         <>
@@ -682,9 +714,9 @@ function GuessRow({
               key={i}
               className="num w-8 h-8 grid place-items-center rounded-md text-[15px] font-display border"
               style={{
-                borderColor: ok ? "#4FA07A88" : "#D6564A66",
-                background: ok ? "#4FA07A18" : "#D6564A12",
-                color: ok ? "#6FBF95" : "#E57A6F",
+                borderColor: ok ? "#8FAE5C88" : "#F03B2E66",
+                background: ok ? "#8FAE5C18" : "#F03B2E12",
+                color: ok ? "#8FAE5C" : "#F03B2E",
               }}
             >
               {g == null ? "—" : g}
@@ -732,10 +764,10 @@ export function RoundEndPhase({ room, uid, myTeam, rounds, away }: Ctx) {
                 </span>
                 <span className="flex items-center gap-4 text-[12.5px]">
                   <span style={{ color: "#8FAE5C" }}>
-                    التقاط <span className="num">{s.breach}</span>/<span className="num">{2}</span>
+                    اختراق <span className="num">{s.breach}</span>/<span className="num">{2}</span>
                   </span>
                   <span style={{ color: "#F03B2E" }}>
-                    تشويش <span className="num">{s.fault}</span>/<span className="num">{2}</span>
+                    خلل <span className="num">{s.fault}</span>/<span className="num">{2}</span>
                   </span>
                 </span>
               </div>
@@ -743,7 +775,7 @@ export function RoundEndPhase({ room, uid, myTeam, rounds, away }: Ctx) {
           })}
         </div>
         <p className="text-[11.5px] text-muted mt-3.5 leading-relaxed border-t border-line pt-3">
-          التقاطان يفوزان باللعبة. تشويشان يخسرانها.
+          اختراقان يفوزان باللعبة. خللان يخسرانها.
         </p>
       </div>
 

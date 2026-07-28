@@ -19,10 +19,16 @@ export function Pips({
   );
 }
 
-export function Stamp({ kind }: { kind: "breach" | "fault" }) {
+export function Stamp({
+  kind, good,
+}: {
+  kind: "breach" | "fault";
+  /** Viewer-relative: true = green (good for you), false = red (bad for you). */
+  good: boolean;
+}) {
   return (
-    <span className={`stamp stamp-${kind}`}>
-      {kind === "breach" ? "التقاط" : "تشويش"}
+    <span className={`stamp ${good ? "stamp-good" : "stamp-bad"}`}>
+      {kind === "breach" ? "اختراق" : "خلل"}
     </span>
   );
 }
