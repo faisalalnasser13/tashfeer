@@ -289,25 +289,49 @@ export function useCountdown(room: Room | null) {
  * out; everyone else waits two seconds and fires as a backstop, so a
  * locked host phone can't freeze the table. The server ignores
  * duplicates.
+ *
+ * `fired` only marks an in-flight / completed attempt. Cleanup of a
+ * cancelled timeout must clear it — otherwise a room snapshot (addTime,
+ * cluesIn, join) between arming and fire leaves the phase stuck until
+ * refresh.
  */
 export function usePhaseDriver(room: Room | null, uid: string | null) {
   const { expired } = useCountdown(room);
   const fired = useRef<string>("");
+  const inFlight = useRef(false);
+
+  const roomId = room?.id ?? null;
+  const phase = room?.phase ?? null;
+  const round = room?.round ?? null;
+  const paused = room?.paused ?? false;
+  const hostUid = room?.hostUid ?? null;
 
   useEffect(() => {
-    if (!room || !uid || !expired || room.paused) return;
-    if (room.phase === "lobby" || room.phase === "over") return;
-    const stamp = `${room.phase}:${room.round}`;
+    if (!roomId || !uid || !expired || paused) return;
+    if (phase === "lobby" || phase === "over" || !phase || round == null) return;
+    const stamp = `${phase}:${round}`;
     if (fired.current === stamp) return;
-    fired.current = stamp;
 
-    const delay = room.hostUid === uid ? 0 : 2000;
+    fired.current = stamp;
+    const delay = hostUid === uid ? 0 : 2000;
+    let started = false;
     const t = setTimeout(() => {
-      api.advancePhase({ roomId: room.id, fromPhase: room.phase, fromRound: room.round })
-        .catch(() => { fired.current = ""; });
+      started = true;
+      inFlight.current = true;
+      api.advancePhase({ roomId, fromPhase: phase, fromRound: round })
+        .catch(() => { fired.current = ""; })
+        .finally(() => { inFlight.current = false; });
     }, delay);
-    return () => clearTimeout(t);
-  }, [room, uid, expired]);
+
+    return () => {
+      clearTimeout(t);
+      // Cancelled before the call began — allow re-arm on the next pass
+      // (same stamp after +30s, or after a mid-wait room snapshot).
+      if (!started && !inFlight.current && fired.current === stamp) {
+        fired.current = "";
+      }
+    };
+  }, [roomId, phase, round, paused, hostUid, uid, expired]);
 }
 
 /**
