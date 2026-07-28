@@ -70,9 +70,7 @@ export function KeysStrip({
         </div>
       ) : (
         <div
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 overflow-x-auto ${
-            lighting ? "justify-center" : ""
-          }`}
+          className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 overflow-x-auto"
         >
           {keys.map((k, i) => {
             const on = lit.has(i + 1);

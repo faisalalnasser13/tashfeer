@@ -945,28 +945,63 @@ async function hostControl({ roomId, action }: { roomId: string; action: string 
   } else if (action === "endGame") {
     // Host bail-out: skip the results screen and reopen the lobby.
     if (room.phase === "lobby") return { ok: true };
-    await returnToLobby(roomId);
+    await returnToLobby(roomId, room);
   } else {
     throw new GameError("invalid-argument", "أمر غير معروف.");
   }
   return { ok: true };
 }
 
-/** Wipe round state and reopen the lobby; teams/players stay. */
-async function returnToLobby(roomId: string) {
-  // Include `private` so a fresh deal can't leak last game's keywords
-  // via a stale read before startGame overwrites.
-  for (const sub of ["rounds", "drafts", "secret", "away", "guesses", "final", "private"]) {
-    const snap = await getDocs(collection(db, "rooms", roomId, sub));
-    // allSettled: one stubborn doc must not leave the table stuck mid-game.
-    await Promise.allSettled(snap.docs.map((d) => deleteDoc(d.ref)));
+/**
+ * Wipe round state and reopen the lobby; teams/players stay.
+ *
+ * Deletes by known paths — never `getDocs` on `private` / `guesses` /
+ * `final`. Those collections have member-scoped (or phase-sealed) reads,
+ * so a collection query is rejected for everyone mid-game even when
+ * individual deletes are allowed.
+ */
+async function returnToLobby(roomId: string, room: Room) {
+  const maxR = Math.max(room.round, room.settings?.maxRounds ?? 8) + 4;
+  const uids = Object.keys(room.players);
+  const jobs: Promise<unknown>[] = [];
+
+  for (const t of TEAMS) {
+    jobs.push(deleteDoc(privateRef(roomId, t)));
+    jobs.push(deleteDoc(deckRef(roomId, t)));
   }
+  jobs.push(deleteDoc(doc(db, "rooms", roomId, "final", "keys")));
+
+  for (let r = 1; r <= maxR; r++) {
+    jobs.push(deleteDoc(doc(db, "rooms", roomId, "rounds", String(r))));
+    for (const t of TEAMS) {
+      jobs.push(deleteDoc(secretRef(roomId, t, r)));
+      jobs.push(deleteDoc(draftRef(roomId, t, r)));
+    }
+    for (const uid of uids) {
+      jobs.push(deleteDoc(doc(db, "rooms", roomId, "away", `${r}_${uid}`)));
+    }
+  }
+  for (const uid of uids) {
+    jobs.push(deleteDoc(guessRef(roomId, uid)));
+  }
+
+  // Orphans in fully-readable collections (safe to list).
+  for (const sub of ["rounds", "drafts", "secret", "away"] as const) {
+    try {
+      const snap = await getDocs(collection(db, "rooms", roomId, sub));
+      for (const d of snap.docs) jobs.push(deleteDoc(d.ref));
+    } catch {
+      /* list denied — known-path deletes above already cover the usual ids */
+    }
+  }
+
+  await Promise.allSettled(jobs);
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
     if (!snap.exists()) return;
-    const room = snap.data() as Room;
-    if (room.phase === "lobby") return;
+    const cur = snap.data() as Room;
+    if (cur.phase === "lobby") return;
     tx.update(roomRef(roomId), {
       phase: "lobby", round: 0, suddenDeath: false, paused: false,
       phaseEndsAt: null, phaseStartedAt: Date.now(),
@@ -989,7 +1024,7 @@ async function rematch({ roomId }: { roomId: string }) {
   const room = await loadRoom(roomId);
   requireHost(room, uid);
   if (room.phase !== "over") throw new GameError("failed-precondition", "اللعبة لم تنتهِ بعد.");
-  await returnToLobby(roomId);
+  await returnToLobby(roomId, room);
   return { ok: true };
 }
 
@@ -1001,7 +1036,11 @@ export const api = {
 };
 
 export function errText(e: unknown): string {
+  const code = (e as { code?: string })?.code || "";
   const m = (e as { message?: string })?.message || "";
+  if (code === "permission-denied" || /insufficient permissions|Missing or insufficient/i.test(m)) {
+    return "لا صلاحية لهذا الإجراء. حدّث الصفحة وحاول مرة أخرى.";
+  }
   if (!m || m === "INTERNAL") return "حدث خطأ. حاول مرة أخرى.";
   return m;
 }

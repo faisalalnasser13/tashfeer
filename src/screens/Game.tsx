@@ -6,6 +6,7 @@ import {
 import type { Room, TeamId } from "../lib/types";
 import { Header } from "../components/Header";
 import { KeysStrip } from "../components/KeysStrip";
+import { ScoreStrip } from "../components/ScoreStrip";
 import { Banner, Empty } from "../components/ui";
 import { EncryptPhase, GuessPhase, KeysPhase, RevealPhase, RoundEndPhase } from "./phases";
 import { GameOver, LogTab, TeamTab } from "./tabs";
@@ -139,7 +140,7 @@ export function Game({
           ["--chrome-h" as string]: `${chromeH || 48}px`,
         }}
       >
-        {/* Keys scroll with content — sticky chrome is timer-only. */}
+        {/* Keys + score scroll with content — sticky chrome is timer-only. */}
         <KeysStrip
           keys={priv?.keys ?? null}
           team={myTeam}
@@ -147,6 +148,7 @@ export function Game({
             amEncryptor && room.phase === "encrypt" && code ? code : null
           }
         />
+        <ScoreStrip room={room} myTeam={myTeam} />
         {tab === "play" && <PhaseView ctx={ctx} />}
         {tab === "log" && (
           <LogTab room={room} myTeam={myTeam} keys={priv?.keys ?? null} rounds={rounds} />
