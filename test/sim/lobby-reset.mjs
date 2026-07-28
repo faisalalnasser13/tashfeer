@@ -119,6 +119,14 @@ await it("host can reshuffle one team's keys without touching decks", async () =
   eq(S().get(`rooms/${roomId}/final/keys`).gold, afterGold, "final synced");
   eq(S().get(`rooms/${roomId}/secret/deck_gold`).deck, deckBefore, "deck untouched");
   eq(S().get(`rooms/${roomId}`).phase, "keys", "still keys");
+
+  // Host on gold can reshuffle silver without reading silver into a get that
+  // would be denied under production rules — update-only path.
+  await call(fns.shuffleTeamKeys, HOST, { roomId, team: "silver" });
+  assert(
+    JSON.stringify(S().get(`rooms/${roomId}/private/silver`).keys) !== JSON.stringify(beforeSilver),
+    "silver keys changed"
+  );
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

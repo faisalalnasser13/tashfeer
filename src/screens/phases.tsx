@@ -3,7 +3,6 @@ import { api, errText } from "../lib/firebase";
 import { normalizeAr, normalizeKey, ORDINALS } from "../lib/arabic";
 import type { AwayRecord, Draft, PlayerGuess, Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
-import { useTeamPrivate } from "../lib/hooks";
 import { Cartouche } from "../components/Cartouche";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
 import { Banner, Btn, Empty, Stamp, TEAM_HEX, TEAM_LABEL } from "../components/ui";
@@ -59,9 +58,7 @@ function HostContinue({
 export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
   const isHost = room.hostUid === uid;
   const color = TEAM_HEX[myTeam];
-  // Host may read both sides during keys (rules + shuffle UI).
-  const goldPriv = useTeamPrivate(room.id, isHost || myTeam === "gold" ? "gold" : null);
-  const silverPriv = useTeamPrivate(room.id, isHost || myTeam === "silver" ? "silver" : null);
+  const other = OTHER[myTeam];
   const [busy, setBusy] = useState<TeamId | null>(null);
   const [err, setErr] = useState("");
 
@@ -77,86 +74,65 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
     }
   }
 
-  if (!isHost) {
-    return (
-      <div className="px-5 py-6 fade-in pb-28">
-        <h2 className="text-[22px] font-semibold text-center mb-1.5">مفاتيحكم الأربعة</h2>
-        <p className="text-[15px] text-muted text-center mb-5 leading-relaxed">
-          لن تتغيّر طوال اللعبة. انتظروا المضيف للمتابعة.
-        </p>
-        <div className="space-y-2 max-w-sm mx-auto">
-          {(keys ?? ["", "", "", ""]).map((k, i) => (
-            <div
-              key={i}
-              className="card px-4 py-3 flex items-center gap-3.5 fade-in"
-              style={{ borderColor: `${color}44`, animationDelay: `${i * 90}ms` }}
-            >
-              <span className="num text-[22px] font-semibold w-8 text-center" style={{ color }}>
-                {i + 1}
-              </span>
-              <span className="text-[27px] font-medium">{k || "…"}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="px-5 py-6 fade-in pb-36">
-      <h2 className="text-[22px] font-semibold text-center mb-1.5">مفاتيح الفرق</h2>
+    <div className={`px-5 py-6 fade-in ${isHost ? "pb-36" : "pb-28"}`}>
+      <h2 className="text-[22px] font-semibold text-center mb-1.5">مفاتيحكم الأربعة</h2>
       <p className="text-[15px] text-muted text-center mb-5 leading-relaxed">
-        راجعوا الكلمات. يمكن خلط مفاتيح أي فريق قبل المتابعة.
+        {isHost
+          ? "راجعوا كلمات فريقكم. خلط فريق الخصم بموافقتهم — بدون عرض كلماتهم."
+          : "لن تتغيّر طوال اللعبة. انتظروا المضيف للمتابعة."}
       </p>
       {err && (
         <div className="mb-4 max-w-sm mx-auto">
           <Banner tone="warn">{err}</Banner>
         </div>
       )}
-      <div className="space-y-5 max-w-sm mx-auto">
-        {TEAMS.map((t) => {
-          const list =
-            (t === "gold" ? goldPriv?.keys : silverPriv?.keys)
-            ?? (t === myTeam ? keys : null)
-            ?? ["", "", "", ""];
-          const tc = TEAM_HEX[t];
-          return (
-            <div key={t}>
-              <div className="flex items-center justify-between mb-2 px-0.5">
-                <span className="font-display text-[15px]" style={{ color: tc }}>
-                  {TEAM_LABEL[t]}
-                  {t === myTeam && (
-                    <span className="text-[11px] text-muted ms-2">فريقك</span>
-                  )}
-                </span>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => reshuffle(t)}
-                  className="text-[12px] text-muted hover:text-parch disabled:opacity-40 transition"
-                >
-                  {busy === t ? "…" : "خلط"}
-                </button>
-              </div>
-              <div className="space-y-2">
-                {list.map((k, i) => (
-                  <div
-                    key={i}
-                    className="card px-4 py-2.5 flex items-center gap-3"
-                    style={{ borderColor: `${tc}44` }}
-                  >
-                    <span className="num text-[18px] font-semibold w-7 text-center" style={{ color: tc }}>
-                      {i + 1}
-                    </span>
-                    <span className="text-[22px] font-medium">{k || "…"}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+      <div className="space-y-2 max-w-sm mx-auto">
+        {(keys ?? ["", "", "", ""]).map((k, i) => (
+          <div
+            key={i}
+            className="card px-4 py-3 flex items-center gap-3.5 fade-in"
+            style={{ borderColor: `${color}44`, animationDelay: `${i * 90}ms` }}
+          >
+            <span className="num text-[22px] font-semibold w-8 text-center" style={{ color }}>
+              {i + 1}
+            </span>
+            <span className="text-[27px] font-medium">{k || "…"}</span>
+          </div>
+        ))}
       </div>
-      <HostContinue room={room} uid={uid} label="بدء التشفير" />
+
+      {isHost && (
+        <div className="max-w-sm mx-auto mt-5 space-y-2">
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => reshuffle(myTeam)}
+            className="w-full card px-4 py-3 flex items-center justify-between text-start disabled:opacity-40"
+            style={{ borderColor: `${color}44` }}
+          >
+            <span className="text-[13px]" style={{ color }}>
+              خلط مفاتيح {TEAM_LABEL[myTeam]}
+            </span>
+            <span className="text-[12px] text-muted">{busy === myTeam ? "…" : "خلط"}</span>
+          </button>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => reshuffle(other)}
+            className="w-full card px-4 py-3 flex items-center justify-between text-start disabled:opacity-40"
+            style={{ borderColor: `${TEAM_HEX[other]}44` }}
+          >
+            <span className="text-[13px]" style={{ color: TEAM_HEX[other] }}>
+              خلط مفاتيح {TEAM_LABEL[other]}
+              <span className="block text-[11px] text-muted mt-0.5">بدون عرض كلماتهم</span>
+            </span>
+            <span className="text-[12px] text-muted">{busy === other ? "…" : "خلط"}</span>
+          </button>
+        </div>
+      )}
+
+      {isHost && <HostContinue room={room} uid={uid} label="بدء التشفير" />}
     </div>
   );
 }
