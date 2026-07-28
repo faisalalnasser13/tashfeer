@@ -84,12 +84,12 @@ service cloud.firestore {
       allow read, write: if inRoom(roomId);
     }
 
-    // Each player's running theory about the opponent's four words.
-    // Stays inside the team.
+    // Each player's sheet of theories about the opponent's four words.
+    // Readable/writable by the whole team so one shared guess per digit.
     match /rooms/{roomId}/guesses/{docId} {
       allow read: if signedIn() && request.auth.uid in resource.data.members;
       allow create: if inRoom(roomId);
-      allow update: if signedIn() && request.auth.uid == resource.data.uid;
+      allow update: if signedIn() && request.auth.uid in resource.data.members;
       allow delete: if inRoom(roomId);
     }
 

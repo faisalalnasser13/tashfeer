@@ -516,9 +516,11 @@ export function GuessPhase(ctx: Ctx) {
           lanes={ownerLanes}
           team={active}
           guesses={amInterceptor ? guesses : undefined}
-          myUid={amInterceptor ? uid : undefined}
-          names={amInterceptor ? names : undefined}
-          onGuess={amInterceptor ? (n, t) => setGuessWord?.(uid, n, t) : undefined}
+          onGuess={
+            amInterceptor
+              ? (n, t) => setGuessWord?.(uid, n, t)
+              : undefined
+          }
         />
 
         {err && <Banner tone="warn">{err}</Banner>}

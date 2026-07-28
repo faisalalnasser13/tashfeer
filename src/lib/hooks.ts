@@ -156,6 +156,8 @@ export function useDraft(roomId: string | null, team: TeamId | null, round: numb
 /**
  * Every teammate's guess sheet, including your own. Rules keep these
  * inside the team; the opponent can't read them.
+ *
+ * Writes fan out to every teammate sheet so the note view stays shared.
  */
 export function useTeamGuesses(roomId: string | null, team: TeamId | null) {
   const [guesses, setGuesses] = useState<PlayerGuess[]>([]);
@@ -172,11 +174,18 @@ export function useTeamGuesses(roomId: string | null, team: TeamId | null) {
 
   const setWord = useMemo(() => {
     if (!roomId) return null;
-    return (uid: string, n: string, text: string) =>
-      updateDoc(doc(db, "rooms", roomId, "guesses", uid), {
-        [`words.${n}`]: text.slice(0, 24),
-      }).catch(() => {});
-  }, [roomId]);
+    return (uid: string, n: string, text: string) => {
+      const clipped = text.slice(0, 24);
+      const targets = new Set<string>([uid, ...guesses.map((g) => g.uid)]);
+      return Promise.all(
+        [...targets].map((u) =>
+          updateDoc(doc(db, "rooms", roomId, "guesses", u), {
+            [`words.${n}`]: clipped,
+          })
+        )
+      ).catch(() => {});
+    };
+  }, [roomId, guesses]);
 
   return { guesses, setWord };
 }
