@@ -223,9 +223,10 @@ await it("a silent encryptor costs their own team and shields them from intercep
   await call(fns.submitClues, r.encryptor.silver, { roomId, clues: ["b1", "b2", "b3"] });
   await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "encrypt", fromRound: 1 });
 
-  // silver reads gold's code perfectly — but there were no clues to read
-  const goldCode = S().get(`rooms/${roomId}/secret/gold_r1`).code;
-  S().get(`rooms/${roomId}/drafts/silver_r1`).intercept = [...goldCode];
+  // Round 1 is simultaneous — gold has nothing to guess; silver decrypts.
+  const silverCode = S().get(`rooms/${roomId}/secret/silver_r1`).code;
+  S().get(`rooms/${roomId}/drafts/silver_r1`).decrypt = [...silverCode];
+  S().get(`rooms/${roomId}/drafts/silver_r1`).submittedDecrypt = r.encryptor.silver;
   await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "guess", fromRound: 1 });
 
   const rec = S().get(`rooms/${roomId}/rounds/1`);
@@ -233,7 +234,7 @@ await it("a silent encryptor costs their own team and shields them from intercep
   eq(rec.data.gold.faulted, true, "silence must produce a fault");
   eq(rec.data.gold.wasBreached, false, "nothing to intercept");
   eq(room(roomId).teams.silver.score.breach, 0, "silver must not score off silence");
-  eq(room(roomId).activeTeam, "gold", "still on gold reveal");
+  eq(room(roomId).activeTeam, null, "round-1 dual reveal");
 });
 
 await it("round one awards no interception even on a perfect read", async () => {
@@ -243,17 +244,10 @@ await it("round one awards no interception even on a perfect read", async () => 
   await call(fns.submitClues, r.encryptor.silver, { roomId, clues: ["b1", "b2", "b3"] });
   await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "encrypt", fromRound: 1 });
 
-  // Gold half: owners decrypt correctly; silver "intercepts" perfectly (ignored in r1).
   const goldCode = S().get(`rooms/${roomId}/secret/gold_r1`).code;
-  S().get(`rooms/${roomId}/drafts/gold_r1`).decrypt = [...goldCode];
-  S().get(`rooms/${roomId}/drafts/silver_r1`).intercept = [...goldCode];
-  await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "guess", fromRound: 1 });
-  await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "reveal", fromRound: 1 });
-
-  // Silver half
   const silverCode = S().get(`rooms/${roomId}/secret/silver_r1`).code;
+  S().get(`rooms/${roomId}/drafts/gold_r1`).decrypt = [...goldCode];
   S().get(`rooms/${roomId}/drafts/silver_r1`).decrypt = [...silverCode];
-  S().get(`rooms/${roomId}/drafts/gold_r1`).intercept = [...silverCode];
   await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "guess", fromRound: 1 });
 
   const sc = room(roomId).teams;
@@ -261,6 +255,7 @@ await it("round one awards no interception even on a perfect read", async () => 
   eq(sc.silver.score.breach, 0, "silver scored in round 1");
   eq(sc.gold.score.fault, 0, "gold read correctly, should be clean");
   eq(sc.silver.score.fault, 0, "silver read correctly, should be clean");
+  eq(room(roomId).activeTeam, null, "dual reveal after simultaneous guess");
 });
 
 await it("understanding your own encryptor earns nothing", async () => {
@@ -272,9 +267,43 @@ await it("understanding your own encryptor earns nothing", async () => {
 
   S().get(`rooms/${roomId}/drafts/gold_r1`).decrypt =
     [...S().get(`rooms/${roomId}/secret/gold_r1`).code];
+  S().get(`rooms/${roomId}/drafts/silver_r1`).decrypt =
+    [...S().get(`rooms/${roomId}/secret/silver_r1`).code];
   await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "guess", fromRound: 1 });
   const sc = room(roomId).teams;
   eq(sc.gold.score.breach + sc.gold.score.fault, 0, "gold should have no tokens at all");
+});
+
+await it("a silent encryptor in later rounds skips guess and intercept", async () => {
+  const { roomId, HOST } = await freshGame();
+  const r = room(roomId);
+  await call(fns.submitClues, r.encryptor.gold, { roomId, clues: ["a1", "a2", "a3"] });
+  await call(fns.submitClues, r.encryptor.silver, { roomId, clues: ["b1", "b2", "b3"] });
+  await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "encrypt", fromRound: 1 });
+  S().get(`rooms/${roomId}/drafts/gold_r1`).decrypt =
+    [...S().get(`rooms/${roomId}/secret/gold_r1`).code];
+  S().get(`rooms/${roomId}/drafts/silver_r1`).decrypt =
+    [...S().get(`rooms/${roomId}/secret/silver_r1`).code];
+  for (const p of ["guess", "reveal", "roundEnd"]) {
+    await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: p, fromRound: 1 });
+  }
+  eq(room(roomId).round, 2, "did not reach round 2");
+
+  const r2 = room(roomId);
+  for (const t of ["gold", "silver"]) {
+    fbs.__setUser(r2.encryptor[t]);
+    await eng.ensureCode(roomId, t, 2);
+  }
+  await call(fns.submitClues, r2.encryptor.silver, { roomId, clues: ["c1", "c2", "c3"] });
+  await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "encrypt", fromRound: 2 });
+
+  eq(room(roomId).phase, "reveal", "silent gold should skip guess");
+  eq(room(roomId).activeTeam, "gold", "revealing the silent half");
+  const rec = S().get(`rooms/${roomId}/rounds/2`);
+  eq(rec.data.gold.noClues, true, "gold marked silent");
+  eq(rec.data.gold.faulted, true, "miscommunication fault");
+  eq(rec.data.gold.wasBreached, false, "no interception on silence");
+  eq(room(roomId).teams.silver.score.breach, 0, "no breach token from silence");
 });
 
 console.log("\nnegative control");

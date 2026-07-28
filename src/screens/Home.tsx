@@ -73,18 +73,18 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
           <input
             className={`${inputCls} num text-center tracking-[0.35em] font-display text-[20px] uppercase`}
             value={code}
-            maxLength={5}
+            maxLength={4}
             dir="ltr"
             inputMode="text"
             autoCapitalize="characters"
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-            placeholder="ABCDE"
+            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
+            placeholder="ABCD"
           />
           <Btn
             id="join-btn"
             variant={invited ? "primary" : "ghost"}
             className="shrink-0 px-6"
-            disabled={!ready || code.length < 5 || busy !== ""}
+            disabled={!ready || code.length < 4 || busy !== ""}
             onClick={join}
           >
             {busy === "join" ? "…" : "انضم"}

@@ -155,24 +155,35 @@ await it("a second tap does not overwrite who sent it", async () => {
   eq(S().get(draft).submittedDecrypt, a, "the first sender should be recorded");
 });
 
-await it("round-1 gold half advances when only the owners have sent", async () => {
-  // Official: round 1 has no interception, so the opposing team does nothing.
+await it("round-1 advances only when both teams have sent their decrypt", async () => {
+  // Round 1 is simultaneous — both owners must decrypt; no interception.
   const { roomId, draft, a } = await atGuessPhase();
   clientSetCode(draft, "decrypt", [1, 2, 3]);
   clientSubmit(draft, a, "decrypt");
+  await throws(
+    () => call(fns.advancePhase, a, { roomId, fromPhase: "guess", fromRound: 1 }),
+    "الوقت"
+  );
+  const silverDraft = `rooms/${roomId}/drafts/silver_r1`;
+  const silver = S().get(`rooms/${roomId}`).teams.silver.members[0];
+  clientSetCode(silverDraft, "decrypt", [1, 2, 3]);
+  clientSubmit(silverDraft, silver, "decrypt");
   await call(fns.advancePhase, a, { roomId, fromPhase: "guess", fromRound: 1 });
-  eq(S().get(`rooms/${roomId}`).phase, "reveal", "did not advance on owner submit");
-  eq(S().get(`rooms/${roomId}`).activeTeam, "gold", "wrong half revealed");
+  eq(S().get(`rooms/${roomId}`).phase, "reveal", "did not advance when both ready");
+  eq(S().get(`rooms/${roomId}`).activeTeam, null, "round-1 dual reveal");
 });
 
-await it("after gold reveal, silver half opens", async () => {
+await it("after round-1 dual reveal, round ends (no sequential silver half)", async () => {
   const { roomId, draft, a, HOST } = await atGuessPhase();
+  const silverDraft = `rooms/${roomId}/drafts/silver_r1`;
+  const silver = S().get(`rooms/${roomId}`).teams.silver.members[0];
   clientSetCode(draft, "decrypt", [1, 2, 3]);
   clientSubmit(draft, a, "decrypt");
+  clientSetCode(silverDraft, "decrypt", [1, 2, 3]);
+  clientSubmit(silverDraft, silver, "decrypt");
   await call(fns.advancePhase, a, { roomId, fromPhase: "guess", fromRound: 1 });
   await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "reveal", fromRound: 1 });
-  eq(S().get(`rooms/${roomId}`).phase, "guess", "silver half did not open");
-  eq(S().get(`rooms/${roomId}`).activeTeam, "silver", "active team should be silver");
+  eq(S().get(`rooms/${roomId}`).phase, "roundEnd", "should end the round after dual reveal");
 });
 
 console.log("\nediting after the deadline");
@@ -238,7 +249,7 @@ await it("every player starts with an empty sheet", async () => {
 await it("a sheet survives the round boundary", async () => {
   const { roomId, HOST, a, draft } = await atGuessPhase();
   S().get(`rooms/${roomId}/guesses/${a}`).words["2"] = "بحر";
-  for (const p of ["guess", "reveal", "guess", "reveal", "roundEnd"]) {
+  for (const p of ["guess", "reveal", "roundEnd"]) {
     await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: p, fromRound: 1 });
   }
   eq(S().get(`rooms/${roomId}`).round, 2, "should be in round 2");

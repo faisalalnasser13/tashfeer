@@ -12,7 +12,7 @@ function inviteFromUrl(): string | null {
   const r = new URLSearchParams(location.search).get("r");
   if (!r) return null;
   const clean = r.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return clean.length >= 5 ? clean.slice(0, 5) : null;
+  return clean.length >= 4 ? clean.slice(0, 4) : null;
 }
 
 export default function App() {
@@ -23,7 +23,7 @@ export default function App() {
 
   useEffect(() => startVersionWatch(), []);
 
-  // Deep link /?r=ABCDE — stash the code and drop any different saved room
+  // Deep link /?r=ABCD — stash the code and drop any different saved room
   // so the join screen actually appears (stale tashfeer.room used to win).
   useEffect(() => {
     const r = inviteFromUrl();

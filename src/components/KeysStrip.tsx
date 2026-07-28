@@ -51,10 +51,10 @@ export function KeysStrip({
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 overflow-x-auto">
+        <div className="flex items-center gap-1 px-2.5 py-1 overflow-x-auto">
           {keys.map((k, i) => (
-            <span key={i} className="chip shrink-0" style={{ borderColor: `${color}3A` }}>
-              <span className="num text-[14px] font-semibold" style={{ color }}>
+            <span key={i} className="chip shrink-0 !py-0.5 !px-1.5 !text-[12px]" style={{ borderColor: `${color}3A` }}>
+              <span className="num text-[12px] font-semibold" style={{ color }}>
                 {i + 1}
               </span>
               {k}

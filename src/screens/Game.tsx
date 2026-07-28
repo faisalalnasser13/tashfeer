@@ -59,11 +59,16 @@ export function Game({
   const locallyDone =
     room.phase === "encrypt"
       ? room.cluesIn.gold === true && room.cluesIn.silver === true
-      : room.phase === "guess"
+      : room.phase === "guess" && myTeam
       ? (() => {
+          // Round 1: both teams decrypt at once. Silent encryptor → nothing to send.
+          if (room.round < 2) {
+            const mine = room.clues[myTeam];
+            if (!mine || mine.length !== 3) return true;
+            return Boolean(draft?.submittedDecrypt);
+          }
           const active = room.activeTeam ?? "gold";
           if (myTeam === active) return Boolean(draft?.submittedDecrypt);
-          if (room.round < 2) return true; // round-1 spectators; server only needs owners
           return Boolean(draft?.submittedIntercept);
         })()
       : false;
@@ -120,9 +125,8 @@ export function Game({
         style={{ top: visualTop }}
       >
         <Header room={room} remaining={remaining} pct={pct} myTeam={myTeam} />
-        <KeysStrip keys={priv?.keys ?? null} team={myTeam} />
         {room.paused && (
-          <div className="px-4 py-2">
+          <div className="px-4 py-1.5">
             <Banner tone="warn">أوقف المضيف اللعبة مؤقتًا.</Banner>
           </div>
         )}
@@ -132,9 +136,11 @@ export function Game({
         className="flex-1 min-h-0 scroll-y"
         style={{
           paddingTop: chromeH || undefined,
-          ["--chrome-h" as string]: `${chromeH || 120}px`,
+          ["--chrome-h" as string]: `${chromeH || 48}px`,
         }}
       >
+        {/* Keys scroll with content — sticky chrome is timer-only. */}
+        <KeysStrip keys={priv?.keys ?? null} team={myTeam} />
         {tab === "play" && <PhaseView ctx={ctx} />}
         {tab === "log" && (
           <LogTab room={room} myTeam={myTeam} keys={priv?.keys ?? null} rounds={rounds} />

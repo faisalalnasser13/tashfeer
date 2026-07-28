@@ -149,41 +149,30 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
   }
 
   const lanes = buildLanes(rounds, myTeam, keys);
-  const editing = focusIdx != null;
 
   return (
-    <div className="px-4 py-3 fade-in pb-8">
-      {/* Slim code strip while typing frees room for past clues above the keyboard. */}
-      {editing ? (
-        <div className="flex items-center gap-2 mb-3 px-0.5">
-          <span className="text-[11px] text-muted shrink-0">الشفرة</span>
-          <div className="flex gap-1.5">
-            {(code ?? [null, null, null]).map((d, i) => (
-              <span
-                key={i}
-                className={`num text-[14px] font-semibold w-7 h-7 grid place-items-center rounded-md border ${
-                  focusIdx === i ? "border-gold text-parch" : "border-line text-muted"
-                }`}
-              >
-                {d ?? "—"}
-              </span>
-            ))}
-          </div>
+    <div className="px-3 pt-2 pb-4 fade-in">
+      {/* Always a slim digit strip — the big cartouche forced too much scroll. */}
+      <div className="flex items-center gap-2 mb-2 px-0.5">
+        <span className="text-[11px] text-muted shrink-0">الشفرة</span>
+        <div className="flex gap-1">
+          {(code ?? [null, null, null]).map((d, i) => (
+            <span
+              key={i}
+              className={`num text-[13px] font-semibold w-6 h-6 grid place-items-center rounded border ${
+                focusIdx === i ? "border-gold text-parch" : "border-line text-muted"
+              }`}
+            >
+              {d ?? "—"}
+            </span>
+          ))}
         </div>
-      ) : (
-        <div className="mb-3">
-          <p className="text-[12px] text-muted mb-2">شفرتك — اجعل فريقك يقولها</p>
-          {code ? (
-            <Cartouche values={code} tone={myTeam} />
-          ) : (
-            <div className="card px-4 py-6 text-center text-[14px] text-muted">
-              جارٍ سحب الشفرة…
-            </div>
-          )}
-        </div>
-      )}
+        {!code && (
+          <span className="text-[11px] text-muted">جارٍ السحب…</span>
+        )}
+      </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {[0, 1, 2].map((i) => {
           const target = code?.[i];
           const word = target && keys ? keys[target - 1] : null;
@@ -191,29 +180,31 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
           const past = target ? lanes[target - 1].clues : [];
           return (
             <div key={i} data-clue-block className="clue-block">
-              <div className="flex items-center gap-2 mb-1.5 px-0.5">
-                <span className="text-[11px] text-muted">التلميح {ORDINALS[i]}</span>
-                <span className="flex-1 h-px bg-line" />
+              <div className="flex items-center gap-1.5 mb-1 px-0.5">
+                <span className="text-[10px] text-muted shrink-0">{ORDINALS[i]}</span>
                 {word && (
-                  <span className="chip !py-0.5 !text-[13px]" style={{ borderColor: `${TEAM_HEX[myTeam]}55` }}>
-                    <span className="num text-[12px]" style={{ color: TEAM_HEX[myTeam] }}>{target}</span>
+                  <span
+                    className="chip !py-0 !px-1.5 !text-[12px]"
+                    style={{ borderColor: `${TEAM_HEX[myTeam]}55` }}
+                  >
+                    <span className="num text-[11px]" style={{ color: TEAM_HEX[myTeam] }}>{target}</span>
                     {word}
                   </span>
                 )}
+                <span className="flex-1 h-px bg-line" />
               </div>
 
               {past.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1 mb-1.5 px-0.5">
-                  <span className="text-[10px] text-muted shrink-0">سابقًا</span>
+                <div className="flex flex-wrap items-center gap-1 mb-1 px-0.5">
                   {past.map((c, k) => (
-                    <span key={k} className="chip !py-0.5 !px-2 !text-[12px]">
-                      <span className="num text-[10px] text-muted">{c.round}</span>
+                    <span key={k} className="chip !py-0 !px-1.5 !text-[11px]">
+                      <span className="num text-[9px] text-muted">{c.round}</span>
                       {c.text}
                     </span>
                   ))}
                 </div>
               ) : (
-                <p className="text-[10px] text-muted mb-1.5 px-0.5">لم تلمّحوا لهذه الكلمة بعد</p>
+                <p className="text-[10px] text-muted mb-1 px-0.5">لا سابق</p>
               )}
 
               <input
@@ -232,16 +223,16 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
                     setFocusIdx((cur) => (cur === i ? null : cur));
                   }, 80);
                 }}
-                placeholder="كلمة أو عبارة"
-                className="w-full bg-[#0C1330] rounded-lg px-3 py-2 font-medium text-parch
+                placeholder="تلميح"
+                className="w-full bg-[#0C1330] rounded-md px-2.5 py-1.5 font-medium text-parch
                            placeholder:text-[#4A5680] focus:outline-none transition border"
                 style={{
                   borderColor: issue ? "#D6564A" : "#25335F",
-                  // 16px avoids iOS zoom-on-focus; still much smaller than the old 24px.
+                  // 16px avoids iOS zoom-on-focus.
                   fontSize: "16px",
                 }}
               />
-              {issue && <p className="text-[11px] text-alarm mt-1 px-1">{issue}</p>}
+              {issue && <p className="text-[10px] text-alarm mt-0.5 px-0.5">{issue}</p>}
             </div>
           );
         })}
@@ -249,19 +240,12 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds }: Ctx) {
 
       {err && <Banner tone="warn">{err}</Banner>}
 
-      <Btn className="w-full mt-3" disabled={!clean || busy} onClick={send}>
+      <Btn className="w-full mt-2.5 !py-2.5" disabled={!clean || busy} onClick={send}>
         {busy ? "جارٍ الإرسال…" : "أرسل التلميحات"}
       </Btn>
-      <p className="text-[11.5px] text-muted text-center leading-relaxed mt-2">
-        ممنوع التلميح للهجاء أو عدد الحروف أو الترتيب على الشاشة.
+      <p className="text-[10.5px] text-muted text-center leading-snug mt-1.5">
+        ممنوع التلميح للهجاء أو عدد الحروف أو الترتيب.
       </p>
-
-      {!editing && (
-        <div className="mt-4">
-          <SectionLine>سجلّ فريقكم كاملًا</SectionLine>
-          <ClueGrid lanes={lanes} team={myTeam} />
-        </div>
-      )}
     </div>
   );
 }
@@ -310,10 +294,11 @@ function EncryptWaiting({ room, myTeam, rounds, keys }: Ctx) {
 
 export function GuessPhase(ctx: Ctx) {
   const { room, uid, myTeam, keys, rounds, draft, actions, guesses, setGuessWord } = ctx;
-  const active = room.activeTeam ?? "gold";
+  // Round 1: both teams decrypt simultaneously — each owns their own half.
+  const simultaneous = room.round < 2;
+  const active = simultaneous ? myTeam : (room.activeTeam ?? "gold");
   const amOwner = myTeam === active;
-  const amInterceptor = myTeam === OTHER[active];
-  const canIntercept = room.round >= 2;
+  const amInterceptor = !simultaneous && myTeam === OTHER[active];
   const amEncryptor = room.encryptor[myTeam] === uid;
 
   const [err, setErr] = useState("");
@@ -329,7 +314,7 @@ export function GuessPhase(ctx: Ctx) {
     }
     setLocalDecrypt(draft.decrypt);
     setLocalIntercept(draft.intercept);
-  }, [draft, active]);
+  }, [draft, active, simultaneous]);
 
   const activeClues = room.clues[active] ?? [];
   const decrypt = localDecrypt ?? draft?.decrypt ?? [null, null, null];
@@ -361,7 +346,6 @@ export function GuessPhase(ctx: Ctx) {
   async function send() {
     if (!actions || !complete || busy || sent) return;
     if (amOwner && amEncryptor) return;
-    if (amInterceptor && !canIntercept) return;
     setBusy(true); setErr("");
     try {
       await actions.submit(uid, field);
@@ -372,19 +356,14 @@ export function GuessPhase(ctx: Ctx) {
     }
   }
 
-  // Round 1: opposing team has no interception — they just wait.
-  if (amInterceptor && !canIntercept) {
+  // Silent encryptor: no clue set → skip this team's guess entirely.
+  if (amOwner && activeClues.length !== 3) {
     return (
       <div className="px-4 py-8 fade-in">
         <Empty
-          title={`دور ${TEAM_LABEL[active]}`}
-          body="الجولة الأولى بلا اعتراض. انتظروا الفريق الآخر يفكّ شفرته."
+          title="لم تُعطَ تلميحات"
+          body="مُشفِّركم لم يقدّم تلميحات — سوء تفاهم. لا اعتراض، واللعبة تتجاوز فكّ الشفرة لهذا الفريق."
         />
-        <p className="text-center text-[13px] text-muted mt-2">
-          المُشفِّر: {room.encryptor[active]
-            ? room.players[room.encryptor[active]!]?.name
-            : "—"}
-        </p>
       </div>
     );
   }
@@ -393,7 +372,9 @@ export function GuessPhase(ctx: Ctx) {
     <div className="pb-36">
       <div className="px-4 pt-3 space-y-3 fade-in">
         <Banner>
-          {amOwner
+          {simultaneous
+            ? "الجولة الأولى — الفريقان يفكّان شفرتيهما معًا (بلا اعتراض)"
+            : amOwner
             ? `فكّوا شفرة ${TEAM_LABEL[active]} — تلميحات مُشفِّركم`
             : `اعترضوا على شفرة ${TEAM_LABEL[active]}`}
         </Banner>
@@ -403,10 +384,6 @@ export function GuessPhase(ctx: Ctx) {
             أنت كتبت هذه التلميحات. لا تشارك في الفكّ ولا تُظهر أي ردّ فعل.
           </Banner>
         )}
-
-        {activeClues.length !== 3 ? (
-          <Banner tone="warn">لم تصل تلميحات هذا الفريق قبل انتهاء الوقت.</Banner>
-        ) : null}
 
         <Cartouche
           values={values}
@@ -450,7 +427,8 @@ export function GuessPhase(ctx: Ctx) {
         {sent ? (
           <div className="flex items-center justify-center py-2">
             <span className="text-[13.5px] text-muted">
-              أرسلها {room.players[sentBy!]?.name ?? "زميل"} — بانتظار الطرف الآخر
+              أرسلها {room.players[sentBy!]?.name ?? "زميل"}
+              {simultaneous ? " — بانتظار الفريق الآخر" : " — بانتظار الطرف الآخر"}
             </span>
           </div>
         ) : amOwner && amEncryptor ? (
@@ -489,29 +467,38 @@ function SectionLine({ children }: { children: React.ReactNode }) {
 /* ================================================================== */
 
 export function RevealPhase({ room, uid, myTeam, rounds }: Ctx) {
-  const active = room.activeTeam ?? "gold";
   const rec = rounds.find((r) => r.round === room.round);
+  // Round 1 (and any dual reveal): activeTeam is null — show both sides.
+  const dual = room.activeTeam == null;
+  const teams: TeamId[] = dual ? TEAMS : [room.activeTeam ?? "gold"];
 
-  if (!rec?.data?.[active]) return <Empty title="جارٍ الكشف…" />;
+  if (!rec || teams.some((t) => !rec.data?.[t])) {
+    return <Empty title="جارٍ الكشف…" />;
+  }
 
   return (
     <div className="px-4 py-4 space-y-3 pb-28">
-      <RevealCard
-        team={active}
-        rec={rec}
-        room={room}
-        mine={active === myTeam}
-        visible
-      />
+      {teams.map((t) => (
+        <RevealCard
+          key={t}
+          team={t}
+          rec={rec}
+          room={room}
+          mine={t === myTeam}
+          visible
+          compact={dual}
+        />
+      ))}
       <HostContinue room={room} uid={uid} label="متابعة" />
     </div>
   );
 }
 
 function RevealCard({
-  team, rec, room, mine, visible,
+  team, rec, room, mine, visible, compact,
 }: {
-  team: TeamId; rec: RoundRecord; room: Room; mine: boolean; visible: boolean;
+  team: TeamId; rec: RoundRecord; room: Room; mine: boolean;
+  visible: boolean; compact?: boolean;
 }) {
   const side = rec.data[team];
   const opp = OTHER[team];
@@ -522,9 +509,12 @@ function RevealCard({
   }
 
   return (
-    <div className="card p-4 fade-in" style={{ borderColor: `${color}44` }}>
-      <div className="flex items-center justify-between mb-3 min-h-[2rem]">
-        <span className="font-display text-[16px]" style={{ color }}>
+    <div
+      className={`card fade-in ${compact ? "p-3" : "p-4"}`}
+      style={{ borderColor: `${color}44` }}
+    >
+      <div className={`flex items-center justify-between ${compact ? "mb-2" : "mb-3"} min-h-[2rem]`}>
+        <span className={`font-display ${compact ? "text-[15px]" : "text-[16px]"}`} style={{ color }}>
           شفرة {TEAM_LABEL[team]}
           {mine && <span className="text-[11px] text-muted ms-2">فريقكم</span>}
         </span>
@@ -536,7 +526,7 @@ function RevealCard({
 
       {side.noClues ? (
         <Banner tone="warn">
-          لم تصل تلميحات هذا الفريق قبل انتهاء الوقت — خلل تلقائي.
+          لم يقدّم المُشفِّر تلميحات — سوء تفاهم (خلل). لا اعتراض.
         </Banner>
       ) : (
         <>

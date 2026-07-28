@@ -49,7 +49,8 @@ export interface Room {
   encryptor: Record<TeamId, string | null>;
   /**
    * Which team's code is being guessed / revealed right now.
-   * Null outside guess/reveal. Gold always goes first (official White).
+   * Null outside guess/reveal, or during round-1 simultaneous guess/reveal
+   * (both teams at once — no interception). From round 2, gold then silver.
    */
   activeTeam: TeamId | null;
   winner: TeamId | "draw" | null;

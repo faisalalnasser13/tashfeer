@@ -8,8 +8,8 @@ export type Phase =
   | "lobby"
   | "keys"     // keyword glance at deal
   | "encrypt"  // both encryptors write clues (simultaneous)
-  | "guess"    // one team's code: owners decrypt, opponents intercept
-  | "reveal"   // that team's code is revealed and scored
+  | "guess"    // decrypt (+ intercept from r2); round 1 is simultaneous
+  | "reveal"   // code(s) revealed and scored (10s)
   | "roundEnd" // scoreboard after both halves
   | "over";
 

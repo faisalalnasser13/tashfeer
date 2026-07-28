@@ -93,25 +93,32 @@ async function playGame(opts = {}) {
     }
 
     if (r.phase === "guess") {
-      const active = r.activeTeam || "gold";
-      const opp = active === "gold" ? "silver" : "gold";
-      const code = S().get(`rooms/${roomId}/secret/${active}_r${r.round}`)?.code;
       const wrong = (c) => (c ? [c[1], c[0], c[2]] : [1, 2, 3]);
+      // Round 1: both teams decrypt at once (activeTeam null).
+      const targets = r.round < 2 && !r.activeTeam
+        ? ["gold", "silver"]
+        : [r.activeTeam || "gold"];
 
-      const ownerPath = `rooms/${roomId}/drafts/${active}_r${r.round}`;
-      const oppPath = `rooms/${roomId}/drafts/${opp}_r${r.round}`;
-      const owner = S().get(ownerPath);
-      const interceptor = S().get(oppPath);
-      check(owner, "missing owner draft", { active, round: r.round });
-      check(interceptor, "missing interceptor draft", { opp, round: r.round });
+      for (const active of targets) {
+        const opp = active === "gold" ? "silver" : "gold";
+        const clues = r.clues?.[active];
+        if (!clues || clues.length !== 3) continue; // silent — skipped
+        const code = S().get(`rooms/${roomId}/secret/${active}_r${r.round}`)?.code;
+        const ownerPath = `rooms/${roomId}/drafts/${active}_r${r.round}`;
+        const oppPath = `rooms/${roomId}/drafts/${opp}_r${r.round}`;
+        const owner = S().get(ownerPath);
+        const interceptor = S().get(oppPath);
+        check(owner, "missing owner draft", { active, round: r.round });
+        check(interceptor, "missing interceptor draft", { opp, round: r.round });
 
-      if (owner) {
-        owner.decrypt = Math.random() < decryptAcc ? [...code] : wrong(code);
-        if (useReadyPath) owner.submittedDecrypt = r.teams[active].members[0];
-      }
-      if (interceptor && r.round >= 2) {
-        interceptor.intercept = Math.random() < interceptAcc ? [...code] : wrong(code);
-        if (useReadyPath) interceptor.submittedIntercept = r.teams[opp].members[0];
+        if (owner) {
+          owner.decrypt = Math.random() < decryptAcc ? [...code] : wrong(code);
+          if (useReadyPath) owner.submittedDecrypt = r.teams[active].members[0];
+        }
+        if (interceptor && r.round >= 2) {
+          interceptor.intercept = Math.random() < interceptAcc ? [...code] : wrong(code);
+          if (useReadyPath) interceptor.submittedIntercept = r.teams[opp].members[0];
+        }
       }
     }
 
