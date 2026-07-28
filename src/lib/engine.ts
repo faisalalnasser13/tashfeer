@@ -31,7 +31,7 @@ import {
   allCodes, shuffle, codesEqual, evaluate, encodeCode, decodeCode,
 } from "./rules";
 import { normalizeAr, normalizeKey } from "./arabic";
-import { dealWords, dealWordsExcluding } from "./words";
+import { dealWords } from "./words";
 
 /* ------------------------------------------------------------------ */
 /* plumbing                                                           */
@@ -371,10 +371,10 @@ async function startGame({ roomId }: { roomId: string }) {
 }
 
 /**
- * Host-only, keys phase only. Redeals one team's four keywords.
- * Never reads the opposing private doc — host must not load those
- * words into the client. Exclusion uses only the host's own keys.
- * `final/keys` is updated without a read (sealed until game over).
+ * Host-only, keys phase only. Draws four fresh words from the bank for
+ * one team. Teams are independent — no exclusion of the other side, no
+ * reordering of the current four. Codes/decks stay valid (digit slots).
+ * Updates `final/keys` without reading it (sealed until game over).
  */
 async function shuffleTeamKeys({ roomId, team }: { roomId: string; team: string }) {
   const uid = me();
@@ -387,10 +387,8 @@ async function shuffleTeamKeys({ roomId, team }: { roomId: string; team: string 
   if (room.phase !== "keys") {
     throw new GameError("failed-precondition", "خلط المفاتيح قبل بدء التشفير فقط.");
   }
-  const myTeam = room.players[uid]?.team as TeamId | null;
-  if (!myTeam) {
-    throw new GameError("failed-precondition", "انضم إلى فريق قبل خلط المفاتيح.");
-  }
+
+  const fresh = dealWords(4);
 
   await runTransaction(db, async (tx) => {
     const roomSnap = await tx.get(roomRef(roomId));
@@ -398,18 +396,6 @@ async function shuffleTeamKeys({ roomId, team }: { roomId: string; team: string 
     const cur = roomSnap.data() as Room;
     if (cur.phase !== "keys") return;
 
-    // Own private only — readable because host is a member.
-    const ownPriv = await tx.get(privateRef(roomId, myTeam));
-    if (!ownPriv.exists()) {
-      throw new GameError("failed-precondition", "مفاتيح فريقك غير جاهزة.");
-    }
-
-    const exclude = new Set<string>();
-    for (const w of (ownPriv.data()?.keys as string[] | undefined) ?? []) {
-      exclude.add(normalizeKey(w));
-    }
-
-    const fresh = dealWordsExcluding(4, exclude);
     tx.update(privateRef(roomId, side), { keys: fresh });
     tx.update(doc(db, "rooms", roomId, "final", "keys"), { [side]: fresh });
   });
