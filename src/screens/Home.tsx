@@ -92,11 +92,6 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
           </Btn>
         </div>
       </div>
-
-      <div className="flex-1" />
-      <p className="text-center text-[11px] text-muted/70 mt-6 mb-1">
-        مقتبسة من لعبة Decrypto لـ Le Scorpion Masqué
-      </p>
     </div>
   );
 }

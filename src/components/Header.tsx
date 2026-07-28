@@ -24,14 +24,21 @@ export function Header({
   myTeam?: TeamId | null;
 }) {
   const showTimer = phaseShowsTimer(room.phase) && (room.settings.useTimer || remaining != null);
-  const crit = showTimer && remaining != null && remaining <= 10_000;
-  const warn = showTimer && remaining != null && remaining <= 30_000;
+  // Thresholds use visible remaining (phaseEndsAt), not the hidden grace.
+  const crit = showTimer && remaining != null && remaining <= 5_000;
+  const warn = showTimer && remaining != null && remaining <= 15_000 && !crit;
   const roundLabel = room.suddenDeath ? "جولة حاسمة" : `الجولة ${room.round}`;
 
   return (
     <header
       className={`backdrop-blur-sm hairline transition-colors duration-200 ${
-        crit && !room.paused ? "header-crit" : "bg-ink/95"
+        room.paused
+          ? "bg-ink/95"
+          : crit
+          ? "header-crit"
+          : warn
+          ? "header-warn"
+          : "bg-ink/95"
       }`}
       style={{ paddingTop: "var(--safe-t)" }}
     >
@@ -47,7 +54,7 @@ export function Header({
                 : crit
                 ? "text-[24px] text-parch leading-none header-crit-clock"
                 : warn
-                ? "text-[20px] text-[#E09A2E] leading-none"
+                ? "text-[22px] text-[#E09A2E] leading-none header-warn-clock"
                 : "text-[20px] text-parch leading-none"
             }`}
             aria-live="polite"

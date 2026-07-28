@@ -387,32 +387,68 @@ textarea {
 }
 .timer-warn {
   background: #e09a2e;
+  animation: timer-warn-pulse 1.6s ease-in-out infinite;
 }
 .timer-crit {
   background: #f0e8d8;
-  animation: pulse 0.55s ease-in-out infinite;
+  animation: pulse 0.35s ease-in-out infinite;
 }
 @keyframes pulse {
   50% {
-    opacity: 0.35;
+    opacity: 0.25;
+  }
+}
+@keyframes timer-warn-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.header-warn {
+  background: #2a1c0c;
+  animation: header-warn-flash 1.8s ease-in-out infinite;
+}
+@keyframes header-warn-flash {
+  0%,
+  100% {
+    background-color: #1a140c;
+  }
+  50% {
+    background-color: #3d2810;
+  }
+}
+.header-warn-clock {
+  animation: clock-warn-flash 1.8s ease-in-out infinite;
+}
+@keyframes clock-warn-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
   }
 }
 
 .header-crit {
   background: #6b1c18;
-  animation: header-flash 0.7s ease-in-out infinite;
+  animation: header-flash 0.38s ease-in-out infinite;
 }
 @keyframes header-flash {
   0%,
   100% {
-    background-color: #6b1c18;
+    background-color: #4a0e0c;
   }
   50% {
-    background-color: #a52822;
+    background-color: #c42a22;
   }
 }
 .header-crit-clock {
-  animation: clock-flash 0.7s ease-in-out infinite;
+  animation: clock-flash 0.38s ease-in-out infinite;
 }
 @keyframes clock-flash {
   0%,
@@ -421,8 +457,8 @@ textarea {
     transform: scale(1);
   }
   50% {
-    opacity: 0.72;
-    transform: scale(1.06);
+    opacity: 0.55;
+    transform: scale(1.1);
   }
 }
 
