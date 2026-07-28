@@ -37,7 +37,7 @@ import { dealWords } from "./words";
 /* plumbing                                                           */
 /* ------------------------------------------------------------------ */
 
-const ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no I L O 0 1
+const ID_ALPHABET = "0123456789";
 /** Small skew so a slightly-fast phone isn't rejected at the true deadline. */
 const CLOCK_SKEW_MS = 250;
 /**
@@ -192,7 +192,7 @@ async function createRoom({ name, avatar }: { name: string; avatar: number }) {
 
 async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string; avatar: number }) {
   const uid = me();
-  const id = String(roomId || "").toUpperCase().trim();
+  const id = String(roomId || "").replace(/\D/g, "").slice(0, 4);
   const clean = String(name || "").trim().slice(0, 16);
   if (!clean) throw new GameError("invalid-argument", "اكتب اسمك.");
 

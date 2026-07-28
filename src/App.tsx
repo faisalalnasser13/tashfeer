@@ -11,7 +11,7 @@ import { VersionBadge } from "./components/VersionBadge";
 function inviteFromUrl(): string | null {
   const r = new URLSearchParams(location.search).get("r");
   if (!r) return null;
-  const clean = r.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const clean = r.replace(/\D/g, "");
   return clean.length >= 4 ? clean.slice(0, 4) : null;
 }
 
@@ -23,7 +23,7 @@ export default function App() {
 
   useEffect(() => startVersionWatch(), []);
 
-  // Deep link /?r=ABCD — stash the code and drop any different saved room
+  // Deep link /?r=1234 — stash the code and drop any different saved room
   // so the join screen actually appears (stale tashfeer.room used to win).
   useEffect(() => {
     const r = inviteFromUrl();

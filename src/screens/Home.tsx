@@ -29,7 +29,7 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
     setErr(""); setBusy("join");
     try {
       const { roomId } = await api.joinRoom({
-        roomId: code.trim().toUpperCase(), name: name.trim(), avatar: 0,
+        roomId: code.replace(/\D/g, "").slice(0, 4), name: name.trim(), avatar: 0,
       });
       onEnter(roomId);
     } catch (e) { setErr(errText(e)); setBusy(""); }
@@ -71,14 +71,15 @@ export function Home({ onEnter }: { onEnter: (roomId: string) => void }) {
 
         <div className="flex gap-2">
           <input
-            className={`${inputCls} num text-center tracking-[0.35em] font-display text-[20px] uppercase`}
+            className={`${inputCls} num text-center tracking-[0.35em] font-display text-[20px]`}
             value={code}
             maxLength={4}
             dir="ltr"
-            inputMode="text"
-            autoCapitalize="characters"
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
-            placeholder="ABCD"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="one-time-code"
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            placeholder="1234"
           />
           <Btn
             id="join-btn"
