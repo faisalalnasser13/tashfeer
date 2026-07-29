@@ -23,7 +23,7 @@
 
 import {
   doc, collection, getDoc, getDocs, deleteDoc, runTransaction,
-  arrayUnion, deleteField, writeBatch, updateDoc, Transaction, DocumentReference,
+  arrayUnion, arrayRemove, deleteField, writeBatch, updateDoc, Transaction, DocumentReference,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import {
@@ -333,12 +333,66 @@ async function kickPlayer({ roomId, uid: target }: { roomId: string; uid: string
   const room = await loadRoom(roomId);
   requireHost(room, uid);
   if (target === uid) throw new GameError("invalid-argument", "لا يمكنك إخراج نفسك.");
+  if (!room.players[target]) throw new GameError("not-found", "اللاعب ليس في الغرفة.");
+  if (room.phase === "over") {
+    throw new GameError("failed-precondition", "انتهت اللعبة.");
+  }
+
+  let removedFrom: TeamId | null = null;
+
   await runTransaction(db, async (tx) => {
-    tx.update(roomRef(roomId), {
+    const snap = await tx.get(roomRef(roomId));
+    if (!snap.exists()) return;
+    const r = snap.data() as Room;
+    if (r.hostUid !== uid) {
+      throw new GameError("permission-denied", "المضيف فقط يخرج اللاعبين.");
+    }
+    if (!r.players[target]) return;
+
+    const patch: Record<string, unknown> = {
       [`players.${target}`]: deleteField(),
       updatedAt: Date.now(),
-    });
+    };
+
+    const team =
+      TEAMS.find((t) => r.teams[t].members.includes(target)) ??
+      r.players[target].team;
+
+    if (team) {
+      removedFrom = team;
+      const members = r.teams[team].members;
+      if (members.includes(target)) {
+        const nextMembers = members.filter((u) => u !== target);
+        patch[`teams.${team}.members`] = nextMembers;
+
+        if (r.phase !== "lobby") {
+          if (nextMembers.length === 0) {
+            patch[`encryptor.${team}`] = "";
+            patch[`teams.${team}.encryptorIdx`] = 0;
+          } else if (r.encryptor[team] === target) {
+            const oldIdx = members.indexOf(target);
+            const newIdx = oldIdx < nextMembers.length ? oldIdx : 0;
+            patch[`encryptor.${team}`] = nextMembers[newIdx];
+            patch[`teams.${team}.encryptorIdx`] = newIdx;
+          } else {
+            const encIdx = nextMembers.indexOf(r.encryptor[team]);
+            if (encIdx >= 0) patch[`teams.${team}.encryptorIdx`] = encIdx;
+          }
+        }
+      }
+    }
+
+    tx.update(roomRef(roomId), patch);
   });
+
+  // Drop them from private/deck member lists (mid-game join writes these).
+  if (removedFrom && room.phase !== "lobby") {
+    await Promise.all([
+      updateDoc(privateRef(roomId, removedFrom), { members: arrayRemove(target) }).catch(() => {}),
+      updateDoc(deckRef(roomId, removedFrom), { members: arrayRemove(target) }).catch(() => {}),
+    ]);
+  }
+
   return { ok: true };
 }
 

@@ -68,11 +68,22 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
             const list = t === "gold" ? gold : silver;
             const mine = me?.team === t;
             return (
-              <button
+              <div
                 key={t}
-                disabled={busy}
-                onClick={() => guard(() => api.setTeam({ roomId: room.id, team: mine ? null : t }))}
-                className={`card p-3 text-start min-h-[8.5rem] flex flex-col transition ${
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (busy) return;
+                  guard(() => api.setTeam({ roomId: room.id, team: mine ? null : t }));
+                }}
+                onKeyDown={(e) => {
+                  if (busy) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    guard(() => api.setTeam({ roomId: room.id, team: mine ? null : t }));
+                  }
+                }}
+                className={`card p-3 text-start min-h-[8.5rem] flex flex-col transition cursor-pointer ${
                   t === "gold" ? "card-gold" : "card-silver"
                 }`}
                 style={{ opacity: mine ? 1 : 0.82, boxShadow: mine ? `inset 0 0 0 1px ${TEAM_HEX[t]}` : undefined }}
@@ -89,7 +100,23 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
                   {list.map(([u, p]) => (
                     <div key={u} className="flex items-center justify-between gap-1">
                       <span className="truncate text-[14px]">{p.name}</span>
-                      {u === room.hostUid && <span className="text-[10px] text-muted shrink-0">مضيف</span>}
+                      <span className="flex items-center gap-1 shrink-0">
+                        {u === room.hostUid && (
+                          <span className="text-[10px] text-muted">مضيف</span>
+                        )}
+                        {isHost && u !== uid && (
+                          <button
+                            type="button"
+                            className="text-[11px] text-alarm/80 px-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              guard(() => api.kickPlayer({ roomId: room.id, uid: u }));
+                            }}
+                          >
+                            إخراج
+                          </button>
+                        )}
+                      </span>
                     </div>
                   ))}
                   {list.length < 2 && (
@@ -99,7 +126,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
                 <span className="text-[11px] mt-2" style={{ color: mine ? TEAM_HEX[t] : "#8794B8" }}>
                   {mine ? "أنت هنا · اضغط للخروج" : "انضم"}
                 </span>
-              </button>
+              </div>
             );
           })}
         </div>

@@ -152,11 +152,24 @@ export function TeamTab({
                 <span className="truncate text-[14px]">
                   {room.players[m]?.name ?? "—"}
                 </span>
-                <span className="flex gap-2 text-[10.5px] text-muted shrink-0">
+                <span className="flex items-center gap-2 text-[10.5px] text-muted shrink-0">
                   {room.encryptor[t] === m && (
                     <span style={{ color: TEAM_HEX[t] }}>مُشفِّر هذه الجولة</span>
                   )}
                   {room.hostUid === m && <span>مضيف</span>}
+                  {isHost && m !== uid && room.phase !== "over" && (
+                    <button
+                      type="button"
+                      className="text-[11px] text-alarm/80"
+                      onClick={() =>
+                        api.kickPlayer({ roomId: room.id, uid: m }).catch((e) => {
+                          alert(errText(e));
+                        })
+                      }
+                    >
+                      إخراج
+                    </button>
+                  )}
                 </span>
               </div>
             ))}
