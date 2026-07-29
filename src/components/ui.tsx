@@ -6,17 +6,35 @@ export const TEAM_HEX: Record<TeamId, string> = { gold: "#4E86C6", silver: "#E07
 
 /* ------------------------------------------------------------------ */
 
-/** Two slots per token type. Filling both ends the game. */
-export function Pips({
-  n, max = 2, color, title,
-}: { n: number; max?: number; color: string; title: string }) {
+/** Two adjacent cells in one frame — filled = solid, empty = hatch. */
+export function PipBoard({
+  n, max = 2, color, title, size = "sm",
+}: {
+  n: number;
+  max?: number;
+  color: string;
+  title?: string;
+  size?: "sm" | "lg";
+}) {
   return (
-    <span className="inline-flex items-center gap-1" style={{ color }} title={title}>
+    <span
+      className={`pip-board${size === "lg" ? " pip-board-lg" : ""}`}
+      style={{ color }}
+      title={title}
+      aria-hidden={!title}
+    >
       {Array.from({ length: max }, (_, i) => (
-        <i key={i} className={`pip ${i < n ? "pip-on" : ""}`} />
+        <i key={i} className={`pip-cell ${i < n ? "pip-cell-on" : ""}`} />
       ))}
     </span>
   );
+}
+
+/** @deprecated Prefer PipBoard — kept for any stray imports. */
+export function Pips({
+  n, max = 2, color, title,
+}: { n: number; max?: number; color: string; title: string }) {
+  return <PipBoard n={n} max={max} color={color} title={title} />;
 }
 
 export function Stamp({

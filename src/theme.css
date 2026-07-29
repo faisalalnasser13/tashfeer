@@ -765,9 +765,57 @@ textarea {
 }
 
 /* ------------------------------------------------------------------ */
-/* tokens                                                              */
+/* tokens — score status board (adjacent cells in one frame)           */
 /* ------------------------------------------------------------------ */
 
+.pip-board {
+  display: inline-flex;
+  border: 1.5px solid currentColor;
+  border-radius: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.pip-cell {
+  display: block;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border-inline-start: 1px solid currentColor;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 2px,
+    color-mix(in srgb, currentColor 40%, transparent) 2px,
+    color-mix(in srgb, currentColor 40%, transparent) 2.5px
+  );
+}
+
+.pip-cell:first-child {
+  border-inline-start: none;
+}
+
+.pip-cell-on {
+  background: currentColor;
+}
+
+.pip-board-lg .pip-cell {
+  width: 12px;
+  height: 12px;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 2.5px,
+    color-mix(in srgb, currentColor 40%, transparent) 2.5px,
+    color-mix(in srgb, currentColor 40%, transparent) 3px
+  );
+}
+
+.pip-board-lg .pip-cell-on {
+  background: currentColor;
+}
+
+/* legacy aliases — unused once boards ship; kept briefly for safety */
 .pip {
   width: 8px;
   height: 8px;
@@ -777,7 +825,6 @@ textarea {
 }
 .pip-on {
   background: currentColor;
-  box-shadow: 0 0 8px -1px currentColor;
 }
 
 /* ------------------------------------------------------------------ */

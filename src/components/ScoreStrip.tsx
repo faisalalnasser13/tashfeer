@@ -1,12 +1,12 @@
 import type { Room, TeamId } from "../lib/types";
 import { TEAMS } from "../lib/types";
-import { TEAM_HEX, TEAM_LABEL } from "./ui";
+import { PipBoard, TEAM_HEX, TEAM_LABEL } from "./ui";
 
 const BREACH = "#8FAE5C";
 const FAULT = "#F03B2E";
 
 /**
- * Slim two-team score row from the Map Room mock: name + اختراق/خلل pips.
+ * Slim two-team score row from the Map Room mock: name + اختراق/خلل boards.
  * Your side gets a team-coloured underline and an أنت marker.
  */
 export function ScoreStrip({
@@ -42,23 +42,13 @@ export function ScoreStrip({
               )}
             </span>
             <span className="flex items-center gap-2 shrink-0" title="اختراق · خلل">
-              <PipGroup n={s.breach} color={BREACH} />
+              <PipBoard n={s.breach} color={BREACH} title="اختراق" />
               <span className="w-px h-[11px] bg-line" />
-              <PipGroup n={s.fault} color={FAULT} />
+              <PipBoard n={s.fault} color={FAULT} title="خلل" />
             </span>
           </div>
         );
       })}
     </div>
-  );
-}
-
-function PipGroup({ n, color }: { n: number; color: string }) {
-  return (
-    <span className="inline-flex gap-1" style={{ color }} aria-hidden>
-      {[0, 1].map((i) => (
-        <i key={i} className={`pip ${i < n ? "pip-on" : ""}`} />
-      ))}
-    </span>
   );
 }

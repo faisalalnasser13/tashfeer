@@ -4,7 +4,7 @@ import { ORDINALS } from "../lib/arabic";
 import type { Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
-import { Banner, Btn, Empty, TEAM_HEX, TEAM_LABEL } from "../components/ui";
+import { Banner, Btn, Empty, PipBoard, TEAM_HEX, TEAM_LABEL } from "../components/ui";
 
 /* ================================================================== */
 /* log                                                                */
@@ -282,7 +282,6 @@ function FinalScoreboard({
               style={{
                 borderColor: champ ? `${color}99` : `${color}44`,
                 background: champ ? `${color}18` : `${color}0A`,
-                boxShadow: champ ? `inset 0 0 0 1px ${color}55` : undefined,
               }}
             >
               <p
@@ -327,15 +326,7 @@ function ScoreMeter({
         <span className="num font-display text-[20px] leading-none">{n}</span>
         <span className="num text-[11px] text-muted">/{max}</span>
       </div>
-      <span className="inline-flex gap-1" style={{ color }} aria-hidden>
-        {Array.from({ length: max }, (_, i) => (
-          <i
-            key={i}
-            className={`pip ${i < n ? "pip-on" : ""}`}
-            style={{ width: 10, height: 10 }}
-          />
-        ))}
-      </span>
+      <PipBoard n={n} max={max} color={color} size="lg" title={label} />
     </div>
   );
 }
