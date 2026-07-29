@@ -29,21 +29,26 @@ export function LogTab({
 
   return (
     <div className="px-4 py-3 pb-8">
-      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-[#0C1330] border border-line mb-3">
-        {[theirTeam, myTeam].map((t) => (
-          <button
-            key={t}
-            onClick={() => setSide(t)}
-            className="rounded-lg py-2.5 text-[14px] font-medium transition"
-            style={{
-              background: side === t ? `${TEAM_HEX[t]}1F` : "transparent",
-              color: side === t ? TEAM_HEX[t] : "#8794B8",
-              boxShadow: side === t ? `inset 0 0 0 1px ${TEAM_HEX[t]}55` : undefined,
-            }}
-          >
-            {t === myTeam ? "تلميحاتنا" : `تلميحات ${TEAM_LABEL[t]}`}
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {[theirTeam, myTeam].map((t) => {
+          const on = side === t;
+          const color = TEAM_HEX[t];
+          return (
+            <button
+              key={t}
+              onClick={() => setSide(t)}
+              className="py-2.5 px-2 text-[14px] font-medium transition border"
+              style={{
+                borderRadius: 0,
+                borderColor: on ? `${color}88` : "#3A3629",
+                background: on ? `${color}1F` : "#1B1A14",
+                color: on ? color : "#8794B8",
+              }}
+            >
+              {t === myTeam ? "تلميحاتنا" : "سجل العدو"}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex items-center justify-between mb-3 px-1">
