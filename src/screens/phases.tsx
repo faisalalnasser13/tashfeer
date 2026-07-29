@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, errText } from "../lib/firebase";
 import { normalizeAr, normalizeKey, ORDINALS } from "../lib/arabic";
-import { useDraft } from "../lib/hooks";
+import { useDraft, useLocal } from "../lib/hooks";
 import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { Cartouche } from "../components/Cartouche";
@@ -152,13 +152,18 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
 export function EncryptPhase(ctx: Ctx) {
   const { room, uid, myTeam, keys, usedClues, code } = ctx;
   const amEncryptor = room.encryptor[myTeam] === uid;
-  return amEncryptor ? <EncryptorView {...ctx} /> : <EncryptWaiting {...ctx} />;
+  return amEncryptor
+    ? <EncryptorView key={`${room.id}:${room.round}`} {...ctx} />
+    : <EncryptWaiting {...ctx} />;
 }
 
 function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmittedClues }: Ctx) {
-  // Prefer Firestore so tab switches / +30s remounts don't wipe the form.
+  // Survives tab unmount (Game remounts the play tab). Cleared per round via key.
   const alreadyIn = room.cluesIn[myTeam] === true;
-  const [clues, setClues] = useState(["", "", ""]);
+  const [clues, setClues] = useLocal<string[]>(
+    `tashfeer.encryptClues.${room.id}.${room.round}`,
+    ["", "", ""],
+  );
   const [sentLocal, setSentLocal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -407,6 +412,13 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {rounds.length > 0 && (
+        <div className="mt-4 max-h-[40vh] overflow-y-auto overscroll-contain">
+          <p className="text-[12px] text-muted mb-2 px-1">سجل تلميحاتكم</p>
+          <ClueGrid lanes={lanes} team={myTeam} />
         </div>
       )}
     </div>
