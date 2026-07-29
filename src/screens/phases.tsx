@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, errText } from "../lib/firebase";
 import { normalizeAr, normalizeKey, ORDINALS } from "../lib/arabic";
+import { useDraft } from "../lib/hooks";
 import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { Cartouche } from "../components/Cartouche";
@@ -332,10 +333,19 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
                   }, 80);
                 }}
                 placeholder="تلميح"
-                className="w-full bg-[#0C1330] rounded-md px-2.5 py-1.5 font-medium text-parch
-                           placeholder:text-[#4A5680] focus:outline-none transition border"
+                className={`w-full rounded-md px-2.5 py-1.5 font-medium text-parch
+                           focus:outline-none transition border ${
+                             myTeam === "silver"
+                               ? "placeholder:text-[#6B5040]"
+                               : "placeholder:text-[#4A5680]"
+                           }`}
                 style={{
-                  borderColor: issue ? "#D6564A" : "#25335F",
+                  background: myTeam === "silver" ? "#2A1810" : "#0C1330",
+                  borderColor: issue
+                    ? "#D6564A"
+                    : myTeam === "silver"
+                      ? "#6B4020"
+                      : "#25335F",
                   // 16px avoids iOS zoom-on-focus.
                   fontSize: "16px",
                 }}
@@ -436,9 +446,6 @@ export function GuessPhase(ctx: Ctx) {
   const complete = values.every((v) => v != null);
   const field: "decrypt" | "intercept" = amOwner ? "decrypt" : "intercept";
 
-  const names = Object.fromEntries(
-    Object.entries(room.players).map(([u, p]) => [u, p.name])
-  );
   const ownerLanes = buildLanes(rounds, active, amOwner ? keys : null);
 
   async function setField(next: (number | null)[]) {
@@ -480,24 +487,43 @@ export function GuessPhase(ctx: Ctx) {
     );
   }
 
+  // Following rounds: while own team decrypts and the enemy intercepts the
+  // clues this encryptor wrote — split spectate. Round 1 has no intercept.
+  // When this team is intercepting, same board as teammates.
+  if (!simultaneous && amOwner && amEncryptor) {
+    return (
+      <EncryptorGuessWatch
+        room={room}
+        myTeam={myTeam}
+        keys={keys}
+        rounds={rounds}
+        decrypt={decrypt}
+        activeClues={activeClues}
+        sentBy={sentBy}
+      />
+    );
+  }
+
+  const lockedOut = amOwner && amEncryptor;
+
   return (
     <div className="pb-36">
       <div className="px-4 pt-3 space-y-3 fade-in">
         <Banner>
           {amOwner ? (
             <>
-              فكّوا شفرة فريقكم، من{" "}
-              <span className="font-medium" style={{ color: encColor }}>{encName}</span>
+              <span className="font-bold">فكّوا شفرة فريقكم من:</span>{" "}
+              <span className="font-bold" style={{ color: encColor }}>{encName}</span>
             </>
           ) : (
             <>
-              اعترضوا شفرة الخصم، من{" "}
-              <span className="font-medium" style={{ color: encColor }}>{encName}</span>
+              <span className="font-bold">اعترضوا شفرة العدو من:</span>{" "}
+              <span className="font-bold" style={{ color: encColor }}>{encName}</span>
             </>
           )}
         </Banner>
 
-        {amOwner && amEncryptor && (
+        {lockedOut && (
           <Banner tone="lock">
             أنت كتبت هذه التلميحات. لا تشارك في الفكّ ولا تُظهر أي ردّ فعل.
           </Banner>
@@ -507,7 +533,7 @@ export function GuessPhase(ctx: Ctx) {
           values={values}
           clues={activeClues.length === 3 ? activeClues : ["—", "—", "—"]}
           onChange={
-            sent || (amOwner && amEncryptor) ? undefined : (next) => setField(next)
+            sent || lockedOut ? undefined : (next) => setField(next)
           }
           tone={active}
           keyWords={amOwner ? keys : null}
@@ -526,7 +552,7 @@ export function GuessPhase(ctx: Ctx) {
         <p className="text-[11.5px] text-muted text-center">
           {sent
             ? "أُرسلت — لا يمكن التعديل"
-            : amOwner && amEncryptor
+            : lockedOut
             ? "بانتظار فريقك…"
             : "أي لاعب في فريقكم يستطيع تحريك الأرقام — الجميع يرى نفس الشاشة"}
         </p>
@@ -555,10 +581,10 @@ export function GuessPhase(ctx: Ctx) {
           <div className="flex items-center justify-center py-2">
             <span className="text-[13.5px] text-muted">
               أرسلها {room.players[sentBy!]?.name ?? "زميل"}
-              {simultaneous ? " — بانتظار الفريق الآخر" : " — بانتظار الطرف الآخر"}
+              {" — بانتظار الطرف الآخر"}
             </span>
           </div>
-        ) : amOwner && amEncryptor ? (
+        ) : lockedOut ? (
           <p className="text-center text-[13px] text-muted py-3">
             بانتظار فريقك ليفكّ الشفرة…
           </p>
@@ -579,6 +605,99 @@ export function GuessPhase(ctx: Ctx) {
   );
 }
 
+/**
+ * Own-team decrypt half (round ≥ 2): encryptor watches teammates decrypt
+ * and the enemy intercept board live (same clues/history they see).
+ */
+function EncryptorGuessWatch({
+  room, myTeam, keys, rounds, decrypt, activeClues, sentBy,
+}: {
+  room: Room;
+  myTeam: TeamId;
+  keys: string[] | null;
+  rounds: RoundRecord[];
+  decrypt: (number | null)[];
+  activeClues: string[];
+  sentBy: string | null;
+}) {
+  const enemy = OTHER[myTeam];
+  const mineColor = TEAM_HEX[myTeam];
+  const enemyColor = TEAM_HEX[enemy];
+  const myLanes = buildLanes(rounds, myTeam, keys);
+  const { draft: enemyDraft } = useDraft(room.id, enemy, room.round);
+  const enemyIntercept = enemyDraft?.intercept ?? [null, null, null];
+  const enemySentBy = enemyDraft?.submittedIntercept ?? null;
+
+  return (
+    <div className="pb-28">
+      <div className="px-4 pt-3 space-y-4 fade-in">
+        <Banner tone="lock">
+          أنت كتبت هذه التلميحات. راقب فقط — لا تُظهر أي ردّ فعل.
+        </Banner>
+
+        <section
+          className="rounded-xl border p-3 space-y-3"
+          style={{ borderColor: `${mineColor}66`, background: `${mineColor}0F` }}
+        >
+          <header className="flex items-center justify-between gap-2">
+            <p className="text-[15px] font-bold" style={{ color: mineColor }}>
+              فريقكم: {TEAM_LABEL[myTeam]}
+            </p>
+            <span className="text-[11px] text-muted">يفكّون شفرتكم</span>
+          </header>
+
+          <Cartouche
+            values={decrypt}
+            clues={activeClues.length === 3 ? activeClues : ["—", "—", "—"]}
+            tone={myTeam}
+            keyWords={keys}
+          />
+        </section>
+
+        <section
+          className="rounded-xl border p-3 space-y-3"
+          style={{ borderColor: `${enemyColor}66`, background: `${enemyColor}0F` }}
+        >
+          <header className="flex items-center justify-between gap-2">
+            <p className="text-[15px] font-bold" style={{ color: enemyColor }}>
+              العدو: {TEAM_LABEL[enemy]}
+            </p>
+            <span className="text-[11px] text-muted">يعترضون شفرتكم · مباشر</span>
+          </header>
+
+          <Cartouche
+            values={enemyIntercept}
+            clues={activeClues.length === 3 ? activeClues : ["—", "—", "—"]}
+            tone={enemy}
+            historyByDigit={myLanes.map((lane) =>
+              lane.clues.map((c) => c.text)
+            )}
+          />
+          <p className="text-[11px] text-muted text-center">
+            {enemySentBy
+              ? `أرسل الاعتراض ${room.players[enemySentBy]?.name ?? "خصم"}`
+              : "تشاهدون أرقامهم وهي تتحرّك"}
+          </p>
+        </section>
+      </div>
+
+      <div
+        className="fixed inset-x-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3"
+        style={{
+          bottom: "calc(3.25rem + var(--safe-b))",
+          paddingBottom: "10px",
+        }}
+      >
+        <p className="text-center text-[13px] text-muted py-2">
+          {sentBy
+            ? `أرسلها ${room.players[sentBy]?.name ?? "زميل"} — بانتظار الطرف الآخر`
+            : "بانتظار فريقك ليفكّ الشفرة…"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 
 function SectionLine({ children }: { children: React.ReactNode }) {
   return (
@@ -593,7 +712,7 @@ function SectionLine({ children }: { children: React.ReactNode }) {
 /* reveal                                                             */
 /* ================================================================== */
 
-export function RevealPhase({ room, uid, myTeam, rounds }: Ctx) {
+export function RevealPhase({ room, uid, myTeam, rounds, keys }: Ctx) {
   const rec = rounds.find((r) => r.round === room.round);
   // Round 1 (and any dual reveal): activeTeam is null — show both sides.
   const dual = room.activeTeam == null;
@@ -616,6 +735,8 @@ export function RevealPhase({ room, uid, myTeam, rounds }: Ctx) {
           team={t}
           rec={rec}
           mine={t === myTeam}
+          keys={t === myTeam ? keys : null}
+          rounds={rounds}
           visible
           compact={dual}
         />
@@ -626,10 +747,15 @@ export function RevealPhase({ room, uid, myTeam, rounds }: Ctx) {
 }
 
 function RevealCard({
-  team, rec, mine, visible, compact,
+  team, rec, mine, keys, rounds, visible, compact,
 }: {
-  team: TeamId; rec: RoundRecord; mine: boolean;
-  visible: boolean; compact?: boolean;
+  team: TeamId;
+  rec: RoundRecord;
+  mine: boolean;
+  keys: string[] | null;
+  rounds: RoundRecord[];
+  visible: boolean;
+  compact?: boolean;
 }) {
   const side = rec.data[team];
   const opp = OTHER[team];
@@ -639,6 +765,11 @@ function RevealCard({
   const hasBreach = side.wasBreached;
   const hasFault = side.faulted;
   const dramatic = hasBreach || hasFault;
+  // Decrypting team: keywords under their digits. Interceptors: past clues.
+  const keyWords = mine ? keys : null;
+  const historyByDigit = mine
+    ? null
+    : buildLanes(rounds, team, null).map((lane) => lane.clues.map((c) => c.text));
 
   if (!visible) {
     return <div className="card h-32 grid place-items-center text-[13px] text-muted">…</div>;
@@ -660,102 +791,82 @@ function RevealCard({
         </span>
       </div>
 
-      {(hasBreach || hasFault) && (
-        <div className="reveal-outcomes">
-          {hasBreach && (
-            <div className="reveal-outcome" style={{ animationDelay: "0.08s" }}>
-              <Stamp kind="breach" good={goodForViewer} />
-              <span className="reveal-outcome-copy">
-                {mine
-                  ? `اخترقكم ${TEAM_LABEL[opp]}`
-                  : `اخترقتم شفرة ${TEAM_LABEL[team]}`}
-              </span>
-            </div>
-          )}
-          {hasFault && (
-            <div
-              className="reveal-outcome"
-              style={{ animationDelay: hasBreach ? "0.28s" : "0.08s" }}
-            >
-              <Stamp kind="fault" good={goodForViewer} />
-              <span className="reveal-outcome-copy">
-                {mine
-                  ? "خلل — فريقكم أخطأ في فكّ الشفرة"
-                  : `خلل — ${TEAM_LABEL[team]} أخطأوا في فكّ شفرتهم`}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
       {side.noClues ? (
         <Banner tone="warn">
           لم يقدّم المُشفِّر تلميحات — سوء تفاهم (خلل). لا اعتراض.
         </Banner>
       ) : (
-        <>
-          <div className="flex flex-wrap gap-1.5 mb-3.5">
-            {side.clues.map((c, i) => (
-              <span key={i} className="chip">
-                <span className="text-[10px] text-muted">{ORDINALS[i]}</span>
-                {c}
-              </span>
-            ))}
-          </div>
-
-          <div className="mb-3">
+        <div className="space-y-3">
+          <div className="flex flex-col items-center">
             <p className="text-[11px] text-muted mb-1.5">الشفرة الحقيقية</p>
-            <Cartouche values={side.code} tone={team} />
+            <div className="w-full max-w-[20rem]">
+              <Cartouche
+                values={side.code}
+                clues={side.clues}
+                tone={team}
+                truth={side.code}
+                showPads={false}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2 pt-1">
-            <GuessRow
-              label={`${TEAM_LABEL[team]} فكّها`}
-              guess={side.decrypt}
-              truth={side.code}
-            />
-            {rec.round >= 2 && (
-              <GuessRow
-                label={`اعتراض ${TEAM_LABEL[opp]}`}
-                guess={side.intercept}
-                truth={side.code}
-              />
+          <div className="flex items-stretch gap-2.5">
+            <div className="flex-1 min-w-0 space-y-2">
+              <div>
+                <p className="text-[10px] text-muted mb-1">فكّ {TEAM_LABEL[team]}</p>
+                <Cartouche
+                  values={side.decrypt}
+                  tone={team}
+                  truth={side.code}
+                  keyWords={keyWords}
+                  historyByDigit={historyByDigit}
+                  showPads={false}
+                  size="sm"
+                />
+              </div>
+              {rec.round >= 2 && (
+                <div>
+                  <p className="text-[10px] text-muted mb-1">
+                    اعتراض {TEAM_LABEL[opp]}
+                  </p>
+                  <Cartouche
+                    values={side.intercept}
+                    tone={opp}
+                    truth={side.code}
+                    keyWords={keyWords}
+                    historyByDigit={historyByDigit}
+                    showPads={false}
+                    size="sm"
+                  />
+                </div>
+              )}
+            </div>
+
+            {(hasBreach || hasFault) && (
+              <div className="reveal-stamps" aria-label="نتائج الجولة">
+                {hasBreach && (
+                  <div className="flex flex-col items-center gap-1">
+                    <Stamp kind="breach" good={goodForViewer} />
+                    <span className="reveal-stamp-cap">
+                      {mine
+                        ? `اخترقكم ${TEAM_LABEL[opp]}`
+                        : `اخترقتم ${TEAM_LABEL[team]}`}
+                    </span>
+                  </div>
+                )}
+                {hasFault && (
+                  <div className="flex flex-col items-center gap-1">
+                    <Stamp kind="fault" good={goodForViewer} />
+                    <span className="reveal-stamp-cap">
+                      {mine ? "خلل — أخطأتم" : `خلل — ${TEAM_LABEL[team]}`}
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        </>
+        </div>
       )}
-    </div>
-  );
-}
-
-function GuessRow({
-  label, guess, truth,
-}: { label: string; guess: (number | null)[]; truth: number[] }) {
-  const hit = guess.every((g, i) => g === truth[i]);
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-[12.5px] text-muted truncate">{label}</span>
-      <span className="flex items-center gap-1.5 shrink-0">
-        {guess.map((g, i) => {
-          const ok = g === truth[i];
-          return (
-            <span
-              key={i}
-              className="num w-8 h-8 grid place-items-center rounded-md text-[15px] font-display border"
-              style={{
-                borderColor: ok ? "#8FAE5C88" : "#F03B2E66",
-                background: ok ? "#8FAE5C18" : "#F03B2E12",
-                color: ok ? "#8FAE5C" : "#F03B2E",
-              }}
-            >
-              {g == null ? "—" : g}
-            </span>
-          );
-        })}
-        <span className="text-[14px] ms-1" style={{ color: hit ? "#6FBF95" : "#E57A6F" }}>
-          {hit ? "✓" : "✕"}
-        </span>
-      </span>
     </div>
   );
 }

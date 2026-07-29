@@ -4,14 +4,11 @@ import { OTHER } from "../lib/types";
 import { TEAM_HEX } from "./ui";
 
 /**
- * The most-referenced thing in the game. It never costs a tap to see
- * the words — only to see them larger.
- *
  * Own keys on top; under them, shared guesses for the opponent's four
- * words (other-team colour + ؟) — editable from here too.
+ * words (other-team colour + ؟). Both rows span the full width equally.
  *
  * When `highlight` is set (encryptor's code digits), those keywords
- * light up larger and centered so the writer doesn't hunt the strip.
+ * light up so the writer doesn't hunt the strip.
  */
 export function KeysStrip({
   keys, team, theories, setTheory, highlight,
@@ -79,14 +76,14 @@ export function KeysStrip({
             <p className="text-[11px] text-muted px-1 pt-3 pb-1.5">تخمينات الخصم</p>
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-1.5 px-2.5 pt-1.5 pb-1 overflow-x-auto">
+          <div className="grid grid-cols-4 gap-1 px-2 pt-1.5 pb-1">
             {keys.map((k, i) => {
               const on = lit.has(i + 1);
               return (
                 <span
                   key={i}
-                  className={`chip shrink-0 transition ${
-                    on ? "!py-1 !px-2.5 !text-[15px]" : "!py-0.5 !px-1.5 !text-[12px]"
+                  className={`chip min-w-0 w-full justify-center !px-1 transition ${
+                    on ? "!py-1 !text-[13px]" : "!py-0.5 !text-[11px]"
                   }`}
                   style={{
                     borderColor: on ? `${color}88` : `${color}3A`,
@@ -94,14 +91,15 @@ export function KeysStrip({
                     color: on ? "#EFE7D4" : undefined,
                     opacity: lighting && !on ? 0.45 : 1,
                   }}
+                  title={k}
                 >
                   <span
-                    className={`num font-semibold ${on ? "text-[15px]" : "text-[12px]"}`}
+                    className={`num font-semibold shrink-0 ${on ? "text-[13px]" : "text-[11px]"}`}
                     style={{ color }}
                   >
                     {i + 1}
                   </span>
-                  {k}
+                  <span className="truncate">{k}</span>
                 </span>
               );
             })}
@@ -109,9 +107,8 @@ export function KeysStrip({
         )}
       </button>
 
-      {/* Opponent theories — outside the expand button so inputs stay usable. */}
       <div
-        className="flex items-center justify-center gap-1 px-2 pb-1.5 overflow-x-auto"
+        className="grid grid-cols-4 gap-1 px-2 pb-1.5"
         onClick={(e) => e.stopPropagation()}
       >
         {[1, 2, 3, 4].map((n) => (
@@ -148,11 +145,11 @@ function TheoryChip({
   if (!onChange) {
     return (
       <span
-        className="chip shrink-0 !py-0.5 !px-1.5 !text-[11px] max-w-[5.5rem]"
+        className="chip min-w-0 w-full justify-center !py-0.5 !px-1 !text-[11px]"
         style={{ borderColor: `${color}55`, color }}
         title={show ? `${show}؟` : "؟"}
       >
-        <span className="num font-semibold text-[11px]">{n}</span>
+        <span className="num font-semibold text-[11px] shrink-0">{n}</span>
         <span className="truncate">{show ? `${show}؟` : "؟"}</span>
       </span>
     );
@@ -160,8 +157,8 @@ function TheoryChip({
 
   return (
     <label
-      className="chip shrink-0 !py-0.5 !px-1.5 !text-[11px] flex items-center gap-0.5
-                 max-w-[6.5rem] cursor-text"
+      className="chip min-w-0 w-full justify-center !py-0.5 !px-1 !text-[11px]
+                 flex items-center gap-0.5 cursor-text"
       style={{ borderColor: `${color}66`, color }}
     >
       <span className="num font-semibold text-[11px] shrink-0">{n}</span>
@@ -178,7 +175,7 @@ function TheoryChip({
           onChange(t);
         }}
         className="bg-transparent border-0 outline-none text-center font-medium
-                   text-[11px] min-w-0 w-[3.4rem] placeholder:opacity-50"
+                   text-[11px] min-w-0 flex-1 w-0 placeholder:opacity-50"
         style={{ color }}
       />
       <span className="shrink-0 opacity-90" aria-hidden>؟</span>

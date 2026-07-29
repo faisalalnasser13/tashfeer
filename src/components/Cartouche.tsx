@@ -1,6 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { ORDINALS } from "../lib/arabic";
 import type { TeamId } from "../lib/types";
+import { TEAM_HEX } from "./ui";
+
+/** Pad / input chrome keyed to team id (gold=allies blue, silver=axis orange). */
+function padChrome(tone: TeamId) {
+  const accent = TEAM_HEX[tone];
+  if (tone === "silver") {
+    return {
+      accent,
+      idleBorder: "#8A5230",
+      usedBorder: "#4A3018",
+      usedBg: "#1A1008",
+    };
+  }
+  return {
+    accent,
+    idleBorder: "#3A4C86",
+    usedBorder: "#2B3A68",
+    usedBg: "#0C1330",
+  };
+}
 
 /**
  * Three ordered slots.
@@ -22,6 +42,9 @@ export function Cartouche({
   guessWords,
   /** Past clue texts indexed by digit 1–4 — under pad buttons + placed slots (intercept). */
   historyByDigit,
+  /** Hide the 1–4 pad grid (reveal screen — digits only). Default true. */
+  showPads = true,
+  size = "md",
 }: {
   values: (number | null)[];
   onChange?: (next: (number | null)[]) => void;
@@ -37,9 +60,12 @@ export function Cartouche({
   keyWords?: string[] | null;
   guessWords?: (string | null | undefined)[] | null;
   historyByDigit?: string[][] | null;
+  showPads?: boolean;
+  size?: "md" | "sm";
 }) {
   const editable = Boolean(onChange);
   const [focus, setFocus] = useState<number>(0);
+  const chrome = padChrome(tone);
 
   useEffect(() => {
     if (!editable) return;
@@ -80,21 +106,27 @@ export function Cartouche({
           ? ""
           : undefined;
     const hints = historyByDigit?.[digit - 1] ?? [];
-    return { word, guess, hints };
+    // Compact reveal: keep only the latest clues so the left column stays short.
+    const clipped =
+      size === "sm" && hints.length > 2 ? hints.slice(-2) : hints;
+    return { word, guess, hints: clipped };
   }
 
   function GuessLabel({ text }: { text: string }) {
     return (
-      <span className="pad-word" style={{ color: tone === "silver" ? "#E07B35" : "#4E86C6" }}>
+      <span className="pad-word" style={{ color: chrome.accent }}>
         {text || "—"}
         <span aria-hidden>؟</span>
       </span>
     );
   }
 
+  const padsVisible =
+    showPads && (editable || keyWords || guessWords || historyByDigit);
+
   return (
     <div>
-      <div className="cartouche">
+      <div className={`cartouche${size === "sm" ? " cartouche-sm" : ""}`}>
         {[0, 1, 2].map((i) => {
           const v = values[i];
           const clue = clues?.[i];
@@ -114,7 +146,6 @@ export function Cartouche({
           ].join(" ");
           const slot = (
             <button
-              key={i}
               data-ord={clue ? undefined : ORDINALS[i]}
               className={cls}
               disabled={!editable}
@@ -124,10 +155,7 @@ export function Cartouche({
               <span className="num slot-digit">{v == null ? "—" : v}</span>
               {word ? <span className="slot-word">{word}</span> : null}
               {guess !== undefined ? (
-                <span
-                  className="slot-word"
-                  style={{ color: tone === "silver" ? "#E07B35" : "#4E86C6" }}
-                >
+                <span className="slot-word" style={{ color: chrome.accent }}>
                   {guess || "—"}
                   <span aria-hidden>؟</span>
                 </span>
@@ -141,14 +169,14 @@ export function Cartouche({
               ) : null}
             </button>
           );
-          if (!clues) return slot;
+          if (!clues) return <Fragment key={i}>{slot}</Fragment>;
           return (
             <div key={i} className="flex flex-col gap-1">
               <div className="text-center px-0.5">
                 <p className="text-[10px] text-muted leading-none mb-0.5">{ORDINALS[i]}</p>
                 <p
-                  className="text-[18px] font-medium leading-snug"
-                  style={{ color: tone === "silver" ? "#AFC0DA" : "#D9A441" }}
+                  className={`${size === "sm" ? "text-[13px]" : "text-[18px]"} font-medium leading-snug`}
+                  style={{ color: chrome.accent }}
                   title={clue}
                 >
                   {clue || "—"}
@@ -160,7 +188,7 @@ export function Cartouche({
         })}
       </div>
 
-      {editable && (
+      {padsVisible && (
         <div className="mt-2 grid grid-cols-2 gap-1.5">
           {[1, 2, 3, 4].map((n) => {
             const used = values.includes(n);
@@ -169,12 +197,15 @@ export function Cartouche({
             return (
               <button
                 key={n}
+                type="button"
                 onClick={() => assign(n)}
+                disabled={!editable}
                 className={`pad-btn ${hasExtra ? "pad-has-extra" : ""}`}
                 style={{
-                  borderColor: used ? "#2B3A68" : "#3A4C86",
-                  background: used ? "#0C1330" : "transparent",
+                  borderColor: used ? chrome.usedBorder : chrome.idleBorder,
+                  background: used ? chrome.usedBg : "transparent",
                   opacity: used ? 0.55 : 1,
+                  cursor: editable ? undefined : "default",
                 }}
               >
                 <span className="num pad-digit">{n}</span>
@@ -190,13 +221,16 @@ export function Cartouche({
               </button>
             );
           })}
-          <button
-            onClick={clear}
-            aria-label="مسح"
-            className="pad-btn pad-clear col-span-2"
-          >
-            مسح
-          </button>
+          {editable && (
+            <button
+              type="button"
+              onClick={clear}
+              aria-label="مسح"
+              className="pad-btn pad-clear col-span-2"
+            >
+              مسح
+            </button>
+          )}
         </div>
       )}
     </div>

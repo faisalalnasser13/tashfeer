@@ -858,9 +858,14 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
     }
 
     case "reveal": {
-      // Round-1 dual reveal, or silver half done → round end.
+      // Round-1 dual reveal, or silver half done → round end (or game over).
       if (room.activeTeam == null || room.activeTeam === "silver") {
-        tx.update(roomRef(id), { ...phasePatch(room.settings, "roundEnd"), activeTeam: null });
+        if (room.winner) {
+          // Skip the "next encryptors" beat — go straight to the final screen.
+          tx.update(roomRef(id), { ...phasePatch(room.settings, "over"), activeTeam: null });
+        } else {
+          tx.update(roomRef(id), { ...phasePatch(room.settings, "roundEnd"), activeTeam: null });
+        }
         return;
       }
       await beginHalfOrSkipSilent(tx, room, "silver");

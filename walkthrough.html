@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>تشفير — جولة واجهة محلية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --ink: #15140f;
+  --panel: #1e1c15;
+  --line: #3a3629;
+  --gold: #d3b45f;
+  --allies: #4e86c6;
+  --axis: #e07b35;
+  --parch: #ede4ce;
+  --muted: #8794b8;
+  --ok: #8fae5c;
+  --bad: #f03b2e;
+  --warn: #e0a46c;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0;
+  min-height: 100dvh;
+  color: var(--parch);
+  font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  background: #0c0b09;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(237,228,206,.028) 27px 28px),
+    repeating-linear-gradient(90deg, transparent 0 27px, rgba(237,228,206,.028) 27px 28px);
+}
+.font-display { font-family: "Noto Kufi Arabic", system-ui, sans-serif; }
+.num { font-family: "Courier Prime", monospace; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+
+/* ---- desktop chrome ---- */
+.desk {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 12px 24px;
+}
+.desk h1 {
+  margin: 0;
+  font-family: "Noto Kufi Arabic", system-ui, sans-serif;
+  font-size: 22px;
+  color: var(--gold);
+}
+.desk .hint { margin: 0; font-size: 12.5px; color: var(--muted); text-align: center; max-width: 360px; line-height: 1.6; }
+
+.nav {
+  display: flex; align-items: center; gap: 8px; width: min(390px, 100%);
+}
+.nav button {
+  border: 1px solid var(--line); background: #1b1a14; color: var(--parch);
+  border-radius: 3px; padding: 10px 14px; font: inherit; font-weight: 600; cursor: pointer;
+}
+.nav button:disabled { opacity: .35; cursor: default; }
+.nav .meta {
+  flex: 1; text-align: center; font-size: 12.5px; color: var(--muted); line-height: 1.35;
+}
+.nav .meta b { display: block; color: var(--gold); font-weight: 600; font-size: 13.5px; }
+
+.picker {
+  display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
+  width: min(390px, 100%); max-width: 100%;
+}
+.picker button {
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+  border-radius: 3px; padding: 5px 8px; font: inherit; font-size: 11px; cursor: pointer;
+}
+.picker button.on {
+  border-color: rgba(211,180,95,.55); color: var(--gold); background: rgba(211,180,95,.1);
+}
+
+/* ---- phone ---- */
+.phone {
+  width: min(390px, 100%);
+  height: min(780px, calc(100dvh - 160px));
+  border: 1px solid #2a2820;
+  border-radius: 28px;
+  overflow: hidden;
+  background: var(--ink);
+  box-shadow: 0 28px 70px -28px #000, inset 0 0 0 1px rgba(237,228,206,.04);
+  display: flex; flex-direction: column;
+  position: relative;
+}
+.notch {
+  height: 28px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: #12110d; border-bottom: 1px solid #2a2820;
+  font-size: 10px; color: #6a6558; letter-spacing: .08em;
+}
+.screen { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.scene { display: none; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
+.scene.on { display: flex; }
+
+.scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.scroll::-webkit-scrollbar { width: 0; }
+
+.hd {
+  flex: 0 0 auto;
+  background: rgba(21,20,15,.96);
+  border-bottom: 1px solid var(--line);
+}
+.hd1 {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 0 14px; height: 44px;
+}
+.rnd { font-family: "Noto Kufi Arabic"; font-size: 15px; color: var(--gold); }
+.phs { font-size: 12px; color: var(--muted); margin-inline-start: 8px; }
+.tm { font-family: "Courier Prime", monospace; font-size: 16px; color: rgba(237,228,206,.8); }
+.tm.warn { color: #e0a46c; }
+.tm.crit { color: #f03b2e; }
+.bar { height: 3px; background: #2a2820; }
+.bar i { display: block; height: 100%; background: var(--gold); }
+.bar i.warn { background: #e0a46c; }
+.bar i.crit { background: #f03b2e; }
+
+.scores { display: flex; border-bottom: 1px solid var(--line); }
+.sc {
+  flex: 1; display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; min-width: 0;
+}
+.sc + .sc { border-inline-start: 1px solid var(--line); }
+.sc.mine { box-shadow: inset 0 -2px 0 var(--t); }
+.nm { font-family: "Noto Kufi Arabic"; font-size: 12.5px; }
+.you { font-size: 9.5px; color: var(--muted); margin-inline-start: 6px; }
+.pips { display: flex; align-items: center; gap: 8px; }
+.pg { display: flex; gap: 4px; }
+.pip {
+  width: 8px; height: 8px; border-radius: 1px;
+  border: 1.5px solid currentColor; display: inline-block;
+}
+.pip.on { background: currentColor; box-shadow: 0 0 8px -1px currentColor; }
+.dv { width: 1px; height: 11px; background: var(--line); }
+
+.keys {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line);
+  background: rgba(21,20,15,.9);
+  padding: 6px 8px 8px;
+}
+.keys .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.keys .row + .row { margin-top: 4px; }
+.kchip {
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  min-width: 0; padding: 4px 4px; border-radius: 3px;
+  border: 1px solid; font-size: 11px; font-weight: 500;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.kchip .n { font-family: "Courier Prime", monospace; font-weight: 700; }
+
+.tabbar {
+  flex: 0 0 auto;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--line);
+  background: rgba(21,20,15,.96);
+}
+.tabbar b {
+  padding: 12px 0; text-align: center; font-size: 13px; font-weight: 500;
+  color: var(--muted); position: relative;
+}
+.tabbar b.on { color: var(--gold); }
+.tabbar b.on::before {
+  content: ""; position: absolute; top: 0; inset-inline: 28px;
+  height: 2px; background: var(--gold); border-radius: 2px;
+}
+.foot {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  background: rgba(21,20,15,.96);
+  padding: 12px 15px;
+}
+
+.card {
+  background: linear-gradient(180deg, #23211a 0%, #1e1c15 100%);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(237,228,206,.05);
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 3px;
+  border: 1px solid #4a4636; background: #1b1a14;
+  font-size: 13px; color: #c9c0a8;
+}
+.btn {
+  display: block; width: 100%; text-align: center;
+  border-radius: 3px; padding: 13px 18px;
+  font-weight: 600; font-size: 15px; border: 1px solid transparent;
+  font-family: inherit;
+}
+.btn-primary { background: var(--gold); color: #15140f; }
+.btn-ghost { background: transparent; border-color: var(--line); color: var(--parch); }
+.btn[disabled] { opacity: .4; }
+.banner {
+  border-radius: 3px; padding: 10px 12px; font-size: 13.5px; line-height: 1.55;
+  border: 1px solid var(--line); background: #1b1a14;
+}
+.banner.lock { border-color: #7a4a2a; color: #e0a46c; background: #2a1a12; }
+.banner.warn { border-color: #7a4a2a88; color: var(--warn); }
+.muted { color: var(--muted); }
+.px { padding-inline: 16px; }
+.py { padding-block: 12px; }
+
+.cartouche { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.slot {
+  position: relative; min-height: 52px; border-radius: 2px 2px 10px 10px;
+  border: 1px solid #4a4636;
+  background: linear-gradient(180deg, #2a2820 0%, #232118 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 10px 4px 6px; font-weight: 600;
+}
+.slot::before {
+  content: attr(data-ord);
+  position: absolute; inset-block-start: 3px; inset-inline-end: 5px;
+  font-size: 8px; color: #6a6558; font-weight: 400;
+}
+.slot .d { font-family: "Courier Prime", monospace; font-size: 16px; line-height: 1; }
+.slot .w { font-size: 11px; font-weight: 500; color: #c8d0e8; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot .h { font-size: 9px; color: var(--muted); font-weight: 400; text-align: center; line-height: 1.2; }
+.slot.ok { border-color: #8fae5c88; background: #8fae5c18; }
+.slot.bad { border-color: #f03b2e66; background: #f03b2e12; }
+.slot.ok .d, .slot.ok .w { color: var(--ok); }
+.slot.bad .d, .slot.bad .w { color: var(--bad); }
+
+.pads { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 8px; }
+.pad {
+  border: 1px solid #3a4c86; border-radius: 3px; padding: 8px 6px;
+  background: transparent; text-align: center; min-height: 48px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.pad .d { font-family: "Courier Prime", monospace; font-size: 15px; font-weight: 700; }
+.pad .w { font-size: 11px; }
+.pad .h { font-size: 9px; color: var(--muted); }
+
+.field {
+  width: 100%; background: #0c1330; border: 1px solid #25335f; border-radius: 6px;
+  color: var(--parch); padding: 10px 12px; font: inherit; font-size: 16px;
+}
+.field:focus { outline: none; border-color: var(--gold); }
+
+.stamp {
+  display: inline-block; padding: 4px 10px; border-radius: 3px;
+  font-size: 12px; font-weight: 700; letter-spacing: .02em;
+}
+.stamp-good { background: #8fae5c22; color: var(--ok); border: 1px solid #8fae5c66; }
+.stamp-bad { background: #f03b2e22; color: var(--bad); border: 1px solid #f03b2e66; }
+
+.lane4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lane {
+  border: 1px solid; border-radius: 3px; padding: 8px 4px; text-align: center;
+  background: #1b1a14; min-width: 0;
+}
+.lane .n {
+  display: inline-grid; place-items: center; width: 20px; height: 20px;
+  border-radius: 4px; font-family: "Courier Prime", monospace; font-size: 12px; font-weight: 700;
+  margin-bottom: 4px;
+}
+.lane .lab { font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+.lane .cl { font-size: 10px; color: #c9c0a8; border: 1px solid #3a3629;
+  background: #15140f; border-radius: 2px; padding: 3px 2px; margin-top: 3px; line-height: 1.25; }
+
+.split {
+  border-radius: 10px; border: 1px solid; padding: 12px; margin-bottom: 12px;
+}
+.split h3 { margin: 0 0 10px; font-size: 15px; font-weight: 700; }
+
+@media (max-width: 480px) {
+  .desk { padding: 0; gap: 0; }
+  .desk h1, .desk .hint, .picker { display: none; }
+  .nav {
+    position: sticky; top: 0; z-index: 20;
+    width: 100%; padding: 8px 10px; background: #0c0b09; border-bottom: 1px solid var(--line);
+  }
+  .phone {
+    width: 100%; height: calc(100dvh - 54px);
+    border: 0; border-radius: 0; box-shadow: none;
+  }
+  .notch { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="desk">
+  <h1>تشفير — جولة واجهة</h1>
+  <p class="hint">محاكاة هاتف لكل مراحل اللعبة بدون فايربيس. تنقّل بالأسهم أو اختر مشهدًا.</p>
+
+  <div class="nav">
+    <button type="button" id="prev">السابق</button>
+    <div class="meta"><b id="title">—</b><span id="sub">—</span></div>
+    <button type="button" id="next">التالي</button>
+  </div>
+  <div class="picker" id="picker"></div>
+
+  <div class="phone" id="phone">
+    <div class="notch">SIM · 9:41</div>
+    <div class="screen" id="screen"></div>
+  </div>
+</div>
+
+<script>
+const ALLIES = "#4E86C6";
+const AXIS = "#E07B35";
+const BREACH = "#8FAE5C";
+const FAULT = "#F03B2E";
+const ORD = ["الأول", "الثاني", "الثالث"];
+
+function pips(n, color) {
+  return `<span class="pg" style="color:${color}">${[0,1].map(i =>
+    `<i class="pip ${i < n ? "on" : ""}"></i>`).join("")}</span>`;
+}
+
+function gameChrome({
+  round = 3, phase = "تخمين", timer = "0:42", timerCls = "",
+  bar = 58, barCls = "", my = "gold",
+  breachG = 1, faultG = 0, breachS = 0, faultS = 1,
+  keys = ["أسد", "قمر", "سفينة", "صحراء"],
+  theories = ["ملك؟", "ليل؟", "", "؟"],
+  tab = "play",
+} = {}) {
+  const mineGold = my === "gold";
+  return `
+    <div class="hd">
+      <div class="hd1">
+        <div><span class="rnd">الجولة ${round}</span><span class="phs">${phase}</span></div>
+        <div class="tm ${timerCls}">${timer}</div>
+      </div>
+      <div class="bar"><i class="${barCls}" style="width:${bar}%"></i></div>
+    </div>
+    <div class="scores">
+      <div class="sc ${mineGold ? "mine" : ""}" style="--t:${ALLIES}">
+        <span class="nm" style="color:${ALLIES}">الحلفاء${mineGold ? '<span class="you">أنت</span>' : ""}</span>
+        <span class="pips">${pips(breachG, BREACH)}<span class="dv"></span>${pips(faultG, FAULT)}</span>
+      </div>
+      <div class="sc ${!mineGold ? "mine" : ""}" style="--t:${AXIS}">
+        <span class="nm" style="color:${AXIS}">المحور${!mineGold ? '<span class="you">أنت</span>' : ""}</span>
+        <span class="pips">${pips(breachS, BREACH)}<span class="dv"></span>${pips(faultS, FAULT)}</span>
+      </div>
+    </div>
+    <div class="keys">
+      <div class="row">
+        ${keys.map((k, i) => `
+          <span class="kchip" style="border-color:${ALLIES}55;color:${ALLIES}">
+            <span class="n">${i + 1}</span><span style="overflow:hidden;text-overflow:ellipsis">${k}</span>
+          </span>`).join("")}
+      </div>
+      <div class="row">
+        ${theories.map((t, i) => `
+          <span class="kchip" style="border-color:${AXIS}66;color:${AXIS}">
+            <span class="n">${i + 1}</span><span style="overflow:hidden;text-overflow:ellipsis">${t || "؟"}</span>
+          </span>`).join("")}
+      </div>
+    </div>`;
+}
+
+function tabs(on = "play") {
+  return `<div class="tabbar">
+    <b class="${on === "play" ? "on" : ""}">اللعب</b>
+    <b class="${on === "log" ? "on" : ""}">السجل</b>
+    <b class="${on === "team" ? "on" : ""}">الفريق</b>
+  </div>`;
+}
+
+function cartouche(slots, { clues, tone = ALLIES } = {}) {
+  return `<div class="cartouche">${slots.map((s, i) => `
+    <div class="slot ${s.cls || ""}" data-ord="${ORD[i]}">
+      ${clues ? `<div style="font-size:10px;color:var(--muted);margin-bottom:2px">${ORD[i]}</div>
+        <div style="font-size:14px;font-weight:600;color:${tone === AXIS ? "#AFC0DA" : "#D9A441"};margin-bottom:4px">${clues[i]}</div>` : ""}
+      <span class="d">${s.d ?? "—"}</span>
+      ${s.w ? `<span class="w" style="color:${s.wc || ""}">${s.w}</span>` : ""}
+      ${(s.hints || []).map(h => `<span class="h">${h}</span>`).join("")}
+    </div>`).join("")}</div>`;
+}
+
+function pads(items, color) {
+  return `<div class="pads">${items.map(it => `
+    <div class="pad" style="border-color:${color}55">
+      <span class="d" style="color:${color}">${it.d}</span>
+      ${it.w ? `<span class="w" style="color:${color}">${it.w}</span>` : ""}
+      ${(it.hints || []).map(h => `<span class="h">${h}</span>`).join("")}
+    </div>`).join("")}</div>`;
+}
+
+const SCENES = [
+  {
+    id: "home",
+    title: "البداية",
+    sub: "إنشاء / انضمام",
+    html: `
+      <div class="scroll" style="padding:48px 20px 32px">
+        <div style="text-align:center;margin-bottom:36px">
+          <div class="font-display" style="font-size:46px;color:var(--gold);line-height:1">تشفير</div>
+          <p class="muted" style="font-size:13px;line-height:1.7;margin:12px auto 0;max-width:19rem">
+            مرّروا شفرتكم لفريقكم دون أن يلتقطها الخصم.<br/>فريقان، أربع كلمات سرية، وثمانِ جولات.
+          </p>
+        </div>
+        <label class="muted" style="font-size:12px;display:block;margin-bottom:6px">اسمك</label>
+        <input class="field" value="سعد بن صالح" readonly />
+        <div style="height:14px"></div>
+        <button class="btn btn-primary" type="button">أنشئ غرفة</button>
+        <div style="display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted);font-size:11px">
+          <span style="flex:1;height:1px;background:var(--line)"></span>أو انضم بغرفة قائمة — حتى أثناء اللعب
+          <span style="flex:1;height:1px;background:var(--line)"></span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <input class="field num" style="text-align:center;letter-spacing:.35em;font-size:20px" value="4821" readonly />
+          <button class="btn btn-ghost" style="width:auto;padding-inline:22px" type="button">انضم</button>
+        </div>
+      </div>`
+  },
+  {
+    id: "lobby",
+    title: "الردهة",
+    sub: "اختيار الفرق",
+    html: `
+      <div class="scroll px py">
+        <div class="card" style="padding:16px;text-align:center;margin-bottom:14px">
+          <div class="muted" style="font-size:12px;margin-bottom:6px">رمز الغرفة</div>
+          <div class="font-display num" style="font-size:34px;color:var(--gold);letter-spacing:.18em">4821</div>
+          <button class="btn btn-ghost" style="margin-top:10px;padding:8px" type="button">مشاركة الرابط</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="card" style="padding:12px;border-color:${ALLIES}55">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="font-display" style="color:${ALLIES}">الحلفاء</span>
+              <span class="num muted" style="font-size:11px">2/4</span>
+            </div>
+            <div style="font-size:14px;margin-bottom:4px">سعد بن صالح <span class="muted" style="font-size:10px">أنت</span></div>
+            <div style="font-size:14px">نورة</div>
+            <div class="muted" style="font-size:11px;margin-top:10px;color:${ALLIES}">أنت هنا · اضغط للخروج</div>
+          </div>
+          <div class="card" style="padding:12px;border-color:${AXIS}55">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span class="font-display" style="color:${AXIS}">المحور</span>
+              <span class="num muted" style="font-size:11px">2/4</span>
+            </div>
+            <div style="font-size:14px;margin-bottom:4px">فهد</div>
+            <div style="font-size:14px">لينا</div>
+            <div class="muted" style="font-size:11px;margin-top:10px">انضم</div>
+          </div>
+        </div>
+        <div class="card" style="padding:12px;margin-top:14px">
+          <div class="muted" style="font-size:12px;margin-bottom:8px">إعدادات المضيف</div>
+          <div style="font-size:13px">مؤقت · تشفير 60ث · تخمين 75ث · 8 جولات</div>
+        </div>
+      </div>
+      <div class="foot"><button class="btn btn-primary" type="button">ابدأ اللعبة</button></div>`
+  },
+  {
+    id: "keys",
+    title: "المفاتيح",
+    sub: "الجولة 0 → قبل التشفير",
+    html: `
+      ${gameChrome({ round: 1, phase: "المفاتيح", timer: "—", bar: 100, breachG: 0, faultG: 0, breachS: 0, faultS: 0 })}
+      <div class="scroll px py">
+        <div class="banner" style="margin-bottom:12px">هذه كلماتكم السرية. احفظوها — الخصم لا يراها.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          ${["أسد","قمر","سفينة","صحراء"].map((k,i)=>`
+            <div class="card" style="padding:14px;border-color:${ALLIES}44;display:flex;gap:10px;align-items:center">
+              <span class="num" style="color:${ALLIES};font-size:16px;font-weight:700">${i+1}</span>
+              <span style="font-size:22px;font-weight:500">${k}</span>
+            </div>`).join("")}
+        </div>
+        <p class="muted" style="font-size:12px;text-align:center">المضيف فقط يستطيع المتابعة أو خلط مفاتيح فريق.</p>
+      </div>
+      <div class="foot"><button class="btn btn-primary" type="button">بدء التشفير</button></div>
+      ${tabs()}`
+  },
+  {
+    id: "encrypt",
+    title: "التشفير",
+    sub: "أنت المُشفِّر · تكتب التلميحات",
+    html: `
+      ${gameChrome({ round: 3, phase: "تشفير", timer: "0:51", bar: 72, theories: ["ملك؟","ليل؟","مركب؟","رمال؟"] })}
+      <div class="scroll" style="padding:10px 12px 16px">
+        <div style="display:flex;justify-content:center;gap:16px;margin-bottom:12px">
+          ${[{d:2,w:"قمر"},{d:4,w:"صحراء"},{d:1,w:"أسد"}].map((x,i)=>`
+            <div style="text-align:center;min-width:4.5rem">
+              <div class="num" style="width:36px;height:36px;margin:0 auto 4px;display:grid;place-items:center;border:1px solid var(--gold);border-radius:8px;font-size:16px">${x.d}</div>
+              <div style="font-size:14px;color:${ALLIES};font-weight:500">${x.w}</div>
+              <div class="muted" style="font-size:9px">${ORD[i]}</div>
+            </div>`).join("")}
+        </div>
+        ${[0,1,2].map(i => `
+          <div style="margin-bottom:10px">
+            <div class="muted" style="font-size:10px;margin-bottom:4px">التلميح ${ORD[i]}
+              <span class="chip" style="margin-inline-start:6px;font-size:12px;border-color:${ALLIES}55;color:${ALLIES}">
+                <span class="num" style="font-size:11px">${[2,4,1][i]}</span>${["قمر","صحراء","أسد"][i]}
+              </span>
+            </div>
+            <input class="field" value="${["سماء","جمل","زئير"][i]}" readonly />
+          </div>`).join("")}
+      </div>
+      <div class="foot">
+        <button class="btn btn-primary" type="button">أرسل التلميحات</button>
+        <p class="muted" style="font-size:10.5px;text-align:center;margin:8px 0 0">ممنوع التلميح للهجاء أو عدد الحروف أو الترتيب.</p>
+      </div>
+      ${tabs()}`
+  },
+  {
+    id: "encrypt-wait",
+    title: "التشفير",
+    sub: "زميل يكتب · أنت تنتظر",
+    html: `
+      ${gameChrome({ round: 3, phase: "تشفير", timer: "0:38", bar: 48 })}
+      <div class="scroll px py">
+        <div class="card" style="padding:22px;text-align:center;margin-bottom:16px">
+          <p style="font-size:20px;font-weight:500;margin:0 0 14px">نورة يكتب التلميحات</p>
+          <div style="display:flex;justify-content:center;gap:12px">
+            <span class="chip"><span style="width:6px;height:6px;border-radius:50%;background:var(--ok)"></span>الحلفاء <span class="muted">جاهز</span></span>
+            <span class="chip"><span style="width:6px;height:6px;border-radius:50%;background:#4A5680"></span>المحور <span class="muted">يكتب…</span></span>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12px;margin-bottom:8px">سجلّكم</p>
+        <div class="lane4">
+          ${["أسد","قمر","سفينة","صحراء"].map((k,i)=>`
+            <div class="lane" style="border-color:${ALLIES}30">
+              <div class="n" style="color:${ALLIES};background:${ALLIES}18;border:1px solid ${ALLIES}40">${i+1}</div>
+              <div class="lab" style="color:${ALLIES}">${k}</div>
+              <div class="cl"><span class="num muted" style="font-size:9px">1</span><br/>زئير</div>
+            </div>`).join("")}
+        </div>
+      </div>
+      ${tabs()}`
+  },
+  {
+    id: "guess-decrypt",
+    title: "التخمين",
+    sub: "فكّ شفرة فريقكم",
+    html: `
+      ${gameChrome({ round: 3, phase: "تخمين", timer: "1:02", bar: 70, theories: ["ملك؟","ليل؟","مركب؟","رمال؟"] })}
+      <div class="scroll px py">
+        <div class="banner" style="margin-bottom:12px">
+          <span style="font-weight:700">فكّوا شفرة فريقكم من:</span>
+          <span style="font-weight:700;color:${ALLIES}"> نورة</span>
+        </div>
+        ${cartouche([
+          { d: 2, w: "قمر", wc: ALLIES },
+          { d: "—", w: "" },
+          { d: 1, w: "أسد", wc: ALLIES },
+        ], { clues: ["سماء", "جمل", "زئير"], tone: ALLIES })}
+        ${pads([
+          { d: 1, w: "أسد" }, { d: 2, w: "قمر" },
+          { d: 3, w: "سفينة" }, { d: 4, w: "صحراء" },
+        ], ALLIES)}
+        <p class="muted" style="font-size:11.5px;text-align:center;margin:10px 0 0">أي لاعب في فريقكم يستطيع تحريك الأرقام</p>
+      </div>
+      <div class="foot"><button class="btn btn-primary" type="button">أرسل فكّ الشفرة</button></div>
+      ${tabs()}`
+  },
+  {
+    id: "guess-intercept",
+    title: "الاعتراض",
+    sub: "تعترضون شفرة الخصم",
+    html: `
+      ${gameChrome({ round: 3, phase: "تخمين", timer: "0:44", bar: 40, timerCls: "warn", barCls: "warn",
+        theories: ["تاج؟","نجم؟","قارب؟","كثيب؟"] })}
+      <div class="scroll px py">
+        <div class="banner" style="margin-bottom:12px">
+          <span style="font-weight:700">اعترضوا شفرة العدو من:</span>
+          <span style="font-weight:700;color:${AXIS}"> فهد</span>
+        </div>
+        ${cartouche([
+          { d: 1, hints: ["عرش"] },
+          { d: 3, hints: ["موج"] },
+          { d: "—" },
+        ], { clues: ["عرش", "مدّ", "كثبان"], tone: AXIS })}
+        ${pads([
+          { d: 1, hints: ["عرش", "ج1"] }, { d: 2, hints: ["—"] },
+          { d: 3, hints: ["موج"] }, { d: 4, hints: ["رمل"] },
+        ], AXIS)}
+        <p class="muted" style="font-size:11px;text-align:center;margin-top:10px">تخميناتكم لكل رقم · مشتركة</p>
+        <div class="lane4" style="margin-top:8px">
+          ${["تاج؟","نجم؟","قارب؟","كثيب؟"].map((k,i)=>`
+            <div class="lane" style="border-color:${AXIS}30">
+              <div class="n" style="color:${AXIS};background:${AXIS}18;border:1px solid ${AXIS}40">${i+1}</div>
+              <div class="lab" style="color:${AXIS}">${k}</div>
+            </div>`).join("")}
+        </div>
+      </div>
+      <div class="foot"><button class="btn btn-primary" type="button">أرسل الاعتراض</button></div>
+      ${tabs()}`
+  },
+  {
+    id: "encryptor-split",
+    title: "مراقبة المُشفِّر",
+    sub: "فريقكم يفك · العدو يعترض (مباشر)",
+    html: `
+      ${gameChrome({ round: 3, phase: "تخمين", timer: "0:29", bar: 32 })}
+      <div class="scroll px py">
+        <div class="banner lock" style="margin-bottom:12px">أنت كتبت هذه التلميحات. راقب فقط — لا تُظهر أي ردّ فعل.</div>
+        <div class="split" style="border-color:${ALLIES}66;background:${ALLIES}0F">
+          <h3 style="color:${ALLIES}">فريقكم: الحلفاء <span class="muted" style="font-size:11px;font-weight:400">يفكّون شفرتكم</span></h3>
+          ${cartouche([
+            { d: 2, w: "قمر", wc: ALLIES },
+            { d: 4, w: "صحراء", wc: ALLIES },
+            { d: 1, w: "أسد", wc: ALLIES },
+          ], { clues: ["سماء", "جمل", "زئير"], tone: ALLIES })}
+        </div>
+        <div class="split" style="border-color:${AXIS}66;background:${AXIS}0F">
+          <h3 style="color:${AXIS}">العدو: المحور <span class="muted" style="font-size:11px;font-weight:400">يعترضون · مباشر</span></h3>
+          ${cartouche([
+            { d: 2, hints: ["سماء ج1"] },
+            { d: 1, hints: ["جمل ج2"] },
+            { d: 3, hints: ["زئير"] },
+          ], { clues: ["سماء", "جمل", "زئير"], tone: ALLIES })}
+          <p class="muted" style="font-size:11px;text-align:center;margin:8px 0 0">تشاهدون أرقامهم وهي تتحرّك</p>
+        </div>
+      </div>
+      <div class="foot"><p class="muted" style="text-align:center;margin:0;padding:8px 0;font-size:13px">بانتظار فريقك ليفكّ الشفرة…</p></div>
+      ${tabs()}`
+  },
+  {
+    id: "reveal-mine",
+    title: "الكشف",
+    sub: "شفرة فريقكم · مفاتيح في الصناديق",
+    html: `
+      ${gameChrome({ round: 3, phase: "كشف", timer: "—", bar: 100 })}
+      <div class="scroll px py">
+        <div class="card" style="padding:14px;border-color:#F03B2E66;margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+            <span class="font-display" style="color:${ALLIES}">شفرة الحلفاء <span class="muted" style="font-size:11px">فريقكم</span></span>
+          </div>
+          <div style="margin-bottom:10px"><span class="stamp stamp-bad">خلل</span>
+            <span class="muted" style="font-size:12.5px;margin-inline-start:8px">فريقكم أخطأ في فكّ الشفرة</span></div>
+          <p class="muted" style="font-size:11px;margin:0 0 6px">الشفرة الحقيقية</p>
+          ${cartouche([
+            { d: 2, w: "قمر", wc: ALLIES, cls: "ok" },
+            { d: 4, w: "صحراء", wc: ALLIES, cls: "ok" },
+            { d: 1, w: "أسد", wc: ALLIES, cls: "ok" },
+          ], { clues: ["سماء","جمل","زئير"], tone: ALLIES })}
+          <p class="muted" style="font-size:11px;margin:12px 0 6px">فكّ الحلفاء</p>
+          ${cartouche([
+            { d: 2, w: "قمر", cls: "ok" },
+            { d: 3, w: "سفينة", cls: "bad" },
+            { d: 1, w: "أسد", cls: "ok" },
+          ], { clues: ["سماء","جمل","زئير"], tone: ALLIES })}
+          <p class="muted" style="font-size:11px;margin:12px 0 6px">اعتراض المحور</p>
+          ${cartouche([
+            { d: 2, w: "قمر", cls: "ok" },
+            { d: 4, w: "صحراء", cls: "ok" },
+            { d: 1, w: "أسد", cls: "ok" },
+          ], { clues: ["سماء","جمل","زئير"], tone: AXIS })}
+        </div>
+      </div>
+      <div class="foot"><button class="btn btn-primary" type="button">متابعة</button></div>
+      ${tabs()}`
+  },
+  {
+    id: "reveal-intercept",
+    title: "الكشف",
+    sub: "أنتم المعترضون · تلميحات قديمة في الصناديق",
+    html: `
+      ${gameChrome({ round: 3, phase: "كشف", timer: "—", bar: 100, my: "gold" })}
+      <div class="scroll px py">
+        <div class="card" style="padding:14px;border-color:#8FAE5C66">
+          <div class="font-display" style="color:${AXIS};margin-bottom:10px">شفرة المحور</div>
+          <div style="margin-bottom:10px"><span class="stamp stamp-good">اختراق</span>
+            <span class="muted" style="font-size:12.5px;margin-inline-start:8px">اخترقتم شفرة المحور</span></div>
+          <p class="muted" style="font-size:11px;margin:0 0 6px">الشفرة الحقيقية</p>
+          ${cartouche([
+            { d: 1, hints: ["عرش"], cls: "ok" },
+            { d: 3, hints: ["موج"], cls: "ok" },
+            { d: 4, hints: ["رمل"], cls: "ok" },
+          ], { clues: ["عرش","مدّ","كثبان"], tone: AXIS })}
+          ${pads([
+            { d: 1, hints: ["عرش"] }, { d: 2, hints: ["—"] },
+            { d: 3, hints: ["موج"] }, { d: 4, hints: ["رمل"] },
+          ], AXIS)}
+        </div>
+      </div>
+      <div class="foot"><button class="btn btn-primary" type="button">متابعة</button></div>
+      ${tabs()}`
+  },
+  {
+    id: "round-end",
+    title: "نهاية الجولة",
+    sub: "الحصيلة · المشفّر القادم",
+    html: `
+      ${gameChrome({ round: 3, phase: "فاصل", timer: "—", bar: 100, breachG: 1, faultG: 1, breachS: 0, faultS: 1 })}
+      <div class="scroll px py">
+        <div class="card" style="padding:16px;margin-bottom:12px">
+          <p class="muted" style="font-size:12px;margin:0 0 12px">الحصيلة</p>
+          ${[["الحلفاء", ALLIES, 1, 1], ["المحور", AXIS, 0, 1]].map(([n,c,b,f]) => `
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+              <span class="font-display" style="color:${c}">${n}</span>
+              <span style="font-size:12.5px">
+                <span style="color:${BREACH}">اختراق <span class="num">${b}</span>/2</span>
+                &nbsp;·&nbsp;
+                <span style="color:${FAULT}">خلل <span class="num">${f}</span>/2</span>
+              </span>
+            </div>`).join("")}
+          <p class="muted" style="font-size:11.5px;border-top:1px solid var(--line);padding-top:10px;margin:0;line-height:1.6">اختراقان يفوزان باللعبة. خللان يخسرانها.</p>
+        </div>
+        <div class="card" style="padding:16px">
+          <p class="muted" style="font-size:12px;margin:0 0 10px">المُشفِّر في الجولة القادمة</p>
+          <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span style="color:${ALLIES}">الحلفاء</span><span>سعد بن صالح</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:${AXIS}">المحور</span><span>لينا</span>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><button class="btn btn-primary" type="button">متابعة</button></div>
+      ${tabs()}`
+  },
+  {
+    id: "over",
+    title: "النهاية",
+    sub: "فوز · لوحة · مساءلة المشفّرين",
+    html: `
+      <div class="scroll" style="padding:36px 16px 100px">
+        <div style="text-align:center;margin-bottom:20px">
+          <p class="muted" style="font-size:12px;margin:0 0 8px">باختراقين</p>
+          <h1 class="font-display" style="font-size:40px;margin:0;color:${ALLIES};line-height:1.1">فاز الحلفاء</h1>
+          <p style="font-size:18px;font-weight:500;color:${ALLIES};margin:12px 0 0">سعد بن صالح · نورة</p>
+          <p class="muted" style="font-size:14px;margin:8px 0 0">أحسنتم.</p>
+        </div>
+        <div class="card" style="padding:12px;margin-bottom:12px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="border:1px solid ${ALLIES}99;background:${ALLIES}18;border-radius:8px;padding:10px;text-align:center">
+              <div class="font-display" style="color:${ALLIES};font-size:15px">الحلفاء · فائز</div>
+              <div style="display:flex;justify-content:center;gap:12px;margin-top:8px;font-size:12px">
+                <span style="color:${BREACH}">اختراق <span class="num" style="font-size:18px">2</span>/2</span>
+                <span style="color:${FAULT}">خلل <span class="num" style="font-size:18px">0</span>/2</span>
+              </div>
+            </div>
+            <div style="border:1px solid ${AXIS}44;background:${AXIS}0A;border-radius:8px;padding:10px;text-align:center">
+              <div class="font-display" style="color:${AXIS};font-size:15px">المحور</div>
+              <div style="display:flex;justify-content:center;gap:12px;margin-top:8px;font-size:12px">
+                <span style="color:${BREACH}">اختراق <span class="num" style="font-size:18px">0</span>/2</span>
+                <span style="color:${FAULT}">خلل <span class="num" style="font-size:18px">1</span>/2</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="padding:14px;border-color:#F03B2E55;background:#F03B2E0A;margin-bottom:16px">
+          <p style="margin:0 0 4px;font-weight:700;color:${FAULT};font-size:13px">المُشفِّرون تحت المساءلة</p>
+          <p class="muted" style="font-size:11px;margin:0 0 10px;line-height:1.5">من المحور — شفرات اختُرقت أو انتهت بخلل وهم يكتبون</p>
+          <div style="border:1px solid ${AXIS}44;background:#0C1330;border-radius:8px;padding:10px 12px">
+            <p style="margin:0 0 6px;font-size:16px;font-weight:500;color:${AXIS}">فهد</p>
+            <p style="margin:0;font-size:12.5px;color:${BREACH}">اخترقوا شفرته <span class="num">2</span>× <span class="muted">(ج2، ج5)</span></p>
+            <p style="margin:4px 0 0;font-size:12.5px;color:${FAULT}">خلل وهو المُشفِّر <span class="num">1</span>× <span class="muted">(ج3)</span></p>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12px;margin:0 0 8px">كل المفاتيح، وكل ما قيل عنها</p>
+        <div class="card" style="padding:12px;border-color:${ALLIES}44">
+          <div class="font-display" style="color:${ALLIES};margin-bottom:8px">الحلفاء</div>
+          <div class="lane4">
+            ${["أسد","قمر","سفينة","صحراء"].map((k,i)=>`
+              <div class="lane" style="border-color:${ALLIES}30">
+                <div class="n" style="color:${ALLIES};background:${ALLIES}18;border:1px solid ${ALLIES}40">${i+1}</div>
+                <div class="lab" style="color:${ALLIES}">${k}</div>
+              </div>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="foot"><button class="btn btn-primary" type="button">إنهاء اللعبة والعودة للردهة</button></div>`
+  },
+];
+
+let i = 0;
+const screen = document.getElementById("screen");
+const picker = document.getElementById("picker");
+const title = document.getElementById("title");
+const sub = document.getElementById("sub");
+const prev = document.getElementById("prev");
+const next = document.getElementById("next");
+
+SCENES.forEach((s, idx) => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = s.title;
+  b.dataset.i = String(idx);
+  b.addEventListener("click", () => go(idx));
+  picker.appendChild(b);
+});
+
+function go(n) {
+  i = Math.max(0, Math.min(SCENES.length - 1, n));
+  const s = SCENES[i];
+  screen.innerHTML = `<div class="scene on">${s.html}</div>`;
+  title.textContent = `${i + 1}/${SCENES.length} · ${s.title}`;
+  sub.textContent = s.sub;
+  prev.disabled = i === 0;
+  next.disabled = i === SCENES.length - 1;
+  [...picker.children].forEach((b, idx) => b.classList.toggle("on", idx === i));
+}
+
+prev.addEventListener("click", () => go(i - 1));
+next.addEventListener("click", () => go(i + 1));
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft" || e.key === "ArrowDown") go(i + 1);
+  if (e.key === "ArrowRight" || e.key === "ArrowUp") go(i - 1);
+});
+
+go(0);
+</script>
+</body>
+</html>
