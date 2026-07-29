@@ -665,12 +665,10 @@ textarea {
 .stamp-good {
   color: #8fae5c;
   background: rgba(143, 174, 92, 0.14);
-  box-shadow: 0 0 0 1px rgba(143, 174, 92, 0.25), 0 8px 22px -10px rgba(143, 174, 92, 0.55);
 }
 .stamp-bad {
   color: #f03b2e;
   background: rgba(240, 59, 46, 0.12);
-  box-shadow: 0 0 0 1px rgba(240, 59, 46, 0.28), 0 8px 22px -10px rgba(240, 59, 46, 0.5);
 }
 
 /* Miscommunication — round seal with an outer ring. */
@@ -685,20 +683,11 @@ textarea {
   border-width: 2px;
 }
 
-.stamp-fault.stamp-good {
-  box-shadow:
-    0 0 0 2.5px #15140f,
-    0 0 0 4.5px currentColor,
-    0 0 0 1px rgba(143, 174, 92, 0.2),
-    0 8px 22px -10px rgba(143, 174, 92, 0.5);
-}
-
+.stamp-fault.stamp-good,
 .stamp-fault.stamp-bad {
   box-shadow:
     0 0 0 2.5px #15140f,
-    0 0 0 4.5px currentColor,
-    0 0 0 1px rgba(240, 59, 46, 0.22),
-    0 8px 22px -10px rgba(240, 59, 46, 0.45);
+    0 0 0 4.5px currentColor;
 }
 
 @keyframes stamp-in {
