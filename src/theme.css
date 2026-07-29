@@ -770,7 +770,7 @@ textarea {
 
 .pip-board {
   display: inline-flex;
-  border: 1.5px solid currentColor;
+  border: 1px solid #5a5648;
   border-radius: 0;
   overflow: hidden;
   flex-shrink: 0;
@@ -781,7 +781,7 @@ textarea {
   width: 9px;
   height: 9px;
   box-sizing: border-box;
-  border-inline-start: 1px solid currentColor;
+  border-inline-start: 1px solid #5a5648;
   background: repeating-linear-gradient(
     -45deg,
     transparent 0,
