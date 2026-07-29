@@ -61,7 +61,7 @@ export function Cartouche({
   guessWords?: (string | null | undefined)[] | null;
   historyByDigit?: string[][] | null;
   showPads?: boolean;
-  size?: "md" | "sm";
+  size?: "md" | "sm" | "xs";
 }) {
   const editable = Boolean(onChange);
   const [focus, setFocus] = useState<number>(0);
@@ -107,8 +107,13 @@ export function Cartouche({
           : undefined;
     const hints = historyByDigit?.[digit - 1] ?? [];
     // Compact reveal: keep only the latest clues so the left column stays short.
+    // Compact reveal: keep a few recent prior clues so intercept stacks fit.
     const clipped =
-      size === "sm" && hints.length > 2 ? hints.slice(-2) : hints;
+      size === "xs" && hints.length > 3
+        ? hints.slice(-3)
+        : size === "sm" && hints.length > 2
+          ? hints.slice(-2)
+          : hints;
     return { word, guess, hints: clipped };
   }
 
@@ -123,10 +128,12 @@ export function Cartouche({
 
   const padsVisible =
     showPads && (editable || keyWords || guessWords || historyByDigit);
+  const sizeClass =
+    size === "xs" ? " cartouche-xs" : size === "sm" ? " cartouche-sm" : "";
 
   return (
     <div>
-      <div className={`cartouche${size === "sm" ? " cartouche-sm" : ""}`}>
+      <div className={`cartouche${sizeClass}`}>
         {[0, 1, 2].map((i) => {
           const v = values[i];
           const clue = clues?.[i];

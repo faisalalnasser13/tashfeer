@@ -152,6 +152,56 @@ textarea {
   line-height: 1.15;
 }
 
+.cartouche-xs {
+  gap: 3px;
+}
+
+.cartouche-xs .slot {
+  aspect-ratio: 1.05 / 1;
+  padding: 3px 2px;
+  min-height: 30px;
+  border-radius: 2px 2px 7px 7px;
+}
+
+.cartouche-xs .slot-digit {
+  font-size: 12px;
+}
+
+.cartouche-xs .slot::before {
+  font-size: 6px;
+  inset-block-start: 1px;
+  inset-inline-end: 2px;
+}
+
+.cartouche-xs .slot-has-extra {
+  aspect-ratio: auto;
+  min-height: 52px;
+  padding: 4px 2px 5px;
+  gap: 1px;
+  justify-content: flex-start;
+}
+
+.cartouche-xs .slot-word {
+  font-size: 8px;
+  line-height: 1.15;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cartouche-xs .slot-hints {
+  gap: 1px;
+  max-height: none;
+  overflow: visible;
+}
+
+.cartouche-xs .slot-hint {
+  font-size: 7px;
+  line-height: 1.15;
+}
+
 .slot {
   position: relative;
   aspect-ratio: 2.4 / 1;

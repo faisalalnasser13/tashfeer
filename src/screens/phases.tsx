@@ -7,6 +7,7 @@ import { OTHER, TEAMS } from "../lib/types";
 import { Cartouche } from "../components/Cartouche";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
 import { Banner, Btn, Empty, Stamp, TEAM_HEX, TEAM_LABEL } from "../components/ui";
+import { codesEqual } from "../lib/rules";
 
 interface Ctx {
   room: Room;
@@ -765,11 +766,18 @@ function RevealCard({
   const hasBreach = side.wasBreached;
   const hasFault = side.faulted;
   const dramatic = hasBreach || hasFault;
-  // Decrypting team: keywords under their digits. Interceptors: past clues.
+  // Decrypting team: keywords under their digits.
+  // Interceptors: prior-round clues only — same history they had while guessing
+  // (current round's clues were shown above the slots, never filed under digits yet).
   const keyWords = mine ? keys : null;
   const historyByDigit = mine
     ? null
-    : buildLanes(rounds, team, null).map((lane) => lane.clues.map((c) => c.text));
+    : buildLanes(rounds, team, null).map((lane) =>
+        lane.clues.filter((c) => c.round < rec.round).map((c) => c.text)
+      );
+  const decryptOk = codesEqual(side.decrypt, side.code);
+  const interceptOk =
+    rec.round >= 2 && codesEqual(side.intercept, side.code);
 
   if (!visible) {
     return <div className="card h-32 grid place-items-center text-[13px] text-muted">…</div>;
@@ -810,40 +818,9 @@ function RevealCard({
             </div>
           </div>
 
-          <div className="flex items-stretch gap-2.5">
-            <div className="flex-1 min-w-0 space-y-2">
-              <div>
-                <p className="text-[10px] text-muted mb-1">فكّ {TEAM_LABEL[team]}</p>
-                <Cartouche
-                  values={side.decrypt}
-                  tone={team}
-                  truth={side.code}
-                  keyWords={keyWords}
-                  historyByDigit={historyByDigit}
-                  showPads={false}
-                  size="sm"
-                />
-              </div>
-              {rec.round >= 2 && (
-                <div>
-                  <p className="text-[10px] text-muted mb-1">
-                    اعتراض {TEAM_LABEL[opp]}
-                  </p>
-                  <Cartouche
-                    values={side.intercept}
-                    tone={opp}
-                    truth={side.code}
-                    keyWords={keyWords}
-                    historyByDigit={historyByDigit}
-                    showPads={false}
-                    size="sm"
-                  />
-                </div>
-              )}
-            </div>
-
+          <div className="flex items-start gap-3 w-full">
             {(hasBreach || hasFault) && (
-              <div className="reveal-stamps" aria-label="نتائج الجولة">
+              <div className="reveal-stamps shrink-0" aria-label="نتائج الجولة">
                 {hasBreach && (
                   <div className="flex flex-col items-center gap-1">
                     <Stamp kind="breach" good={goodForViewer} />
@@ -864,10 +841,58 @@ function RevealCard({
                 )}
               </div>
             )}
+
+            {/* ms-auto → visual left under dir=rtl */}
+            <div className="w-[9.5rem] shrink-0 space-y-2 ms-auto">
+              <div>
+                <p className="text-[10px] text-muted mb-1 leading-none flex items-center gap-1.5">
+                  <span>فكّ {TEAM_LABEL[team]}</span>
+                  <AttemptMark ok={decryptOk} />
+                </p>
+                <Cartouche
+                  values={side.decrypt}
+                  tone={team}
+                  truth={side.code}
+                  keyWords={keyWords}
+                  historyByDigit={historyByDigit}
+                  showPads={false}
+                  size="xs"
+                />
+              </div>
+              {rec.round >= 2 && (
+                <div>
+                  <p className="text-[10px] text-muted mb-1 leading-none flex items-center gap-1.5">
+                    <span>اعتراض {TEAM_LABEL[opp]}</span>
+                    <AttemptMark ok={interceptOk} />
+                  </p>
+                  <Cartouche
+                    values={side.intercept}
+                    tone={opp}
+                    truth={side.code}
+                    keyWords={keyWords}
+                    historyByDigit={historyByDigit}
+                    showPads={false}
+                    size="xs"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function AttemptMark({ ok }: { ok: boolean }) {
+  return (
+    <span
+      className="num text-[13px] font-bold leading-none"
+      style={{ color: ok ? "#8FAE5C" : "#F03B2E" }}
+      aria-label={ok ? "صحيح" : "خطأ"}
+    >
+      {ok ? "✓" : "✗"}
+    </span>
   );
 }
 
