@@ -45,7 +45,7 @@ export function LogTab({
                 color: on ? color : "#8794B8",
               }}
             >
-              <span className="log-side-punch" aria-hidden />
+              <span className="tiny-punch" aria-hidden />
               {t === myTeam ? "سجلنا" : "سجل العدو"}
             </button>
           );
