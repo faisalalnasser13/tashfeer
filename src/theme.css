@@ -75,14 +75,16 @@ textarea {
   box-shadow: inset 0 1px 0 rgba(237, 228, 206, 0.05);
 }
 
+/* Team id "gold" = الحلفاء (allies blue). Not brass --gold. */
 .card-gold {
-  border-color: rgba(211, 180, 95, 0.42);
+  border-color: rgba(78, 134, 198, 0.42);
   background: linear-gradient(180deg, #1c1a2c 0%, #14152a 100%);
 }
 
+/* Team id "silver" = المحور (axis orange). */
 .card-silver {
-  border-color: rgba(78, 134, 198, 0.42);
-  background: linear-gradient(180deg, #23211a 0%, #1b1a14 100%);
+  border-color: rgba(224, 123, 53, 0.42);
+  background: linear-gradient(180deg, #2a1c14 0%, #1a1410 100%);
 }
 
 .hairline {

@@ -10,8 +10,8 @@ export default {
         line:    "#3A3629",
         gold:    "#D3B45F",   // brass — timer, buttons, key numbers
         goldDim: "#8A7838",
-        silver:  "#4E86C6",   // Allies
-        silverDim:"#33587F",
+        silver:  "#E07B35",   // Axis / المحور (team id "silver")
+        silverDim:"#8A4A1F",
         parch:   "#EDE4CE",
         muted:   "#948C77",
         alarm:   "#F03B2E",
