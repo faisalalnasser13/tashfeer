@@ -770,7 +770,7 @@ textarea {
 
 .pip-board {
   display: inline-flex;
-  border: 1px solid #5a5648;
+  border: 1px solid color-mix(in srgb, currentColor 72%, #0a0a08);
   border-radius: 0;
   overflow: hidden;
   flex-shrink: 0;
