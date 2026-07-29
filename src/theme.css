@@ -1031,3 +1031,142 @@ textarea {
   border: 3px solid var(--gold);
 }
 .range:disabled::-webkit-slider-thumb { background: #6e6858; border-color: #4a4636; }
+
+/* ------------------------------------------------------------------ */
+/* encryptor clue card — fixed-height rows, past chips overflow sheet  */
+/* ------------------------------------------------------------------ */
+
+.encrypt-card {
+  padding: 0;
+}
+
+.encrypt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 4.25rem;
+  padding: 0.4rem 0.55rem;
+  border-block-end: 1px solid #3a3629;
+  box-sizing: border-box;
+}
+
+.encrypt-target {
+  flex: 0 0 4.75rem;
+  width: 4.75rem;
+  height: 3.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 0.2rem 0.25rem;
+  box-sizing: border-box;
+}
+
+.encrypt-target-digit {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.encrypt-target-word {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.15;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.encrypt-mid {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+
+.encrypt-meta {
+  height: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.encrypt-ord {
+  flex-shrink: 0;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.encrypt-past-chip {
+  max-width: 4.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-block: 0 !important;
+  padding-inline: 0.3rem !important;
+  font-size: 10px !important;
+  line-height: 1.15;
+}
+
+.encrypt-past-more {
+  flex-shrink: 0;
+  padding-block: 0 !important;
+  padding-inline: 0.35rem !important;
+  font-size: 10px !important;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+.encrypt-input {
+  width: 100%;
+  min-width: 0;
+  height: 1.85rem;
+  border-radius: 3px;
+  padding: 0 0.55rem;
+  font-weight: 500;
+  color: var(--parch);
+  border: 1px solid;
+  outline: none;
+  box-sizing: border-box;
+  /* font-size set inline at 16px — iOS zoom prevention */
+}
+
+.encrypt-check {
+  flex: 0 0 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.encrypt-foot {
+  padding: 0.65rem 0.7rem 0.75rem;
+}
+
+.encrypt-past-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(21, 20, 15, 0.72);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1rem;
+  padding-bottom: calc(1rem + var(--safe-b) + 3.5rem);
+}
+
+.encrypt-past-panel {
+  width: 100%;
+  max-width: 22rem;
+  padding: 0.85rem 0.9rem 1rem;
+}

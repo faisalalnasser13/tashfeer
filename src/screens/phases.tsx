@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, errText } from "../lib/firebase";
 import { normalizeAr, normalizeKey, ORDINALS } from "../lib/arabic";
 import { useDraft } from "../lib/hooks";
@@ -163,6 +163,9 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [focusIdx, setFocusIdx] = useState<number | null>(null);
+  /** Digit 1–4 whose full past-clue list is open in the overlay. */
+  const [pastOpen, setPastOpen] = useState<number | null>(null);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null]);
 
   const sent = alreadyIn || sentLocal || Boolean(mySubmittedClues);
 
@@ -188,6 +191,9 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
 
   const filled = clues.every((c) => c.trim().length > 0);
   const clean = filled && [0, 1, 2].every((i) => !problem(i));
+  const blockReason = !filled
+    ? "أكمل التلميحات الثلاثة"
+    : ([0, 1, 2].map(problem).find(Boolean) ?? null);
 
   async function send() {
     setBusy(true); setErr("");
@@ -200,7 +206,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
   /**
    * Mobile browsers scroll a focused input toward the top of the visual
    * viewport (especially the last field). Undo that so the consolidated
-   * encrypt layout stays put.
+   * encrypt layout stays put. Kept until iOS device verification.
    */
   function holdScrollOnFocus() {
     const scroller = document.querySelector(".scroll-y") as HTMLElement | null;
@@ -239,132 +245,170 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
 
   const lanes = buildLanes(rounds, myTeam, keys);
   const color = TEAM_HEX[myTeam];
+  const warmSilver = myTeam === "silver";
+  const inputBg = warmSilver ? "#2A1810" : "#1B1A14";
+  const inputBorder = warmSilver ? "#6B4020" : "#3A3629";
+  const inputPh = warmSilver ? "placeholder:text-[#6B5040]" : "placeholder:text-[#6E6858]";
+  const pastLane = pastOpen != null ? lanes[pastOpen - 1] : null;
 
   return (
     <div className="px-3 pt-2 pb-4 fade-in">
-      {/* Centered code + lit keywords — order is the job; strip above lights the set. */}
-      <div className="flex justify-center gap-2.5 mb-2 px-1">
-        {(code ?? [null, null, null]).map((d, i) => {
-          const word = d && keys ? keys[d - 1] : null;
-          const on = focusIdx === i;
-          return (
-            <div key={i} className="flex flex-col items-center gap-0.5 min-w-[3.25rem]">
-              <span
-                className={`num font-semibold w-7 h-7 grid place-items-center rounded-md border transition ${
-                  on ? "border-gold text-parch text-[14px]" : "border-line text-muted text-[13px]"
-                }`}
-              >
-                {d ?? "—"}
-              </span>
-              <span
-                className={`text-center font-medium leading-tight transition ${
-                  on ? "text-[12px]" : "text-[11px]"
-                }`}
-                style={{ color: word ? color : "#4A5680" }}
-              >
-                {word ?? (code ? "…" : "…")}
-              </span>
-              <span className="text-[8px] text-muted">{ORDINALS[i]}</span>
-            </div>
-          );
-        })}
-      </div>
       {!code && (
         <p className="text-[11px] text-muted text-center mb-2">جارٍ سحب الشفرة…</p>
       )}
 
-      <div className="space-y-2">
+      <div className="card encrypt-card overflow-hidden">
         {[0, 1, 2].map((i) => {
           const target = code?.[i];
           const word = target && keys ? keys[target - 1] : null;
           const issue = problem(i);
           const past = target ? lanes[target - 1].clues : [];
+          const visible = past.slice(0, 2);
+          const extra = past.length - visible.length;
           const on = focusIdx === i;
+          const rowOk = clues[i].trim().length > 0 && !issue;
           return (
-            <div key={i} data-clue-block className="clue-block">
-              <div className="flex items-center gap-1.5 mb-1 px-0.5">
-                <span className="text-[10px] text-muted shrink-0">
-                  التلميح {ORDINALS[i]}
+            <div key={i} data-clue-block className="encrypt-row">
+              <div
+                className="encrypt-target"
+                style={{
+                  borderColor: on ? `${color}99` : `${color}44`,
+                  background: on ? `${color}18` : `${color}0A`,
+                  color: word ? color : "#6E6858",
+                }}
+              >
+                <span className="num encrypt-target-digit">{target ?? "—"}</span>
+                <span className="encrypt-target-word" title={word ?? undefined}>
+                  {word ?? "…"}
                 </span>
-                {word && (
-                  <span
-                    className={`chip !py-0.5 !px-2 !text-[14px] font-medium transition ${
-                      on ? "" : "opacity-90"
-                    }`}
-                    style={{
-                      borderColor: on ? `${color}99` : `${color}55`,
-                      background: on ? `${color}18` : undefined,
-                      color,
-                    }}
-                  >
-                    <span className="num text-[12px]">{target}</span>
-                    {word}
-                  </span>
-                )}
-                <span className="flex-1 h-px bg-line" />
               </div>
 
-              {past.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1 mb-1 px-0.5">
-                  {past.map((c, k) => (
-                    <span key={k} className="chip !py-0 !px-1.5 !text-[11px]">
+              <div className="encrypt-mid">
+                <div className="encrypt-meta">
+                  <span className="encrypt-ord text-muted">{ORDINALS[i]}</span>
+                  {visible.map((c, k) => (
+                    <span key={k} className="chip encrypt-past-chip" title={c.text}>
                       <span className="num text-[9px] text-muted">{c.round}</span>
                       {c.text}
                     </span>
                   ))}
+                  {extra > 0 && (
+                    <button
+                      type="button"
+                      className="chip encrypt-past-more"
+                      onClick={() => target && setPastOpen(target)}
+                      aria-label={`عرض ${extra} تلميحات سابقة إضافية`}
+                    >
+                      +{extra}
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <p className="text-[10px] text-muted mb-1 px-0.5">لا سابق</p>
-              )}
+                <input
+                  ref={(el) => { inputRefs.current[i] = el; }}
+                  value={clues[i]}
+                  maxLength={40}
+                  enterKeyHint={i < 2 ? "next" : "done"}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  data-clue-input={i}
+                  onChange={(e) => setClues((c) => c.map((v, j) => (j === i ? e.target.value : v)))}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    if (i < 2) {
+                      inputRefs.current[i + 1]?.focus();
+                      return;
+                    }
+                    (e.target as HTMLInputElement).blur();
+                    if (clean) void send();
+                  }}
+                  onFocus={() => {
+                    holdScrollOnFocus();
+                    setFocusIdx(i);
+                  }}
+                  onBlur={(e) => {
+                    const next = e.relatedTarget as HTMLElement | null;
+                    if (next?.closest?.("[data-clue-input]") != null) return;
+                    window.setTimeout(() => {
+                      setFocusIdx((cur) => (cur === i ? null : cur));
+                    }, 80);
+                  }}
+                  placeholder="تلميح"
+                  className={`encrypt-input ${inputPh}`}
+                  style={{
+                    background: inputBg,
+                    borderColor: issue ? "#D6564A" : on ? `${color}88` : inputBorder,
+                    fontSize: "16px",
+                  }}
+                />
+              </div>
 
-              <input
-                value={clues[i]}
-                maxLength={40}
-                enterKeyHint={i < 2 ? "next" : "done"}
-                autoComplete="off"
-                autoCorrect="off"
-                onChange={(e) => setClues((c) => c.map((v, j) => (j === i ? e.target.value : v)))}
-                onFocus={() => {
-                  holdScrollOnFocus();
-                  setFocusIdx(i);
-                }}
-                onBlur={() => {
-                  window.setTimeout(() => {
-                    setFocusIdx((cur) => (cur === i ? null : cur));
-                  }, 80);
-                }}
-                placeholder="تلميح"
-                className={`w-full rounded-md px-2.5 py-1.5 font-medium text-parch
-                           focus:outline-none transition border ${
-                             myTeam === "silver"
-                               ? "placeholder:text-[#6B5040]"
-                               : "placeholder:text-[#4A5680]"
-                           }`}
-                style={{
-                  background: myTeam === "silver" ? "#2A1810" : "#0C1330",
-                  borderColor: issue
-                    ? "#D6564A"
-                    : myTeam === "silver"
-                      ? "#6B4020"
-                      : "#25335F",
-                  // 16px avoids iOS zoom-on-focus.
-                  fontSize: "16px",
-                }}
-              />
-              {issue && <p className="text-[10px] text-alarm mt-0.5 px-0.5">{issue}</p>}
+              <div className="encrypt-check" aria-hidden>
+                {rowOk ? <span style={{ color: "#8FAE5C" }}>✓</span> : null}
+              </div>
             </div>
           );
         })}
+
+        <div className="encrypt-foot">
+          {err && <Banner tone="warn">{err}</Banner>}
+          <Btn className="w-full !py-2.5" disabled={!clean || busy} onClick={send}>
+            {busy ? "جارٍ الإرسال…" : "أرسل التلميحات"}
+          </Btn>
+          {!clean ? (
+            <p
+              className={`text-[10.5px] text-center leading-snug mt-1.5 ${
+                filled ? "text-alarm" : "text-muted"
+              }`}
+            >
+              {blockReason}
+            </p>
+          ) : (
+            <p className="text-[10.5px] text-muted text-center leading-snug mt-1.5">
+              ممنوع التلميح للهجاء أو عدد الحروف أو الترتيب.
+            </p>
+          )}
+        </div>
       </div>
 
-      {err && <Banner tone="warn">{err}</Banner>}
-
-      <Btn className="w-full mt-2.5 !py-2.5" disabled={!clean || busy} onClick={send}>
-        {busy ? "جارٍ الإرسال…" : "أرسل التلميحات"}
-      </Btn>
-      <p className="text-[10.5px] text-muted text-center leading-snug mt-1.5">
-        ممنوع التلميح للهجاء أو عدد الحروف أو الترتيب.
-      </p>
+      {pastOpen != null && pastLane && (
+        <div
+          className="encrypt-past-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label="تلميحات سابقة"
+          onClick={() => setPastOpen(null)}
+        >
+          <div
+            className="card encrypt-past-panel"
+            style={{ borderColor: `${color}55` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className="text-[12px] font-medium" style={{ color }}>
+                <span className="num me-1.5">{pastOpen}</span>
+                {keys?.[pastOpen - 1] ?? "…"}
+                <span className="text-muted font-normal text-[11px] ms-1.5">· السابق</span>
+              </p>
+              <button
+                type="button"
+                className="text-[11px] text-muted px-1"
+                onClick={() => setPastOpen(null)}
+              >
+                إغلاق
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {pastLane.clues.map((c, k) => (
+                <span key={k} className="chip !py-0.5 !px-2 !text-[12px]">
+                  <span className="num text-[10px] text-muted">{c.round}</span>
+                  {c.text}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
