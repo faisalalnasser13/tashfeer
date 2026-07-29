@@ -223,13 +223,13 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
         ? clues
         : (mySubmittedClues ?? ["…", "…", "…"]);
     return (
-      <div className="px-5 py-8 fade-in">
+      <div className="px-5 py-4 fade-in">
         <Empty title="أُرسلت تلميحاتك" body="بانتظار المُشفِّر الآخر. لا تلمّح لأحد بشيء." />
-        <div className="max-w-sm mx-auto mt-2 space-y-2">
+        <div className="max-w-sm mx-auto mt-1.5 space-y-1.5">
           {shown.map((c, i) => (
-            <div key={i} className="card px-4 py-3 flex items-center gap-3">
-              <span className="text-[11px] text-muted w-10 shrink-0">{ORDINALS[i]}</span>
-              <span className="text-[22px] font-medium">{c}</span>
+            <div key={i} className="card px-3 py-2 flex items-center gap-2.5">
+              <span className="text-[10px] text-muted w-9 shrink-0">{ORDINALS[i]}</span>
+              <span className="text-[15px] font-medium leading-snug">{c}</span>
             </div>
           ))}
         </div>
@@ -243,28 +243,28 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
   return (
     <div className="px-3 pt-2 pb-4 fade-in">
       {/* Centered code + lit keywords — order is the job; strip above lights the set. */}
-      <div className="flex justify-center gap-4 mb-3 px-1">
+      <div className="flex justify-center gap-2.5 mb-2 px-1">
         {(code ?? [null, null, null]).map((d, i) => {
           const word = d && keys ? keys[d - 1] : null;
           const on = focusIdx === i;
           return (
-            <div key={i} className="flex flex-col items-center gap-1 min-w-[4.5rem]">
+            <div key={i} className="flex flex-col items-center gap-0.5 min-w-[3.25rem]">
               <span
-                className={`num font-semibold w-9 h-9 grid place-items-center rounded-lg border transition ${
-                  on ? "border-gold text-parch text-[18px]" : "border-line text-muted text-[16px]"
+                className={`num font-semibold w-7 h-7 grid place-items-center rounded-md border transition ${
+                  on ? "border-gold text-parch text-[14px]" : "border-line text-muted text-[13px]"
                 }`}
               >
                 {d ?? "—"}
               </span>
               <span
                 className={`text-center font-medium leading-tight transition ${
-                  on ? "text-[16px]" : "text-[14px]"
+                  on ? "text-[12px]" : "text-[11px]"
                 }`}
                 style={{ color: word ? color : "#4A5680" }}
               >
                 {word ?? (code ? "…" : "…")}
               </span>
-              <span className="text-[9px] text-muted">{ORDINALS[i]}</span>
+              <span className="text-[8px] text-muted">{ORDINALS[i]}</span>
             </div>
           );
         })}
@@ -631,20 +631,20 @@ function EncryptorGuessWatch({
 
   return (
     <div className="pb-28">
-      <div className="px-4 pt-3 space-y-4 fade-in">
+      <div className="px-4 pt-2 space-y-2.5 fade-in">
         <Banner tone="lock">
           أنت كتبت هذه التلميحات. راقب فقط — لا تُظهر أي ردّ فعل.
         </Banner>
 
         <section
-          className="rounded-xl border p-3 space-y-3"
+          className="rounded-xl border px-2.5 py-2 space-y-2"
           style={{ borderColor: `${mineColor}66`, background: `${mineColor}0F` }}
         >
           <header className="flex items-center justify-between gap-2">
-            <p className="text-[15px] font-bold" style={{ color: mineColor }}>
+            <p className="text-[13px] font-bold" style={{ color: mineColor }}>
               فريقكم: {TEAM_LABEL[myTeam]}
             </p>
-            <span className="text-[11px] text-muted">يفكّون شفرتكم</span>
+            <span className="text-[10px] text-muted">يفكّون شفرتكم</span>
           </header>
 
           <Cartouche
@@ -652,18 +652,20 @@ function EncryptorGuessWatch({
             clues={activeClues.length === 3 ? activeClues : ["—", "—", "—"]}
             tone={myTeam}
             keyWords={keys}
+            showPads={false}
+            size="xs"
           />
         </section>
 
         <section
-          className="rounded-xl border p-3 space-y-3"
+          className="rounded-xl border px-2.5 py-2 space-y-2"
           style={{ borderColor: `${enemyColor}66`, background: `${enemyColor}0F` }}
         >
           <header className="flex items-center justify-between gap-2">
-            <p className="text-[15px] font-bold" style={{ color: enemyColor }}>
+            <p className="text-[13px] font-bold" style={{ color: enemyColor }}>
               العدو: {TEAM_LABEL[enemy]}
             </p>
-            <span className="text-[11px] text-muted">يعترضون شفرتكم · مباشر</span>
+            <span className="text-[10px] text-muted">يعترضون شفرتكم · مباشر</span>
           </header>
 
           <Cartouche
@@ -673,8 +675,10 @@ function EncryptorGuessWatch({
             historyByDigit={myLanes.map((lane) =>
               lane.clues.map((c) => c.text)
             )}
+            showPads={false}
+            size="xs"
           />
-          <p className="text-[11px] text-muted text-center">
+          <p className="text-[10px] text-muted text-center">
             {enemySentBy
               ? `أرسل الاعتراض ${room.players[enemySentBy]?.name ?? "خصم"}`
               : "تشاهدون أرقامهم وهي تتحرّك"}

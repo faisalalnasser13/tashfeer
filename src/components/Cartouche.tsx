@@ -182,7 +182,13 @@ export function Cartouche({
               <div className="text-center px-0.5">
                 <p className="text-[10px] text-muted leading-none mb-0.5">{ORDINALS[i]}</p>
                 <p
-                  className={`${size === "sm" ? "text-[13px]" : "text-[18px]"} font-medium leading-snug`}
+                  className={`${
+                    size === "xs"
+                      ? "text-[11px] leading-tight"
+                      : size === "sm"
+                        ? "text-[12px] leading-snug"
+                        : "text-[18px] leading-snug"
+                  } font-medium`}
                   style={{ color: chrome.accent }}
                   title={clue}
                 >
