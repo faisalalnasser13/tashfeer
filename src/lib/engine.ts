@@ -375,7 +375,8 @@ async function kickPlayer({ roomId, uid: target }: { roomId: string; uid: string
             patch[`encryptor.${team}`] = nextMembers[newIdx];
             patch[`teams.${team}.encryptorIdx`] = newIdx;
           } else {
-            const encIdx = nextMembers.indexOf(r.encryptor[team]);
+            const encUid = r.encryptor[team] || "";
+            const encIdx = nextMembers.indexOf(encUid);
             if (encIdx >= 0) patch[`teams.${team}.encryptorIdx`] = encIdx;
           }
         }
