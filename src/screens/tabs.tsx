@@ -37,7 +37,7 @@ export function LogTab({
             <button
               key={t}
               onClick={() => setSide(t)}
-              className="log-side-btn relative py-2.5 px-2 text-[14px] font-medium transition border"
+              className="py-2.5 px-2 text-[14px] font-medium transition border"
               style={{
                 borderRadius: 0,
                 borderColor: on ? `${color}88` : "#3A3629",
@@ -45,7 +45,6 @@ export function LogTab({
                 color: on ? color : "#8794B8",
               }}
             >
-              <span className="tiny-punch" aria-hidden />
               {t === myTeam ? "سجلنا" : "سجل العدو"}
             </button>
           );
