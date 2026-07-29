@@ -367,6 +367,38 @@ textarea {
   color: #8794b8;
 }
 
+/* Records tab — two sharp side toggles with a tiny punch-card mark. */
+.log-side-btn {
+  overflow: hidden;
+}
+
+.log-side-punch {
+  position: absolute;
+  inset-block-start: 5px;
+  /* visual top-right under dir=rtl */
+  inset-inline-start: 6px;
+  width: 11px;
+  height: 8px;
+  border: 1px solid currentColor;
+  border-radius: 0;
+  opacity: 0.4;
+  pointer-events: none;
+  background: transparent;
+}
+
+.log-side-punch::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 1.5px;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  width: 2.5px;
+  height: 2.5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
+}
+
 /* ------------------------------------------------------------------ */
 /* watch sheet — ruled matrix log (one sheet, four digit columns)      */
 /* ------------------------------------------------------------------ */
