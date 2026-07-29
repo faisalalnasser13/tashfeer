@@ -268,8 +268,8 @@ function FinalScoreboard({
   winnerTeam: TeamId | null;
 }) {
   return (
-    <div className="card p-3 mb-2 fade-in" style={{ borderColor: "#3A3629" }}>
-      <div className="grid grid-cols-2 gap-2">
+    <div className="card p-2.5 mb-2 fade-in" style={{ borderColor: "#3A3629" }}>
+      <div className="grid grid-cols-2 gap-1.5">
         {TEAMS.map((t) => {
           const s = room.teams[t].score;
           const color = TEAM_HEX[t];
@@ -278,29 +278,29 @@ function FinalScoreboard({
           return (
             <div
               key={t}
-              className="rounded-lg border px-2.5 py-2.5 flex flex-col items-center gap-2"
+              className="rounded-lg border px-2 py-2 flex flex-col items-center gap-1.5"
               style={{
                 borderColor: champ ? `${color}99` : `${color}44`,
                 background: champ ? `${color}18` : `${color}0A`,
               }}
             >
               <p
-                className="font-display text-[15px] leading-none"
+                className="font-display text-[13px] leading-none"
                 style={{ color }}
               >
                 {TEAM_LABEL[t]}
                 {mine && (
-                  <span className="text-[9px] text-muted ms-1.5 font-sans">أنت</span>
+                  <span className="text-[8px] text-muted ms-1 font-sans">أنت</span>
                 )}
                 {champ && (
-                  <span className="text-[9px] font-bold ms-1.5 font-sans" style={{ color }}>
+                  <span className="text-[8px] font-bold ms-1 font-sans" style={{ color }}>
                     · فائز
                   </span>
                 )}
               </p>
-              <div className="flex items-center gap-3 w-full justify-center">
+              <div className="flex items-center gap-2.5 w-full justify-center">
                 <ScoreMeter label="اختراق" n={s.breach} max={2} color={BREACH} />
-                <span className="w-px h-8 bg-line" />
+                <span className="w-px h-6 bg-line" />
                 <ScoreMeter label="خلل" n={s.fault} max={2} color={FAULT} />
               </div>
             </div>
@@ -320,16 +320,26 @@ function ScoreMeter({
   color: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-0.5">
       <div className="flex items-baseline gap-1" style={{ color }}>
-        <span className="text-[10px]">{label}</span>
-        <span className="num font-display text-[20px] leading-none">{n}</span>
-        <span className="num text-[11px] text-muted">/{max}</span>
+        <span className="text-[9px]">{label}</span>
+        <span className="num font-display text-[16px] leading-none">{n}</span>
+        <span className="num text-[10px] text-muted">/{max}</span>
       </div>
-      <PipBoard n={n} max={max} color={color} size="lg" title={label} />
+      <PipBoard n={n} max={max} color={color} size="sm" title={label} />
     </div>
   );
 }
+
+/** One bad encryptor turn — breach and/or fault — with that round's clues inline. */
+type ShameRow = {
+  uid: string;
+  round: number;
+  breached: boolean;
+  faulted: boolean;
+  silent: boolean;
+  clues: string[];
+};
 
 /** Encryptors on the losing side who got intercepted or faulted while writing. */
 function EncryptorShame({
@@ -339,80 +349,79 @@ function EncryptorShame({
   rounds: RoundRecord[];
   loserTeam: TeamId;
 }) {
-  type Row = { uid: string; breaches: number[]; faults: number[]; silents: number[] };
-  const byUid = new Map<string, Row>();
+  const rows: ShameRow[] = [];
 
   for (const r of rounds) {
     const side = r.data?.[loserTeam];
     if (!side?.encryptorUid) continue;
-    let row = byUid.get(side.encryptorUid);
-    if (!row) {
-      row = { uid: side.encryptorUid, breaches: [], faults: [], silents: [] };
-      byUid.set(side.encryptorUid, row);
-    }
-    if (side.wasBreached) row.breaches.push(r.round);
-    if (side.faulted) {
-      row.faults.push(r.round);
-      if (side.noClues) row.silents.push(r.round);
-    }
+    if (!side.wasBreached && !side.faulted) continue;
+    rows.push({
+      uid: side.encryptorUid,
+      round: r.round,
+      breached: side.wasBreached,
+      faulted: side.faulted,
+      silent: side.noClues,
+      clues: side.noClues ? [] : side.clues,
+    });
   }
 
-  const rows = [...byUid.values()]
-    .filter((r) => r.breaches.length > 0 || r.faults.length > 0)
-    .sort(
-      (a, b) =>
-        b.breaches.length + b.faults.length - (a.breaches.length + a.faults.length)
-    );
-
+  rows.sort((a, b) => a.round - b.round);
   if (rows.length === 0) return null;
 
   const color = TEAM_HEX[loserTeam];
 
   return (
     <div
-      className="card p-4 mt-4 fade-in"
+      className="card p-3 mt-3 fade-in"
       style={{ borderColor: "#F03B2E55", background: "#F03B2E0A" }}
     >
-      <p className="text-[13px] font-bold mb-1" style={{ color: FAULT }}>
-        المُشفِّرون تحت المساءلة
+      <p className="text-[12px] font-bold mb-2" style={{ color: FAULT }}>
+        لائحة النكبات · {TEAM_LABEL[loserTeam]}
       </p>
-      <p className="text-[11px] text-muted mb-3 leading-relaxed">
-        من {TEAM_LABEL[loserTeam]} — شفرات اختُرقت أو انتهت بخلل وهم يكتبون التلميحات
-      </p>
-      <div className="space-y-3">
+      <div className="space-y-1.5">
         {rows.map((r) => {
           const name = room.players[r.uid]?.name ?? "؟";
           return (
             <div
-              key={r.uid}
-              className="rounded-lg border px-3 py-2.5"
+              key={`${r.uid}-${r.round}`}
+              className="rounded-md border px-2 py-1.5 flex items-center gap-2 min-w-0"
               style={{ borderColor: `${color}44`, background: "#0C1330" }}
             >
-              <p className="font-medium text-[16px] mb-1.5" style={{ color }}>
+              <span
+                className="font-medium text-[12px] shrink-0 truncate max-w-[4.5rem]"
+                style={{ color }}
+              >
                 {name}
-              </p>
-              <div className="space-y-1 text-[12.5px] leading-snug">
-                {r.breaches.length > 0 && (
-                  <p style={{ color: FAULT }}>
-                    اخترقوا شفرته{" "}
-                    <span className="text-muted">
-                      ({r.breaches.map((n) => `جولة ${n}`).join("، ")})
-                    </span>
-                  </p>
+              </span>
+              <span className="flex items-center gap-1 shrink-0 text-[9px] font-bold">
+                {r.breached && <span style={{ color: FAULT }}>اختراق</span>}
+                {r.faulted && (
+                  <span style={{ color: FAULT }}>
+                    {r.silent ? "صمت" : "خلل"}
+                  </span>
                 )}
-                {r.faults.length > 0 && (
-                  <p style={{ color: FAULT }}>
-                    خلل وهو المُشفِّر{" "}
-                    <span className="text-muted">
-                      ({r.faults.map((n) => `جولة ${n}`).join("، ")}
-                      {r.silents.length > 0
-                        ? ` · صمت في ${r.silents.map((n) => `جولة ${n}`).join("، ")}`
-                        : ""}
-                      )
+              </span>
+              <span className="flex items-center gap-1 min-w-0 flex-1 justify-end overflow-hidden">
+                {r.silent || r.clues.length === 0 ? (
+                  <span className="text-[9px] text-muted">—</span>
+                ) : (
+                  r.clues.map((c, i) => (
+                    <span
+                      key={i}
+                      className="text-[9px] leading-tight px-1.5 py-0.5 truncate max-w-[4.25rem] border"
+                      style={{
+                        borderColor: `${color}55`,
+                        background: `${color}14`,
+                        color: "#EFE7D4",
+                        borderRadius: 3,
+                      }}
+                      title={c}
+                    >
+                      {c}
                     </span>
-                  </p>
+                  ))
                 )}
-              </div>
+              </span>
             </div>
           );
         })}
@@ -444,25 +453,31 @@ export function GameOver({
     : [];
 
   return (
-    <div className="px-4 py-8 pb-28" style={{ paddingTop: "calc(var(--safe-t) + 32px)" }}>
-      <div className="text-center mb-8 fade-in">
-        <p className="text-[12px] text-muted mb-2">{REASON[room.endReason ?? ""] ?? ""}</p>
+    <div className="px-4 py-5 pb-28" style={{ paddingTop: "calc(var(--safe-t) + 20px)" }}>
+      <div className="text-center mb-4 fade-in">
+        <p className="text-[11px] text-muted mb-1">{REASON[room.endReason ?? ""] ?? ""}</p>
         <h1
-          className="font-display text-[40px] leading-tight"
+          className="font-display text-[28px] leading-tight"
           style={{ color: draw ? "#EFE7D4" : TEAM_HEX[room.winner as TeamId] ?? "#EFE7D4" }}
         >
-          {draw ? "تعادل" : `فاز ${TEAM_LABEL[room.winner as TeamId]}`}
+          {draw ? "تعادل" : (
+            <>
+              فاز {TEAM_LABEL[room.winner as TeamId]}
+              {myTeam && (
+                <span className="text-[18px] ms-1.5 align-middle">
+                  {won ? "🏆" : "💔"}
+                </span>
+              )}
+            </>
+          )}
         </h1>
         {winnerNames.length > 0 && (
           <p
-            className="text-[18px] font-medium mt-3 leading-relaxed"
+            className="text-[13px] font-medium mt-1.5 leading-snug"
             style={{ color: TEAM_HEX[winnerTeam!] }}
           >
             {winnerNames.join(" · ")}
           </p>
-        )}
-        {myTeam && !draw && (
-          <p className="text-[22px] mt-2">{won ? "🏆" : "💔"}</p>
         )}
       </div>
 
@@ -476,7 +491,7 @@ export function GameOver({
           <EncryptorShame key={t} room={room} rounds={rounds} loserTeam={t} />
         ))}
 
-      <p className="text-[12px] text-muted mb-3 px-1 mt-8">كل المفاتيح، وكل ما قيل عنها</p>
+      <p className="text-[11px] text-muted mb-2 px-1 mt-5">كل المفاتيح، وكل ما قيل عنها</p>
       <div className="space-y-3">
         {TEAMS.map((t) => (
           <div key={t} className="card p-3.5" style={{ borderColor: `${TEAM_HEX[t]}44` }}>
@@ -492,6 +507,7 @@ export function GameOver({
             <ClueGrid
               lanes={buildLanes(rounds, t, finalKeys?.[t] ?? (t === myTeam ? keys : null))}
               team={t}
+              declassified
             />
           </div>
         ))}

@@ -55,12 +55,14 @@ function matrixFromLanes(lanes: Lane[]): { round: number; cells: (string | null)
  * a word repeating down one column is the crib that gave you away.
  */
 export function ClueGrid({
-  lanes, team, theories, onGuess,
+  lanes, team, theories, onGuess, declassified,
 }: {
   lanes: Lane[];
   team: TeamId;
   theories?: Record<string, string>;
   onGuess?: (n: string, text: string) => void;
+  /** End screen: keys are unsealed — stamp flips from secret to declassified. */
+  declassified?: boolean;
 }) {
   const color = TEAM_HEX[team];
   const rows = useMemo(() => matrixFromLanes(lanes), [lanes]);
@@ -139,7 +141,9 @@ export function ClueGrid({
 
       <div className="watch-sheet-footer">
         <span className="watch-sheet-footer-note">نهاية السجل · لا يُتلف</span>
-        <span className="watch-sheet-secret">سري للغاية</span>
+        <span className="watch-sheet-secret">
+          {declassified ? "تم رفع السرية" : "سري للغاية"}
+        </span>
       </div>
     </div>
   );
