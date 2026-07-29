@@ -26,9 +26,13 @@ export function Stamp({
   /** Viewer-relative: true = green (good for you), false = red (bad for you). */
   good: boolean;
 }) {
+  const label = kind === "breach" ? "اختراق" : "خلل";
   return (
-    <span className={`stamp ${good ? "stamp-good" : "stamp-bad"}`}>
-      {kind === "breach" ? "اختراق" : "خلل"}
+    <span
+      className={`stamp ${kind === "fault" ? "stamp-fault" : ""} ${good ? "stamp-good" : "stamp-bad"}`}
+      {...(kind === "breach" ? { "data-echo": label } : {})}
+    >
+      {label}
     </span>
   );
 }

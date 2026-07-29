@@ -812,7 +812,6 @@ function RevealCard({
                 values={side.code}
                 clues={side.clues}
                 tone={team}
-                truth={side.code}
                 showPads={false}
               />
             </div>
