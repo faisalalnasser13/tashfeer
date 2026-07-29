@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RoundRecord, TeamId } from "../lib/types";
 import { TEAM_HEX } from "./ui";
 
@@ -34,10 +34,25 @@ export function buildLanes(
   return lanes;
 }
 
+/** One watch (round) × four digit columns — empty cell = digit unused that round. */
+function matrixFromLanes(lanes: Lane[]): { round: number; cells: (string | null)[] }[] {
+  const roundSet = new Set<number>();
+  for (const lane of lanes) {
+    for (const c of lane.clues) roundSet.add(c.round);
+  }
+  const rounds = [...roundSet].sort((a, b) => a - b);
+  return rounds.map((round) => ({
+    round,
+    cells: lanes.map(
+      (lane) => lane.clues.find((c) => c.round === round)?.text ?? null
+    ),
+  }));
+}
+
 /**
- * Four columns: digit + word/guess on top, clue history stacked under.
- * Opponent columns are editable when `onGuess` is set — one shared theory
- * per digit for the whole team (stored on private/{team}.theories).
+ * Ruled watch sheet: header band (digit + keyword), gutter of watch numbers,
+ * four hairline-separated columns. A crowded column is an overused number;
+ * a word repeating down one column is the crib that gave you away.
  */
 export function ClueGrid({
   lanes, team, theories, onGuess,
@@ -48,75 +63,88 @@ export function ClueGrid({
   onGuess?: (n: string, text: string) => void;
 }) {
   const color = TEAM_HEX[team];
-  const dense = lanes.some((l) => l.clues.length > 4);
+  const rows = useMemo(() => matrixFromLanes(lanes), [lanes]);
+  const dense = rows.length > 5;
 
   return (
-    <div className="grid grid-cols-4 gap-1.5">
-      {lanes.map((lane) => {
-        const known = lane.label;
-        const remote = theories?.[String(lane.n)] ?? "";
-        const editable = Boolean(onGuess) && !known;
+    <div
+      className="watch-sheet"
+      style={{ ["--watch-team" as string]: color }}
+      role="table"
+      aria-label="سجل المراقبة"
+    >
+      <div className="watch-sheet-meta">
+        <span>نموذج سج-٤</span>
+        <span className="watch-sheet-meta-sep" aria-hidden>
+          ·
+        </span>
+        <span>تصنيف: محدود</span>
+      </div>
 
-        return (
-          <div
-            key={lane.n}
-            className={`card flex flex-col min-w-0 ${dense ? "p-1.5" : "p-2"}`}
-            style={{ borderColor: `${color}30` }}
-          >
-            <span
-              className={`num font-semibold mx-auto grid place-items-center rounded-md shrink-0 ${
-                dense ? "text-[11px] w-5 h-5 mb-1" : "text-[12px] w-5 h-5 mb-1"
-              }`}
-              style={{ color, background: `${color}18`, border: `1px solid ${color}40` }}
-            >
-              {lane.n}
-            </span>
-
-            {known ? (
-              <p
-                className={`text-center font-medium leading-tight mb-1 px-0.5 ${
-                  dense ? "text-[11px]" : "text-[12px]"
-                }`}
-                style={{ color }}
-                title={known}
-              >
-                {known}
-              </p>
-            ) : editable ? (
-              <SharedGuessInput
-                n={lane.n}
-                remote={remote}
-                color={color}
-                onGuess={onGuess!}
-              />
-            ) : (
-              <p className="text-center font-medium mb-1 text-[11px]" style={{ color: remote ? color : undefined }}>
-                <span className={remote ? "" : "text-muted"}>{remote || "—"}</span>
-                <span style={{ color }} aria-hidden>؟</span>
-              </p>
-            )}
-
-            <div className={`flex flex-col flex-1 min-h-0 ${dense ? "gap-0.5" : "gap-1"}`}>
-              {lane.clues.length === 0 ? (
-                <p className="text-[10px] text-muted/70 text-center leading-tight">—</p>
-              ) : (
-                lane.clues.map((c, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-sm border border-line/80 bg-[#1B1A14] text-center leading-snug ${
-                      dense ? "px-0.5 py-0.5 text-[10px]" : "px-1 py-0.5 text-[11px]"
-                    }`}
-                    title={`ج${c.round}: ${c.text}`}
-                  >
-                    <span className="num text-muted text-[9px] block">{c.round}</span>
-                    <span className="break-words">{c.text}</span>
-                  </div>
-                ))
-              )}
-            </div>
+      <div className="watch-sheet-grid" role="rowgroup">
+        <div className="watch-sheet-header" role="row">
+          <div className="watch-sheet-gutter watch-sheet-gutter-head" role="columnheader">
+            <span className="num">و</span>
           </div>
-        );
-      })}
+          {lanes.map((lane) => {
+            const known = lane.label;
+            const remote = theories?.[String(lane.n)] ?? "";
+            const editable = Boolean(onGuess) && !known;
+            return (
+              <div key={lane.n} className="watch-sheet-colhead" role="columnheader">
+                <span className="num slot-digit watch-sheet-digit">{lane.n}</span>
+                {known ? (
+                  <p className="watch-sheet-word" title={known}>
+                    {known}
+                  </p>
+                ) : editable ? (
+                  <SharedGuessInput
+                    n={lane.n}
+                    remote={remote}
+                    color={color}
+                    onGuess={onGuess!}
+                  />
+                ) : (
+                  <p className={`watch-sheet-guess ${remote ? "" : "watch-sheet-empty"}`}>
+                    <span>{remote || "—"}</span>
+                    <span aria-hidden>؟</span>
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {rows.length === 0 ? (
+          <p className="watch-sheet-empty-msg">لا مراقبات بعد</p>
+        ) : (
+          rows.map((row) => (
+            <div key={row.round} className={`watch-sheet-row ${dense ? "watch-sheet-row-dense" : ""}`} role="row">
+              <div className="watch-sheet-gutter" role="rowheader">
+                <span className="num">{row.round}</span>
+              </div>
+              {row.cells.map((text, i) => (
+                <div
+                  key={i}
+                  className={`watch-sheet-cell ${text ? "" : "watch-sheet-cell-blank"}`}
+                  role="cell"
+                  title={text ? `جولة ${row.round}: ${text}` : `جولة ${row.round}: غير مستخدم`}
+                >
+                  {text ?? ""}
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="watch-sheet-footer">
+        <span>نهاية السجل</span>
+        <span className="watch-sheet-meta-sep" aria-hidden>
+          ·
+        </span>
+        <span>لا يُتلف</span>
+      </div>
     </div>
   );
 }
@@ -142,7 +170,7 @@ function SharedGuessInput({
   }, [remote]);
 
   return (
-    <div className="relative mb-1">
+    <div className="relative w-full">
       <input
         value={value}
         onFocus={() => { focused.current = true; }}
@@ -154,19 +182,11 @@ function SharedGuessInput({
         }}
         placeholder="—"
         maxLength={24}
-        className="w-full min-w-0 bg-[#1B1A14] border border-line rounded-md text-center
-                   font-medium text-[11px] text-parch pe-3.5
-                   focus:border-gold focus:outline-none transition py-1 px-0.5
-                   placeholder:text-muted/50"
-        style={{ color: value ? color : undefined, borderColor: `${color}55` }}
+        className="watch-sheet-input"
+        style={{ color: value ? color : undefined }}
         aria-label={`تخمين الكلمة ${n}`}
       />
-      <span
-        className="pointer-events-none absolute top-1/2 -translate-y-1/2
-                   text-[11px] font-medium"
-        style={{ color, insetInlineEnd: "0.35rem" }}
-        aria-hidden
-      >
+      <span className="watch-sheet-qmark" style={{ color }} aria-hidden>
         ؟
       </span>
     </div>
