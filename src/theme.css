@@ -383,9 +383,9 @@ textarea {
 .watch-sheet-footer {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 5px 8px;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 6px 10px;
   font-size: 10px;
   letter-spacing: 0.04em;
   color: #8a8070;
@@ -396,6 +396,36 @@ textarea {
 .watch-sheet-footer {
   border-block-end: none;
   border-block-start: 1px solid #3a3629;
+}
+
+/* Matte team label — top visual left under RTL (last flex item). */
+.watch-sheet-title {
+  font-family: "Noto Kufi Arabic", sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: #7a7468;
+}
+
+.watch-sheet-form {
+  font-size: 10px;
+  color: #6e6858;
+}
+
+.watch-sheet-footer-note {
+  color: #6e6858;
+}
+
+/* Classification stamp — bottom visual left under RTL. */
+.watch-sheet-secret {
+  font-family: "Noto Kufi Arabic", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8a6a6a;
+  border: 1px solid rgba(138, 106, 106, 0.55);
+  padding: 2px 7px 3px;
+  background: rgba(80, 40, 40, 0.22);
 }
 
 .watch-sheet-meta-sep {

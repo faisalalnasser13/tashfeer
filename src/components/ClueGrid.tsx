@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RoundRecord, TeamId } from "../lib/types";
-import { TEAM_HEX } from "./ui";
+import { TEAM_HEX, TEAM_LABEL } from "./ui";
 
 export interface Lane {
   n: number;
@@ -71,18 +71,17 @@ export function ClueGrid({
       className="watch-sheet"
       style={{ ["--watch-team" as string]: color }}
       role="table"
-      aria-label="سجل المراقبة"
+      aria-label={`سجل ${TEAM_LABEL[team]}`}
     >
       <div className="watch-sheet-meta">
-        <span>نموذج سج-٤</span>
-        <span className="watch-sheet-meta-sep" aria-hidden>
-          ·
-        </span>
-        <span>تصنيف: محدود</span>
+        {/* RTL: first → visual right, last → visual left */}
+        <span className="watch-sheet-form num">نموذج سج-٤</span>
+        <span className="watch-sheet-title">سجل {TEAM_LABEL[team]}</span>
       </div>
 
       <div className="watch-sheet-grid" role="rowgroup">
         <div className="watch-sheet-header" role="row">
+          {/* Gutter first → visual right under dir=rtl */}
           <div className="watch-sheet-gutter watch-sheet-gutter-head" role="columnheader">
             <span className="num">و</span>
           </div>
@@ -139,11 +138,8 @@ export function ClueGrid({
       </div>
 
       <div className="watch-sheet-footer">
-        <span>نهاية السجل</span>
-        <span className="watch-sheet-meta-sep" aria-hidden>
-          ·
-        </span>
-        <span>لا يُتلف</span>
+        <span className="watch-sheet-footer-note">نهاية السجل · لا يُتلف</span>
+        <span className="watch-sheet-secret">سري للغاية</span>
       </div>
     </div>
   );
