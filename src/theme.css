@@ -504,7 +504,6 @@ textarea {
 .watch-sheet-guess {
   margin: 0;
   text-align: center;
-  font-family: "Aref Ruqaa", "IBM Plex Sans Arabic", serif;
   font-size: 13px;
   font-weight: 400;
   line-height: 1.2;
@@ -587,7 +586,6 @@ textarea {
   border-bottom: 1px solid color-mix(in srgb, var(--watch-team) 45%, #3a3629);
   border-radius: 0;
   text-align: center;
-  font-family: "Aref Ruqaa", "IBM Plex Sans Arabic", serif;
   font-size: 13px;
   font-weight: 400;
   line-height: 1.2;
@@ -612,7 +610,6 @@ textarea {
   top: 50%;
   transform: translateY(-50%);
   inset-inline-end: 0.1rem;
-  font-family: "Aref Ruqaa", "IBM Plex Sans Arabic", serif;
   font-size: 12px;
 }
 
