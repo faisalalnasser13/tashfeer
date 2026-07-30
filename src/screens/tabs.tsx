@@ -339,7 +339,7 @@ function EncryptorShame({
   const color = TEAM_HEX[loserTeam];
 
   return (
-    <div className="over-section shame-panel">
+    <div className="over-panel shame-panel">
       <p className="shame-title">
         لائحة النكبات · {TEAM_LABEL[loserTeam]}
       </p>
@@ -414,10 +414,10 @@ export function GameOver({
   return (
     <div className="px-4 py-5 pb-28" style={{ paddingTop: "calc(var(--safe-t) + 20px)" }}>
       {/*
-        One continuous closed-file sheet. DOM order in over-head: names then stamp —
-        under dir=rtl that puts names on the visual right and the stamp on the visual left.
+        Three separate panels. DOM order in over-head: names then stamp —
+        under dir=rtl names sit visual right, stamp visual left.
       */}
-      <div className="over-sheet fade-in">
+      <div className="over-panel fade-in">
         <div className="over-file-bar">
           <span className="num">نموذج خت-1</span>
           <span>{draw ? "مغلق · تعادل" : "مغلق"}</span>
@@ -453,36 +453,35 @@ export function GameOver({
           )}
         </div>
 
-        <div className="over-section over-file-score">
+        <div className="over-file-score">
           <ScoreStrip room={room} myTeam={myTeam} showMineLabel={false} />
         </div>
+      </div>
 
-        {loserTeam && (
-          <EncryptorShame room={room} rounds={rounds} loserTeam={loserTeam} />
-        )}
-        {draw &&
-          TEAMS.map((t) => (
-            <EncryptorShame key={t} room={room} rounds={rounds} loserTeam={t} />
-          ))}
+      {loserTeam && (
+        <EncryptorShame room={room} rounds={rounds} loserTeam={loserTeam} />
+      )}
+      {draw &&
+        TEAMS.map((t) => (
+          <EncryptorShame key={t} room={room} rounds={rounds} loserTeam={t} />
+        ))}
 
-        <section className="over-section over-records">
-          <div
-            className="over-declass-stamp"
-            aria-label="رُفعت السرية"
-          >
-            <span className="over-declass-mark">رُفعت</span>
-            <span className="over-declass-sub">السرية</span>
-          </div>
-          <div className="over-records-head">
-            <h2 className="over-records-title">السجل الكامل</h2>
-          </div>
-          <div className="over-records-body">
-            {TEAMS.map((t) => (
-              <div
-                key={t}
-                className="over-team-block"
-                style={{ borderColor: `${TEAM_HEX[t]}44` }}
-              >
+      <section className="over-panel over-records fade-in">
+        <div
+          className="over-declass-stamp"
+          aria-label="رُفعت السرية"
+        >
+          <span className="over-declass-mark">رُفعت</span>
+          <span className="over-declass-sub">السرية</span>
+        </div>
+        <div className="over-records-head">
+          <h2 className="over-records-title">السجل الكامل</h2>
+        </div>
+        <div className="over-records-body">
+          {TEAMS.map((t, i) => (
+            <div key={t}>
+              {i > 0 && <hr className="over-records-sep" />}
+              <div className="over-team-block">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-display text-[15px]" style={{ color: TEAM_HEX[t] }}>
                     {TEAM_LABEL[t]}
@@ -498,10 +497,10 @@ export function GameOver({
                   declassified
                 />
               </div>
-            ))}
-          </div>
-        </section>
-      </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div
         className="fixed inset-x-0 bottom-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3"

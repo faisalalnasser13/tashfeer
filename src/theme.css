@@ -1473,11 +1473,12 @@ textarea {
 }
 
 /* ------------------------------------------------------------------ */
-/* game over — one closed-file sheet; dashed grey section hairlines    */
+/* game over — three separate panels                                   */
 /* ------------------------------------------------------------------ */
 
-.over-sheet {
+.over-panel {
   position: relative;
+  margin-block-end: 0.65rem;
   border: 1px solid #3a3629;
   background: linear-gradient(180deg, #23211a 0%, #1e1c15 100%);
   box-shadow: inset 0 1px 0 rgba(237, 228, 206, 0.05);
@@ -1495,11 +1496,6 @@ textarea {
   color: #6e6858;
   border-block-end: 1px solid #3a3629;
   background: #18170f;
-}
-
-/* Sections after the header: dashed grey hairlines, not separate cards. */
-.over-section {
-  border-block-start: 1px dashed #5c5748;
 }
 
 /*
@@ -1605,6 +1601,7 @@ textarea {
 }
 
 .over-file-score {
+  border-block-start: 1px solid #3a3629;
   background: rgba(18, 17, 12, 0.55);
 }
 
@@ -1625,10 +1622,11 @@ textarea {
   }
 }
 
-/* Shame ledger — warm wash inside the sheet, not its own card. */
+/* Shame ledger — own panel, warm wash. */
 .shame-panel {
   padding: 0.7rem 0.75rem 0.75rem;
-  background: linear-gradient(180deg, rgba(42, 28, 22, 0.55) 0%, rgba(34, 24, 20, 0.35) 100%);
+  border-color: rgba(184, 72, 64, 0.42);
+  background: linear-gradient(180deg, #2a1c16 0%, #221814 100%);
 }
 
 .shame-title {
@@ -1710,9 +1708,8 @@ textarea {
   color: #f0d0cc;
 }
 
-/* Records — brass declass stamp in the corner, still inside the sheet. */
+/* Records panel — declass stamp in the corner; grids sit flush (no nested cards). */
 .over-records {
-  position: relative;
   padding: 0.75rem 0.75rem 0.85rem;
 }
 
@@ -1732,13 +1729,33 @@ textarea {
 .over-records-body {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0;
 }
 
 .over-team-block {
-  padding: 0.75rem;
-  border: 1px solid #3a3629;
-  background: rgba(18, 17, 12, 0.4);
+  padding: 0.15rem 0 0.1rem;
+}
+
+/* Flush ClueGrids — drop watch-sheet outer chrome inside the records panel. */
+.over-records .watch-sheet {
+  border: none;
+  background: transparent;
+}
+
+.over-records .watch-sheet-meta,
+.over-records .watch-sheet-footer {
+  background: transparent;
+}
+
+/* Centered short dashed rule between the two team grids. */
+.over-records-sep {
+  display: block;
+  width: 38%;
+  max-width: 7.5rem;
+  margin-block: 0.85rem;
+  margin-inline: auto;
+  border: none;
+  border-block-start: 1px dashed #5c5748;
 }
 
 .over-declass-stamp {
