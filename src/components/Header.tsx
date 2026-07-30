@@ -71,7 +71,11 @@ export function Header({
           <div
             className={`timer-fill ${crit ? "timer-crit" : warn ? "timer-warn" : ""}`}
             style={{ width: `${remaining == null ? 100 : pct * 100}%` }}
-          />
+          >
+            <i className="ember" aria-hidden="true" />
+            <i className="ember" aria-hidden="true" />
+            <i className="ember" aria-hidden="true" />
+          </div>
         </div>
       )}
     </header>
