@@ -50,7 +50,7 @@ export const TIMER_GRACE_MS = 2500;
  * Lead-in before the visible encrypt/guess clock starts draining —
  * covers network/snapshot lag after a phase flip.
  */
-export const TIMER_START_GRACE_MS = 500;
+export const TIMER_START_GRACE_MS = 1000;
 const TIMER_OPTIONS = [45, 60, 75] as const;
 
 export const DEFAULTS: Settings = {
