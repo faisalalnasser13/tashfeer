@@ -1013,12 +1013,12 @@ textarea {
   animation: timer-warn-pulse 1.15s ease-in-out infinite;
 }
 .timer-crit {
-  background: #f0e8d8;
+  background: #ff4d0a;
   animation: pulse 0.35s ease-in-out infinite;
 }
 @keyframes pulse {
-  0%, 100% { background-color: #f0e8d8; }
-  50%      { background-color: #6d6558; }
+  0%, 100% { background-color: #ff2e00; }
+  50%      { background-color: #fff2d6; }
 }
 @keyframes timer-warn-pulse {
   0%, 100% { background-color: #ffb020; }
