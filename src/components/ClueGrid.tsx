@@ -150,6 +150,16 @@ export function ClueGrid({
 }
 
 /**
+ * After focus, keep the field in view inside `.scroll-y`. Mobile browsers
+ * often scroll a clipped/overflow ancestor (the sheet header) to the top of
+ * the visual viewport instead — `nearest` corrects without the encrypt-only
+ * holdScroll cancel that buries fields under the Android keyboard.
+ */
+function pinTheoryFieldInView(el: HTMLElement) {
+  el.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+/**
  * Local draft so keystrokes paint immediately; Firestore is async.
  * While focused, ignore remote overwrites so a lagging snapshot can't
  * wipe the caret.
@@ -173,7 +183,15 @@ function SharedGuessInput({
     <div className="relative w-full">
       <input
         value={value}
-        onFocus={() => { focused.current = true; }}
+        onFocus={(e) => {
+          focused.current = true;
+          const el = e.currentTarget;
+          requestAnimationFrame(() => pinTheoryFieldInView(el));
+          // Keyboard resize settles after focus; one delayed pass is enough.
+          window.setTimeout(() => {
+            if (focused.current) pinTheoryFieldInView(el);
+          }, 120);
+        }}
         onBlur={() => { focused.current = false; }}
         onChange={(e) => {
           const t = e.target.value.slice(0, 24);
@@ -183,7 +201,7 @@ function SharedGuessInput({
         placeholder="—"
         maxLength={24}
         className="watch-sheet-input"
-        style={{ color: value ? color : undefined }}
+        style={{ color: value ? color : undefined, fontSize: "16px" }}
         aria-label={`تخمين الكلمة ${n}`}
       />
       <span className="watch-sheet-qmark" style={{ color }} aria-hidden>

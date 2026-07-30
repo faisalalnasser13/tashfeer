@@ -378,7 +378,9 @@ textarea {
   border: 1px solid #3a3629;
   background: #1b1a14;
   border-radius: 0;
-  overflow: hidden;
+  /* visible — overflow:hidden makes mobile browsers scroll this sheet
+     (its top) into view on theory-input focus instead of the field. */
+  overflow: visible;
 }
 
 .watch-sheet-meta,
