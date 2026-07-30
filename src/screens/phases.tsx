@@ -87,12 +87,14 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
 
   return (
     <div className={`px-5 py-6 fade-in ${isHost ? "pb-36" : "pb-28"}`}>
-      <h2 className="text-[22px] font-semibold text-center mb-1.5">مفاتيحكم الأربعة</h2>
-      <p className="text-[15px] text-muted text-center mb-5 leading-relaxed">
-        {isHost
-          ? "راجعوا كلمات فريقكم. خلط فريق الخصم بموافقتهم — بدون عرض كلماتهم."
-          : "لن تتغيّر طوال اللعبة. انتظروا المضيف للمتابعة."}
-      </p>
+      <h2 className={`text-[22px] font-semibold text-center ${isHost ? "mb-5" : "mb-1.5"}`}>
+        مفاتيحكم الأربعة
+      </h2>
+      {!isHost && (
+        <p className="text-[15px] text-muted text-center mb-5 leading-relaxed">
+          لن تتغيّر طوال اللعبة. انتظروا المضيف للمتابعة.
+        </p>
+      )}
       {err && (
         <div className="mb-4 max-w-sm mx-auto">
           <Banner tone="warn">{err}</Banner>
