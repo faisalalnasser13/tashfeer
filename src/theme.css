@@ -1478,7 +1478,7 @@ textarea {
 
 .over-file {
   position: relative;
-  margin-block-end: 0.65rem;
+  margin-block-end: 0.55rem;
   border: 1px solid #3a3629;
   background: linear-gradient(180deg, #23211a 0%, #1e1c15 100%);
   box-shadow: inset 0 1px 0 rgba(237, 228, 206, 0.05);
@@ -1569,18 +1569,17 @@ textarea {
   transform: rotate(-3deg);
 }
 
-.over-reason {
-  margin: 0;
-  font-size: 13.5px;
-  line-height: 1.45;
-  color: #c9c0a8;
-}
-
 .over-winners {
   margin: 0.4rem 0 0;
   font-size: 12px;
   line-height: 1.35;
   font-weight: 500;
+}
+
+/* Score strip is the closed-file footer — same border, no second card. */
+.over-file-score {
+  border-block-start: 1px solid #3a3629;
+  background: rgba(18, 17, 12, 0.55);
 }
 
 @keyframes over-stamp-in {
@@ -1687,18 +1686,17 @@ textarea {
   color: #f0d0cc;
 }
 
-/* Records hero — declassification lives here. */
+/* Records hero — brass declass stamp struck into the corner. */
 .over-records {
-  margin-block-start: 1.1rem;
+  position: relative;
+  margin-block-start: 1.25rem;
+  padding-block-start: 0.35rem;
 }
 
 .over-records-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
   margin-block-end: 0.45rem;
   padding-inline: 0.15rem;
+  padding-inline-end: 5.5rem; /* clear the corner stamp */
 }
 
 .over-records-title {
@@ -1710,16 +1708,72 @@ textarea {
 }
 
 .over-declass-stamp {
-  flex-shrink: 0;
+  position: absolute;
+  inset-block-start: -0.35rem;
+  inset-inline-end: -0.35rem;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: max-content;
+  min-width: 5.5rem;
+  padding: 0.4rem 0.85rem 0.45rem;
+  border: 3px solid var(--gold);
+  border-radius: 2px;
+  color: var(--gold);
+  background: rgba(211, 180, 95, 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(211, 180, 95, 0.38),
+    0 1px 0 rgba(18, 17, 12, 0.35);
+  transform: rotate(8deg);
+  animation: over-declass-in 0.6s cubic-bezier(0.2, 1.6, 0.35, 1) both;
+  pointer-events: none;
+}
+
+.over-declass-stamp::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(211, 180, 95, 0.4);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.over-declass-mark {
   font-family: "Noto Kufi Arabic", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+}
+
+.over-declass-sub {
+  font-family: "Courier Prime", monospace;
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #8a6a6a;
-  border: 1px solid rgba(138, 106, 106, 0.55);
-  padding: 2px 7px 3px;
-  background: rgba(80, 40, 40, 0.22);
-  transform: rotate(-2.5deg);
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: rgba(211, 180, 95, 0.88);
+  padding-inline-start: 0.22em;
+}
+
+@keyframes over-declass-in {
+  0% {
+    transform: rotate(-12deg) scale(2.2);
+    opacity: 0;
+  }
+  55% {
+    opacity: 1;
+  }
+  75% {
+    transform: rotate(10deg) scale(1.06);
+  }
+  100% {
+    transform: rotate(8deg) scale(1);
+    opacity: 1;
+  }
 }
 
 .over-records-rule {
@@ -1727,10 +1781,4 @@ textarea {
   margin-block-end: 0.65rem;
   border: none;
   border-block-end: 1px solid #3a3629;
-}
-
-.watch-sheet-cell-blown {
-  box-shadow: inset 0 0 0 1px var(--fault-signal);
-  background: rgba(184, 72, 64, 0.12);
-  color: #f0d0cc;
 }

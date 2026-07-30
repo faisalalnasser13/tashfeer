@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeAr } from "../lib/arabic";
 import type { RoundRecord, TeamId } from "../lib/types";
 import { TEAM_HEX, TEAM_LABEL } from "./ui";
 
@@ -56,7 +55,7 @@ function matrixFromLanes(lanes: Lane[]): { round: number; cells: (string | null)
  * a word repeating down one column is the crib that gave you away.
  */
 export function ClueGrid({
-  lanes, team, theories, onGuess, declassified, blownTexts,
+  lanes, team, theories, onGuess, declassified,
 }: {
   lanes: Lane[];
   team: TeamId;
@@ -64,13 +63,10 @@ export function ClueGrid({
   onGuess?: (n: string, text: string) => void;
   /** End screen: keys are unsealed — classification stamp moves to the records hero. */
   declassified?: boolean;
-  /** Normalised clue texts from لائحة النكبات — matching cells get a fault-signal ring. */
-  blownTexts?: ReadonlySet<string>;
 }) {
   const color = TEAM_HEX[team];
   const rows = useMemo(() => matrixFromLanes(lanes), [lanes]);
   const dense = rows.length > 5;
-  const blown = blownTexts;
 
   return (
     <div
@@ -128,23 +124,19 @@ export function ClueGrid({
               <div className="watch-sheet-gutter" role="rowheader">
                 <span className="num">{row.round}</span>
               </div>
-              {row.cells.map((text, i) => {
-                const isBlown = Boolean(text && blown?.has(normalizeAr(text)));
-                return (
-                  <div
-                    key={i}
-                    className={[
-                      "watch-sheet-cell",
-                      text ? "" : "watch-sheet-cell-blank",
-                      isBlown ? "watch-sheet-cell-blown" : "",
-                    ].filter(Boolean).join(" ")}
-                    role="cell"
-                    title={text ? `جولة ${row.round}: ${text}` : `جولة ${row.round}: غير مستخدم`}
-                  >
-                    {text ?? ""}
-                  </div>
-                );
-              })}
+              {row.cells.map((text, i) => (
+                <div
+                  key={i}
+                  className={[
+                    "watch-sheet-cell",
+                    text ? "" : "watch-sheet-cell-blank",
+                  ].filter(Boolean).join(" ")}
+                  role="cell"
+                  title={text ? `جولة ${row.round}: ${text}` : `جولة ${row.round}: غير مستخدم`}
+                >
+                  {text ?? ""}
+                </div>
+              ))}
             </div>
           ))
         )}

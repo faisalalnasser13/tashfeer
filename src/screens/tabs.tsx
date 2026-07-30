@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { api, errText } from "../lib/firebase";
-import { normalizeAr, ORDINALS } from "../lib/arabic";
+import { ORDINALS } from "../lib/arabic";
 import type { Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
@@ -250,14 +250,6 @@ export function TeamTab({
 /* game over                                                          */
 /* ================================================================== */
 
-const REASON: Record<string, string> = {
-  breach: "انتهت اللعبة باختراقين على شفرة الخصم.",
-  opponentFault: "انتهت اللعبة بخللين في قراءة الخصم لمشفِّره.",
-  points: "حُسمت النتيجة بفارق نقاط الاختراق والخلل.",
-  exhausted: "نفدت الجولات فآلت المباراة إلى التعادل.",
-  abandoned: "أُنهيت اللعبة قبل اكتمال الجولات.",
-};
-
 /** One bad encryptor turn — breach and/or fault — with that round's clues inline. */
 type ShameRow = {
   uid: string;
@@ -331,17 +323,6 @@ function buildShameRows(rounds: RoundRecord[], loserTeam: TeamId): ShameRow[] {
   }
   rows.sort((a, b) => a.round - b.round);
   return rows;
-}
-
-function blownTextSet(rows: ShameRow[]): Set<string> {
-  const out = new Set<string>();
-  for (const r of rows) {
-    for (const i of r.blownIndices) {
-      const c = r.clues[i];
-      if (c) out.add(normalizeAr(c));
-    }
-  }
-  return out;
 }
 
 /** Encryptors on the losing side who got intercepted or faulted while writing. */
@@ -430,19 +411,6 @@ export function GameOver({
     : [];
   const [rematchErr, setRematchErr] = useState<string | null>(null);
 
-  const blownByTeam = useMemo(() => {
-    const map: Record<TeamId, Set<string>> = {
-      gold: new Set(),
-      silver: new Set(),
-    };
-    for (const t of TEAMS) {
-      map[t] = blownTextSet(buildShameRows(rounds, t));
-    }
-    return map;
-  }, [rounds]);
-
-  const reason = REASON[room.endReason ?? ""] ?? "";
-
   return (
     <div className="px-4 py-5 pb-28" style={{ paddingTop: "calc(var(--safe-t) + 20px)" }}>
       <div className="over-file fade-in">
@@ -464,7 +432,6 @@ export function GameOver({
               {draw ? "تعادل" : "مغلق"}
             </span>
           )}
-          {reason && <p className="over-reason">{reason}</p>}
           {winnerNames.length > 0 && (
             <p
               className="over-winners"
@@ -474,10 +441,9 @@ export function GameOver({
             </p>
           )}
         </div>
-      </div>
-
-      <div className="mb-2 fade-in" style={{ border: "1px solid #3A3629" }}>
-        <ScoreStrip room={room} myTeam={myTeam} showMineLabel={false} />
+        <div className="over-file-score">
+          <ScoreStrip room={room} myTeam={myTeam} showMineLabel={false} />
+        </div>
       </div>
 
       {loserTeam && (
@@ -489,9 +455,15 @@ export function GameOver({
         ))}
 
       <section className="over-records fade-in">
+        <div
+          className="over-declass-stamp"
+          aria-label="رُفعت السرية"
+        >
+          <span className="over-declass-mark">رُفعت</span>
+          <span className="over-declass-sub">السرية</span>
+        </div>
         <div className="over-records-head">
           <h2 className="over-records-title">السجل الكامل</h2>
-          <span className="over-declass-stamp">تم رفع السرية</span>
         </div>
         <hr className="over-records-rule" />
         <div className="space-y-3">
@@ -510,7 +482,6 @@ export function GameOver({
                 lanes={buildLanes(rounds, t, finalKeys?.[t] ?? (t === myTeam ? keys : null))}
                 team={t}
                 declassified
-                blownTexts={blownByTeam[t]}
               />
             </div>
           ))}
