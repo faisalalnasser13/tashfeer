@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api, errText } from "../lib/firebase";
 import { normalizeAr, normalizeKey, ORDINALS } from "../lib/arabic";
 import { useDraft, useLocal } from "../lib/hooks";
@@ -1077,43 +1077,62 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
           <span className="rend-sec-counter num">الجولة {room.round + 1}</span>
         </div>
         <div className="rend-sec-body">
-          <div className="rend-duel" role="group" aria-label="المُشفِّران القادمان">
+          <div className="duel" role="group" aria-label="المُشفِّران القادمان">
             {nextEncryptors.flatMap(({ team, uid: u }, i) => {
               const mine = !!u && u === uid;
               const color = TEAM_HEX[team];
-              const name = u ? (room.players[u]?.name ?? "؟") : "؟";
+              const fullName = u ? (room.players[u]?.name ?? "؟") : "؟";
+              const display = fullName.split(" ")[0] || fullName;
               const side = (
                 <div
                   key={team}
-                  className={`rend-duel-side${mine ? " rend-enc-you" : ""}`}
+                  className={`side ${team === "gold" ? "a" : "b"}${mine ? " you" : ""}`}
+                  style={{ color }}
                 >
-                  <span className="rend-enc-badge" style={{ color }} aria-hidden>
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                      <circle cx="5.5" cy="5.5" r="2.75" stroke="currentColor" strokeWidth="1.4" />
-                      <path
-                        d="M8 8.2 13.2 13.4M11.1 11.3h2.4"
-                        stroke="currentColor"
-                        strokeWidth="1.4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
-                  <span className="rend-duel-meta min-w-0">
-                    <span className="rend-duel-name truncate">
-                      {name}
-                      {mine && <span className="rend-you-tag">أنت</span>}
+                  <svg
+                    className="sig"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden
+                  >
+                    <path d="M8 20V6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                    <circle cx="8" cy="4.5" r="1.6" fill="currentColor" stroke="none" />
+                    <path
+                      d="M11.5 5.5a6.5 6.5 0 0 1 0 9"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M15 3a10 10 0 0 1 0 14"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="col">
+                    <span
+                      className="nm"
+                      title={fullName}
+                      style={{ "--len": display.length } as CSSProperties}
+                    >
+                      {display}
                     </span>
-                    <span className="rend-duel-team" style={{ color }}>
-                      {TEAM_LABEL[team]}
-                    </span>
+                    <span className="tm">{TEAM_LABEL[team]}</span>
+                    {mine && <span className="you-tag">أنت</span>}
                   </span>
                 </div>
               );
               return i === 0
                 ? [side]
                 : [
-                    <span key="duel-mark" className="rend-duel-mark" aria-hidden>×</span>,
+                    <div key="mid" className="mid" aria-hidden>
+                      <span className="hair top" />
+                      <span className="x">×</span>
+                      <span className="hair bot" />
+                    </div>,
                     side,
                   ];
             })}

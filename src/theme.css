@@ -2116,93 +2116,133 @@ textarea {
   line-height: 1;
 }
 
-.rend-enc-badge {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 9999px;
-  border: 1.5px solid currentColor;
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  line-height: 1;
-}
-
-.rend-duel {
+/* Next-encryptors duel — gold | mid | silver. DOM order fixed for every viewer.
+   .side.b row-reverse + .side.a .sig scaleX(-1) are intentional layout mirrors,
+   not cartouche code ordering. */
+.duel {
   display: flex;
   align-items: stretch;
-  justify-content: center;
-  gap: 0.35rem;
-  padding: 0.75rem 0.65rem;
+  min-height: 58px;
   min-width: 0;
 }
 
-.rend-duel-side {
+.duel .side {
   flex: 1 1 0;
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: 0.55rem 0.5rem;
+  gap: 9px;
+  padding: 10px 11px;
   position: relative;
 }
 
-.rend-duel-meta {
+.duel .side.b {
+  flex-direction: row-reverse;
+}
+
+.duel .sig {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.duel .side.a .sig {
+  transform: scaleX(-1);
+}
+
+.duel .col {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.12rem;
   min-width: 0;
 }
 
-.rend-duel-name {
+.duel .nm {
   display: block;
-  font-size: 15px;
+  min-width: 0;
   font-weight: 500;
   line-height: 1.25;
+  font-size: clamp(11px, calc(15px - (var(--len, 6) - 9) * 0.42px), 15px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.rend-duel-team {
+.duel .tm {
   display: block;
   font-size: 11px;
   line-height: 1.2;
   opacity: 0.95;
 }
 
-.rend-duel-mark {
-  flex-shrink: 0;
-  align-self: center;
+.duel .mid {
+  flex: 0 0 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  gap: 3px;
+}
+
+.duel .mid .x {
   font-family: "Courier Prime", ui-monospace, monospace;
-  font-size: 1.45rem;
+  font-size: 11px;
   font-weight: 400;
   line-height: 1;
-  color: #b89a4e;
-  opacity: 0.78;
-  padding-inline: 0.15rem;
-  letter-spacing: 0;
+  color: #8a8070;
+  opacity: 0.85;
   user-select: none;
 }
 
-.rend-enc-you {
-  position: relative;
+.duel .mid .hair {
+  width: 1px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.duel .mid .hair.top {
+  background: linear-gradient(to bottom, rgba(184, 154, 78, 0.55), transparent);
+}
+
+.duel .mid .hair.bot {
+  background: linear-gradient(to top, rgba(184, 154, 78, 0.55), transparent);
+}
+
+.duel .side.you {
   background: rgba(211, 180, 95, 0.08);
 }
 
-.rend-enc-you::before {
+/* Outer-edge bars: gold is first child (inline-start / physical right in RTL),
+   silver.b is second (inline-end / physical left in RTL). */
+.duel .side.a.you::before,
+.duel .side.b.you::before {
   content: "";
   position: absolute;
   inset-block: 0;
-  inset-inline-start: 0;
   width: 2px;
   background: var(--gold);
 }
 
-.rend-you-tag {
-  margin-inline-start: 0.4rem;
+.duel .side.a.you::before {
+  inset-inline-start: 0;
+}
+
+.duel .side.b.you::before {
+  inset-inline-end: 0;
+}
+
+.duel .you-tag {
+  align-self: flex-start;
+  margin-block-start: 0.1rem;
+  padding: 0.05rem 0.28rem;
   font-size: 9.5px;
+  line-height: 1.2;
   color: var(--gold);
   letter-spacing: 0.04em;
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: 2px;
 }
 
 .rend-away-count {
