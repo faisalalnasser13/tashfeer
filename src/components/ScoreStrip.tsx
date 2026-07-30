@@ -7,18 +7,20 @@ const FAULT = "#F03B2E";
 
 /**
  * Slim two-team score row from the Map Room mock: name + اختراق/خلل boards.
- * Your side gets a team-coloured underline and an أنت marker.
+ * Your side gets a team-coloured underline; mid-game also shows أنت.
  */
 export function ScoreStrip({
-  room, myTeam,
+  room, myTeam, showMineLabel = true,
 }: {
   room: Room;
-  myTeam: TeamId;
+  myTeam: TeamId | null;
+  /** End screen keeps the underline, drops the أنت text. */
+  showMineLabel?: boolean;
 }) {
   return (
     <div className="flex hairline bg-ink/90">
       {TEAMS.map((t) => {
-        const mine = t === myTeam;
+        const mine = myTeam != null && t === myTeam;
         const s = room.teams[t].score;
         const color = TEAM_HEX[t];
         return (
@@ -32,10 +34,10 @@ export function ScoreStrip({
           >
             <span
               className="font-display text-[12.5px] truncate"
-              style={{ color, opacity: mine ? 1 : 0.8 }}
+              style={{ color, opacity: mine || myTeam == null ? 1 : 0.8 }}
             >
               {TEAM_LABEL[t]}
-              {mine && (
+              {mine && showMineLabel && (
                 <span className="text-[9.5px] text-muted ms-1.5">
                   أنت
                 </span>

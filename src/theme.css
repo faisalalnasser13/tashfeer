@@ -12,6 +12,7 @@
   --axis: #e07b35;       /* team id "silver" / المحور */
   --silver: #e07b35;     /* legacy alias → axis (was wrongly blue) */
   --parch: #ede4ce;
+  --fault-signal: #b84840; /* duller than reveal red — shame ledger */
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
 }
@@ -1469,4 +1470,267 @@ textarea {
   font-size: 11px;
   letter-spacing: 0.04em;
   color: #6e6858;
+}
+
+/* ------------------------------------------------------------------ */
+/* game over — closed file, winner stamp, shame ledger, records hero   */
+/* ------------------------------------------------------------------ */
+
+.over-file {
+  position: relative;
+  margin-block-end: 0.65rem;
+  border: 1px solid #3a3629;
+  background: linear-gradient(180deg, #23211a 0%, #1e1c15 100%);
+  box-shadow: inset 0 1px 0 rgba(237, 228, 206, 0.05);
+}
+
+.over-file-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 5px 10px;
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: #6e6858;
+  border-block-end: 1px solid #3a3629;
+  background: #18170f;
+}
+
+.over-head {
+  position: relative;
+  padding: 1.85rem 0.85rem 0.85rem;
+  text-align: center;
+}
+
+.over-winner-stamp {
+  position: absolute;
+  inset-block-start: -0.55rem;
+  inset-inline: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: max-content;
+  min-width: 7.25rem;
+  margin-inline: auto;
+  padding: 0.45rem 1.1rem 0.5rem;
+  border: 3px solid var(--gold);
+  border-radius: 2px;
+  color: var(--gold);
+  background: rgba(211, 180, 95, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(211, 180, 95, 0.35);
+  transform: rotate(-4.5deg);
+  animation: over-stamp-in 0.55s cubic-bezier(0.2, 1.6, 0.35, 1) both;
+  pointer-events: none;
+}
+
+/* Die impression — thin inner ring, not a second drawn box. */
+.over-winner-stamp::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(211, 180, 95, 0.38);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.over-winner-team {
+  font-family: "Noto Kufi Arabic", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.over-winner-mark {
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  line-height: 1;
+  color: rgba(211, 180, 95, 0.88);
+  padding-inline-start: 0.28em; /* optical balance for letter-spacing */
+}
+
+.over-closed-mark {
+  display: inline-block;
+  margin-block-start: 0.15rem;
+  margin-block-end: 0.35rem;
+  padding: 0.35rem 0.9rem;
+  border: 2px solid #6e6858;
+  color: #9a8f78;
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  transform: rotate(-3deg);
+}
+
+.over-reason {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #c9c0a8;
+}
+
+.over-winners {
+  margin: 0.4rem 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+@keyframes over-stamp-in {
+  0% {
+    transform: rotate(-18deg) scale(2.4);
+    opacity: 0;
+  }
+  55% {
+    opacity: 1;
+  }
+  75% {
+    transform: rotate(-2deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(-4.5deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Shame ledger — warm panel, tight rows, round as leading column. */
+.shame-card {
+  border-color: rgba(184, 72, 64, 0.42);
+  background: linear-gradient(180deg, #2a1c16 0%, #221814 100%);
+  padding: 0.65rem 0.7rem 0.7rem;
+  margin-block-start: 0.55rem;
+}
+
+.shame-title {
+  margin: 0 0 0.45rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fault-signal);
+}
+
+.shame-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.shame-row {
+  display: grid;
+  grid-template-columns: 1.35rem minmax(0, 3.6rem) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.35rem 0.4rem;
+  min-width: 0;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #3a3629;
+  background: #211f18;
+}
+
+.shame-round {
+  font-family: "Courier Prime", monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #9a8f78;
+  text-align: center;
+}
+
+.shame-name {
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shame-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--fault-signal);
+  flex-shrink: 0;
+}
+
+.shame-clues {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.shame-clue {
+  max-width: 4.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.15rem 0.35rem;
+  font-size: 9px;
+  line-height: 1.2;
+  color: #efe7d4;
+  border: 1px solid #4a4636;
+  background: #1b1a14;
+  border-radius: 2px;
+}
+
+.shame-clue-blown {
+  border-color: var(--fault-signal);
+  background: rgba(184, 72, 64, 0.14);
+  color: #f0d0cc;
+}
+
+/* Records hero — declassification lives here. */
+.over-records {
+  margin-block-start: 1.1rem;
+}
+
+.over-records-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-end: 0.45rem;
+  padding-inline: 0.15rem;
+}
+
+.over-records-title {
+  font-family: "Noto Kufi Arabic", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #efe7d4;
+}
+
+.over-declass-stamp {
+  flex-shrink: 0;
+  font-family: "Noto Kufi Arabic", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #8a6a6a;
+  border: 1px solid rgba(138, 106, 106, 0.55);
+  padding: 2px 7px 3px;
+  background: rgba(80, 40, 40, 0.22);
+  transform: rotate(-2.5deg);
+}
+
+.over-records-rule {
+  height: 0;
+  margin-block-end: 0.65rem;
+  border: none;
+  border-block-end: 1px solid #3a3629;
+}
+
+.watch-sheet-cell-blown {
+  box-shadow: inset 0 0 0 1px var(--fault-signal);
+  background: rgba(184, 72, 64, 0.12);
+  color: #f0d0cc;
 }

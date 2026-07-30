@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api, errText } from "../lib/firebase";
-import { ORDINALS } from "../lib/arabic";
+import { normalizeAr, ORDINALS } from "../lib/arabic";
 import type { Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
-import { Banner, Btn, Empty, PipBoard, TEAM_HEX, TEAM_LABEL } from "../components/ui";
+import { ScoreStrip } from "../components/ScoreStrip";
+import { Banner, Btn, Empty, TEAM_HEX, TEAM_LABEL } from "../components/ui";
 
 /* ================================================================== */
 /* log                                                                */
@@ -250,86 +251,12 @@ export function TeamTab({
 /* ================================================================== */
 
 const REASON: Record<string, string> = {
-  breach: "باختراقين",
-  opponentFault: "بخللين على الخصم",
-  points: "بفارق النقاط",
-  exhausted: "نفدت الجولات",
-  abandoned: "أُنهيت اللعبة",
+  breach: "انتهت اللعبة باختراقين على شفرة الخصم.",
+  opponentFault: "انتهت اللعبة بخللين في قراءة الخصم لمشفِّره.",
+  points: "حُسمت النتيجة بفارق نقاط الاختراق والخلل.",
+  exhausted: "نفدت الجولات فآلت المباراة إلى التعادل.",
+  abandoned: "أُنهيت اللعبة قبل اكتمال الجولات.",
 };
-
-const BREACH = "#8FAE5C";
-const FAULT = "#F03B2E";
-
-function FinalScoreboard({
-  room, myTeam, winnerTeam,
-}: {
-  room: Room;
-  myTeam: TeamId | null;
-  winnerTeam: TeamId | null;
-}) {
-  return (
-    <div className="card p-2.5 mb-2 fade-in" style={{ borderColor: "#3A3629" }}>
-      <div className="grid grid-cols-2 gap-1.5">
-        {TEAMS.map((t) => {
-          const s = room.teams[t].score;
-          const color = TEAM_HEX[t];
-          const champ = winnerTeam === t;
-          const mine = myTeam === t;
-          return (
-            <div
-              key={t}
-              className="rounded-lg border px-2 py-2 flex flex-col items-center gap-1.5"
-              style={{
-                borderColor: champ ? `${color}99` : `${color}44`,
-                background: champ ? `${color}18` : `${color}0A`,
-              }}
-            >
-              <p
-                className="font-display text-[13px] leading-none"
-                style={{ color }}
-              >
-                {TEAM_LABEL[t]}
-                {mine && (
-                  <span className="text-[8px] text-muted ms-1 font-sans">أنت</span>
-                )}
-                {champ && (
-                  <span className="text-[8px] font-bold ms-1 font-sans" style={{ color }}>
-                    · فائز
-                  </span>
-                )}
-              </p>
-              <div className="flex items-center gap-2.5 w-full justify-center">
-                <ScoreMeter label="اختراق" n={s.breach} max={2} color={BREACH} />
-                <span className="w-px h-6 bg-line" />
-                <ScoreMeter label="خلل" n={s.fault} max={2} color={FAULT} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function ScoreMeter({
-  label, n, max, color,
-}: {
-  label: string;
-  n: number;
-  max: number;
-  color: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      <div className="flex items-baseline gap-1" style={{ color }}>
-        <span className="text-[9px]">{label}</span>
-        <span className="num font-display text-[16px] leading-none">{n}</span>
-        <span className="num text-[10px] text-muted">/{max}</span>
-      </div>
-      <PipBoard n={n} max={max} color={color} size="sm" title={label} />
-    </div>
-  );
-}
 
 /** One bad encryptor turn — breach and/or fault — with that round's clues inline. */
 type ShameRow = {
@@ -339,7 +266,83 @@ type ShameRow = {
   faulted: boolean;
   silent: boolean;
   clues: string[];
+  /** Indices into `clues` that caused the breach/fault (red border). */
+  blownIndices: number[];
 };
+
+/**
+ * Which of this turn's three clues to accuse.
+ * Fault → slots where decrypt ≠ code.
+ * Breach → slots whose digit already had prior clues (the crib that gave you away).
+ * If both fire, union. If breach but no prior reuse, leave empty (ambiguous).
+ */
+function blownClueIndices(
+  side: {
+    code: number[];
+    clues: string[];
+    decrypt: (number | null)[];
+    noClues: boolean;
+    faulted: boolean;
+    wasBreached: boolean;
+  },
+  prior: RoundRecord[],
+  team: TeamId,
+): number[] {
+  if (side.noClues || side.clues.length === 0) return [];
+  const hit = new Set<number>();
+
+  if (side.faulted) {
+    side.code.forEach((digit, i) => {
+      if (side.decrypt[i] !== digit) hit.add(i);
+    });
+  }
+
+  if (side.wasBreached) {
+    const usedBefore = new Set<number>();
+    for (const r of prior) {
+      const s = r.data?.[team];
+      if (!s || s.noClues) continue;
+      for (const d of s.code) usedBefore.add(d);
+    }
+    side.code.forEach((digit, i) => {
+      if (usedBefore.has(digit)) hit.add(i);
+    });
+  }
+
+  return [...hit].sort((a, b) => a - b);
+}
+
+function buildShameRows(rounds: RoundRecord[], loserTeam: TeamId): ShameRow[] {
+  const rows: ShameRow[] = [];
+  for (const r of rounds) {
+    const side = r.data?.[loserTeam];
+    if (!side?.encryptorUid) continue;
+    if (!side.wasBreached && !side.faulted) continue;
+    const prior = rounds.filter((x) => x.round < r.round);
+    rows.push({
+      uid: side.encryptorUid,
+      round: r.round,
+      breached: side.wasBreached,
+      faulted: side.faulted,
+      silent: side.noClues,
+      clues: side.noClues ? [] : side.clues,
+      blownIndices: blownClueIndices(side, prior, loserTeam),
+    });
+  }
+  rows.sort((a, b) => a.round - b.round);
+  return rows;
+}
+
+function blownTextSet(rows: ShameRow[]): Set<string> {
+  const out = new Set<string>();
+  for (const r of rows) {
+    for (const i of r.blownIndices) {
+      const c = r.clues[i];
+      if (c) out.add(normalizeAr(c));
+    }
+  }
+  return out;
+}
 
 /** Encryptors on the losing side who got intercepted or faulted while writing. */
 function EncryptorShame({
@@ -349,72 +352,47 @@ function EncryptorShame({
   rounds: RoundRecord[];
   loserTeam: TeamId;
 }) {
-  const rows: ShameRow[] = [];
-
-  for (const r of rounds) {
-    const side = r.data?.[loserTeam];
-    if (!side?.encryptorUid) continue;
-    if (!side.wasBreached && !side.faulted) continue;
-    rows.push({
-      uid: side.encryptorUid,
-      round: r.round,
-      breached: side.wasBreached,
-      faulted: side.faulted,
-      silent: side.noClues,
-      clues: side.noClues ? [] : side.clues,
-    });
-  }
-
-  rows.sort((a, b) => a.round - b.round);
+  const rows = buildShameRows(rounds, loserTeam);
   if (rows.length === 0) return null;
 
   const color = TEAM_HEX[loserTeam];
 
   return (
-    <div
-      className="card p-3 mt-3 fade-in"
-      style={{ borderColor: "#F03B2E55", background: "#F03B2E0A" }}
-    >
-      <p className="text-[12px] font-bold mb-2" style={{ color: FAULT }}>
+    <div className="card shame-card fade-in">
+      <p className="shame-title">
         لائحة النكبات · {TEAM_LABEL[loserTeam]}
       </p>
-      <div className="space-y-1.5">
+      <div className="shame-rows">
         {rows.map((r) => {
           const name = room.players[r.uid]?.name ?? "؟";
           return (
-            <div
-              key={`${r.uid}-${r.round}`}
-              className="rounded-md border px-2 py-1.5 flex items-center gap-2 min-w-0"
-              style={{ borderColor: `${color}44`, background: "#0C1330" }}
-            >
-              <span
-                className="font-medium text-[12px] shrink-0 truncate max-w-[4.5rem]"
-                style={{ color }}
-              >
+            <div key={`${r.uid}-${r.round}`} className="shame-row">
+              <span className="shame-round num" title={`الجولة ${r.round}`}>
+                {r.round}
+              </span>
+              <span className="shame-name" style={{ color }} title={name}>
                 {name}
               </span>
-              <span className="flex items-center gap-1 shrink-0 text-[9px] font-bold">
-                {r.breached && <span style={{ color: FAULT }}>اختراق</span>}
-                {r.faulted && (
-                  <span style={{ color: FAULT }}>
-                    {r.silent ? "صمت" : "خلل"}
-                  </span>
-                )}
+              <span className="shame-tags">
+                {r.breached && <span>اختراق</span>}
+                {r.faulted && <span>{r.silent ? "صمت" : "خلل"}</span>}
               </span>
-              <span className="flex items-center gap-1 min-w-0 flex-1 justify-end overflow-hidden">
+              <span className="shame-clues">
                 {r.silent || r.clues.length === 0 ? (
                   <span className="text-[9px] text-muted">—</span>
                 ) : (
                   r.clues.map((c, i) => (
                     <span
                       key={i}
-                      className="text-[9px] leading-tight px-1.5 py-0.5 truncate max-w-[4.25rem] border"
-                      style={{
-                        borderColor: `${color}55`,
-                        background: `${color}14`,
-                        color: "#EFE7D4",
-                        borderRadius: 3,
-                      }}
+                      className={`shame-clue${r.blownIndices.includes(i) ? " shame-clue-blown" : ""}`}
+                      style={
+                        r.blownIndices.includes(i)
+                          ? undefined
+                          : {
+                              borderColor: `${color}55`,
+                              background: `${color}14`,
+                            }
+                      }
                       title={c}
                     >
                       {c}
@@ -439,7 +417,6 @@ export function GameOver({
   finalKeys?: Record<TeamId, string[]> | null;
 }) {
   const isHost = room.hostUid === uid;
-  const won = room.winner === myTeam;
   const draw = room.winner === "draw";
   const winnerTeam = !draw && (room.winner === "gold" || room.winner === "silver")
     ? (room.winner as TeamId)
@@ -451,37 +428,57 @@ export function GameOver({
         .sort((a, b) => a[1].joinedAt - b[1].joinedAt)
         .map(([, p]) => p.name)
     : [];
+  const [rematchErr, setRematchErr] = useState<string | null>(null);
+
+  const blownByTeam = useMemo(() => {
+    const map: Record<TeamId, Set<string>> = {
+      gold: new Set(),
+      silver: new Set(),
+    };
+    for (const t of TEAMS) {
+      map[t] = blownTextSet(buildShameRows(rounds, t));
+    }
+    return map;
+  }, [rounds]);
+
+  const reason = REASON[room.endReason ?? ""] ?? "";
 
   return (
     <div className="px-4 py-5 pb-28" style={{ paddingTop: "calc(var(--safe-t) + 20px)" }}>
-      <div className="text-center mb-4 fade-in">
-        <p className="text-[11px] text-muted mb-1">{REASON[room.endReason ?? ""] ?? ""}</p>
-        <h1
-          className="font-display text-[28px] leading-tight"
-          style={{ color: draw ? "#EFE7D4" : TEAM_HEX[room.winner as TeamId] ?? "#EFE7D4" }}
-        >
-          {draw ? "تعادل" : (
-            <>
-              فاز {TEAM_LABEL[room.winner as TeamId]}
-              {myTeam && (
-                <span className="text-[18px] ms-1.5 align-middle">
-                  {won ? "🏆" : "💔"}
-                </span>
-              )}
-            </>
+      <div className="over-file fade-in">
+        <div className="over-file-bar">
+          <span className="num">نموذج خت-1</span>
+          <span>{draw ? "مغلق · تعادل" : "مغلق"}</span>
+        </div>
+        <div className="over-head">
+          {winnerTeam ? (
+            <div
+              className="over-winner-stamp"
+              aria-label={`فائز: ${TEAM_LABEL[winnerTeam]}`}
+            >
+              <span className="over-winner-team">{TEAM_LABEL[winnerTeam]}</span>
+              <span className="over-winner-mark">فـائـز</span>
+            </div>
+          ) : (
+            <span className="over-closed-mark" aria-hidden>
+              {draw ? "تعادل" : "مغلق"}
+            </span>
           )}
-        </h1>
-        {winnerNames.length > 0 && (
-          <p
-            className="text-[13px] font-medium mt-1.5 leading-snug"
-            style={{ color: TEAM_HEX[winnerTeam!] }}
-          >
-            {winnerNames.join(" · ")}
-          </p>
-        )}
+          {reason && <p className="over-reason">{reason}</p>}
+          {winnerNames.length > 0 && (
+            <p
+              className="over-winners"
+              style={{ color: TEAM_HEX[winnerTeam!] }}
+            >
+              {winnerNames.join(" · ")}
+            </p>
+          )}
+        </div>
       </div>
 
-      <FinalScoreboard room={room} myTeam={myTeam} winnerTeam={winnerTeam} />
+      <div className="mb-2 fade-in" style={{ border: "1px solid #3A3629" }}>
+        <ScoreStrip room={room} myTeam={myTeam} showMineLabel={false} />
+      </div>
 
       {loserTeam && (
         <EncryptorShame room={room} rounds={rounds} loserTeam={loserTeam} />
@@ -491,42 +488,55 @@ export function GameOver({
           <EncryptorShame key={t} room={room} rounds={rounds} loserTeam={t} />
         ))}
 
-      <p className="text-[11px] text-muted mb-2 px-1 mt-5">كل المفاتيح، وكل ما قيل عنها</p>
-      <div className="space-y-3">
-        {TEAMS.map((t) => (
-          <div key={t} className="card p-3.5" style={{ borderColor: `${TEAM_HEX[t]}44` }}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-display text-[15px]" style={{ color: TEAM_HEX[t] }}>
-                {TEAM_LABEL[t]}
-              </span>
-              <span className="text-[11.5px] text-muted">
-                اختراق <span className="num">{room.teams[t].score.breach}</span>
-                {" · "}خلل <span className="num">{room.teams[t].score.fault}</span>
-              </span>
+      <section className="over-records fade-in">
+        <div className="over-records-head">
+          <h2 className="over-records-title">السجل الكامل</h2>
+          <span className="over-declass-stamp">تم رفع السرية</span>
+        </div>
+        <hr className="over-records-rule" />
+        <div className="space-y-3">
+          {TEAMS.map((t) => (
+            <div key={t} className="card p-3.5" style={{ borderColor: `${TEAM_HEX[t]}44` }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-display text-[15px]" style={{ color: TEAM_HEX[t] }}>
+                  {TEAM_LABEL[t]}
+                </span>
+                <span className="text-[11.5px] text-muted">
+                  اختراق <span className="num">{room.teams[t].score.breach}</span>
+                  {" · "}خلل <span className="num">{room.teams[t].score.fault}</span>
+                </span>
+              </div>
+              <ClueGrid
+                lanes={buildLanes(rounds, t, finalKeys?.[t] ?? (t === myTeam ? keys : null))}
+                team={t}
+                declassified
+                blownTexts={blownByTeam[t]}
+              />
             </div>
-            <ClueGrid
-              lanes={buildLanes(rounds, t, finalKeys?.[t] ?? (t === myTeam ? keys : null))}
-              team={t}
-              declassified
-            />
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
 
       <div
         className="fixed inset-x-0 bottom-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3"
         style={{ paddingBottom: "calc(var(--safe-b) + 10px)" }}
       >
+        {rematchErr && (
+          <div className="mb-2">
+            <Banner tone="warn">{rematchErr}</Banner>
+          </div>
+        )}
         {isHost ? (
           <Btn
             className="w-full"
-            onClick={() =>
+            onClick={() => {
+              setRematchErr(null);
               api.rematch({ roomId: room.id }).catch((e) => {
-                alert(errText(e));
-              })
-            }
+                setRematchErr(errText(e));
+              });
+            }}
           >
-            إنهاء اللعبة والعودة للردهة
+            لعبة جديدة
           </Btn>
         ) : (
           <p className="text-center text-[13px] text-muted py-3">
