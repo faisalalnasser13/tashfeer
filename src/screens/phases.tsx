@@ -565,9 +565,6 @@ export function GuessPhase(ctx: Ctx) {
 
   const lockedOut = amOwner && amEncryptor;
 
-  // Send dock is in document flow (like encrypt-foot), not position:fixed —
-  // a fixed dock sits under the Android keyboard when ClueGrid theory inputs
-  // are focused. TabBar is already below the scroll area in Game's flex layout.
   return (
     <div className="px-4 pt-3 pb-4 space-y-3 fade-in">
       <Banner>
@@ -618,16 +615,9 @@ export function GuessPhase(ctx: Ctx) {
           : "أي لاعب في فريقكم يستطيع تحريك الأرقام — الجميع يرى نفس الشاشة"}
       </p>
 
-      <SectionLine>
-        {amOwner ? "سجلّكم" : `سجلّ ${TEAM_LABEL[active]}`}
-      </SectionLine>
-      <ClueGrid
-        lanes={ownerLanes}
-        team={active}
-        theories={amInterceptor ? theories : undefined}
-        onGuess={amInterceptor ? (n, t) => setTheory?.(n, t) : undefined}
-      />
-
+      {/* Same order as EncryptorView: pads → send → record. Not fixed —
+          a fixed dock sits under the Android keyboard when ClueGrid
+          theory inputs are focused. */}
       {err && <Banner tone="warn">{err}</Banner>}
 
       <div className="border-t border-line pt-3">
@@ -655,6 +645,16 @@ export function GuessPhase(ctx: Ctx) {
           </>
         )}
       </div>
+
+      <SectionLine>
+        {amOwner ? "سجلّكم" : `سجلّ ${TEAM_LABEL[active]}`}
+      </SectionLine>
+      <ClueGrid
+        lanes={ownerLanes}
+        team={active}
+        theories={amInterceptor ? theories : undefined}
+        onGuess={amInterceptor ? (n, t) => setTheory?.(n, t) : undefined}
+      />
     </div>
   );
 }
