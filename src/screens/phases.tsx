@@ -82,6 +82,9 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
     }
   }
 
+  const rows = keys ?? ["", "", "", ""];
+  const stampDelayMs = (rows.length - 1) * 90 + 150;
+
   return (
     <div className={`px-5 py-6 fade-in ${isHost ? "pb-36" : "pb-28"}`}>
       <h2 className="text-[22px] font-semibold text-center mb-1.5">مفاتيحكم الأربعة</h2>
@@ -95,47 +98,69 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
           <Banner tone="warn">{err}</Banner>
         </div>
       )}
-      <div className="space-y-2 max-w-sm mx-auto">
-        {(keys ?? ["", "", "", ""]).map((k, i) => (
-          <div
-            key={i}
-            className="card px-4 py-3 flex items-center gap-3.5 fade-in"
-            style={{ borderColor: `${color}44`, animationDelay: `${i * 90}ms` }}
+
+      <div className="keys-sheet max-w-sm mx-auto">
+        <div className="keys-sheet-band keys-sheet-band-top">
+          <span className="keys-sheet-form num">نموذج مف-1</span>
+          <span className="keys-sheet-class">تصنيف · سري</span>
+        </div>
+
+        <div className="keys-sheet-heading">
+          <h3 className="keys-sheet-title">محطة {TEAM_LABEL[myTeam]}</h3>
+          <p className="keys-sheet-valid">صالحة طوال اللعبة · لا تُستبدل</p>
+        </div>
+
+        <div className="keys-sheet-rows">
+          {rows.map((k, i) => (
+            <div
+              key={i}
+              className="keys-sheet-row fade-in"
+              style={{ animationDelay: `${i * 90}ms` }}
+            >
+              <span className="keys-sheet-num num" style={{ color }}>
+                {i + 1}
+              </span>
+              <span className="keys-sheet-word">{k || "…"}</span>
+              <span className="keys-sheet-leader" aria-hidden />
+            </div>
+          ))}
+        </div>
+
+        <div className="keys-sheet-band keys-sheet-band-foot">
+          <span className="keys-sheet-destroy">يُتلف فور انتهاء اللعبة</span>
+          <span
+            className="stamp stamp-bad keys-sheet-stamp"
+            style={{ animationDelay: `${stampDelayMs}ms` }}
           >
-            <span className="num text-[22px] font-semibold w-8 text-center" style={{ color }}>
-              {i + 1}
-            </span>
-            <span className="text-[27px] font-medium">{k || "…"}</span>
-          </div>
-        ))}
+            سري
+          </span>
+        </div>
       </div>
 
       {isHost && (
-        <div className="max-w-sm mx-auto mt-5 space-y-2">
+        <div className="keys-cmds">
+          <p className="keys-cmds-label">أوامر المضيف</p>
           <button
             type="button"
             disabled={busy !== null}
             onClick={() => reshuffle(myTeam)}
-            className="w-full card px-4 py-3 flex items-center justify-between text-start disabled:opacity-40"
-            style={{ borderColor: `${color}44` }}
+            className="keys-cmd"
           >
-            <span className="text-[13px]" style={{ color }}>
-              خلط مفاتيح {TEAM_LABEL[myTeam]}
-            </span>
-            <span className="text-[12px] text-muted">{busy === myTeam ? "…" : "خلط"}</span>
+            <span className="keys-cmd-label">خلط مفاتيح {TEAM_LABEL[myTeam]}</span>
+            <span className="keys-cmd-action">{busy === myTeam ? "…" : "خلط"}</span>
           </button>
           <button
             type="button"
             disabled={busy !== null}
             onClick={() => reshuffle(other)}
-            className="w-full card px-4 py-3 flex items-center justify-between text-start disabled:opacity-40"
-            style={{ borderColor: `${TEAM_HEX[other]}44` }}
+            className="keys-cmd"
+            style={{ borderColor: `${TEAM_HEX[other]}66` }}
           >
-            <span className="text-[13px]" style={{ color: TEAM_HEX[other] }}>
+            <span className="keys-cmd-label" style={{ color: TEAM_HEX[other] }}>
               خلط مفاتيح {TEAM_LABEL[other]}
-              <span className="block text-[11px] text-muted mt-0.5">بدون عرض كلماتهم</span>
+              <span className="keys-cmd-hint">بدون عرض كلماتهم</span>
             </span>
-            <span className="text-[12px] text-muted">{busy === other ? "…" : "خلط"}</span>
+            <span className="keys-cmd-action">{busy === other ? "…" : "خلط"}</span>
           </button>
         </div>
       )}
