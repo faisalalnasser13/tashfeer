@@ -61,7 +61,7 @@ export function Cartouche({
   guessWords?: (string | null | undefined)[] | null;
   historyByDigit?: string[][] | null;
   showPads?: boolean;
-  /** `dense` = encryptor guess spectate only (short empty slots). */
+  /** `dense` = encryptor guess spectate only (compact, aligned columns). */
   size?: "md" | "sm" | "xs" | "dense";
 }) {
   const editable = Boolean(onChange);
@@ -138,17 +138,16 @@ export function Cartouche({
         : size === "sm"
           ? " cartouche-sm"
           : "";
-  const clueGap = size === "dense" ? "gap-0.5" : "gap-1";
   const clueText =
     size === "dense"
-      ? "text-[9px] leading-tight"
+      ? "text-[11px] leading-snug dense-clue-text"
       : size === "xs"
         ? "text-[11px] leading-tight"
         : size === "sm"
           ? "text-[12px] leading-snug"
           : "text-[18px] leading-snug";
   const ordText =
-    size === "dense" ? "text-[8px]" : "text-[10px]";
+    size === "dense" ? "text-[9px]" : "text-[10px]";
 
   return (
     <div>
@@ -197,8 +196,8 @@ export function Cartouche({
           );
           if (!clues) return <Fragment key={i}>{slot}</Fragment>;
           return (
-            <div key={i} className={`flex flex-col ${clueGap}`}>
-              <div className="text-center px-0.5">
+            <div key={i} className="flex flex-col gap-1">
+              <div className={`text-center px-0.5${size === "dense" ? " dense-clue" : ""}`}>
                 <p className={`${ordText} text-muted leading-none mb-0.5`}>{ORDINALS[i]}</p>
                 <p
                   className={`${clueText} font-medium`}
