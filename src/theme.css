@@ -204,6 +204,59 @@ textarea {
   line-height: 1.15;
 }
 
+/* Encryptor guess spectate only — short empty slots, no grid stretch. */
+.cartouche-dense {
+  gap: 2px;
+  align-items: start;
+}
+
+.cartouche-dense .slot {
+  aspect-ratio: 2.1 / 1;
+  padding: 2px 1px;
+  min-height: 22px;
+  border-radius: 0;
+  align-self: start;
+}
+
+.cartouche-dense .slot-digit {
+  font-size: 11px;
+}
+
+.cartouche-dense .slot::before {
+  font-size: 5px;
+  inset-block-start: 1px;
+  inset-inline-end: 2px;
+}
+
+.cartouche-dense .slot-has-extra {
+  aspect-ratio: auto;
+  min-height: 0;
+  padding: 2px 1px 3px;
+  gap: 0;
+  justify-content: flex-start;
+}
+
+.cartouche-dense .slot-word {
+  font-size: 7px;
+  line-height: 1.1;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cartouche-dense .slot-hints {
+  gap: 0;
+  max-height: 2em;
+  overflow: hidden;
+}
+
+.cartouche-dense .slot-hint {
+  font-size: 6px;
+  line-height: 1.1;
+}
+
 .slot {
   position: relative;
   aspect-ratio: 2.4 / 1;

@@ -61,7 +61,8 @@ export function Cartouche({
   guessWords?: (string | null | undefined)[] | null;
   historyByDigit?: string[][] | null;
   showPads?: boolean;
-  size?: "md" | "sm" | "xs";
+  /** `dense` = encryptor guess spectate only (short empty slots). */
+  size?: "md" | "sm" | "xs" | "dense";
 }) {
   const editable = Boolean(onChange);
   const [focus, setFocus] = useState<number>(0);
@@ -106,14 +107,15 @@ export function Cartouche({
           ? ""
           : undefined;
     const hints = historyByDigit?.[digit - 1] ?? [];
-    // Compact reveal: keep only the latest clues so the left column stays short.
-    // Compact reveal: keep a few recent prior clues so intercept stacks fit.
+    // Compact sizes: keep only recent prior clues so stacks stay short.
     const clipped =
-      size === "xs" && hints.length > 3
-        ? hints.slice(-3)
-        : size === "sm" && hints.length > 2
-          ? hints.slice(-2)
-          : hints;
+      size === "dense" && hints.length > 2
+        ? hints.slice(-2)
+        : size === "xs" && hints.length > 3
+          ? hints.slice(-3)
+          : size === "sm" && hints.length > 2
+            ? hints.slice(-2)
+            : hints;
     return { word, guess, hints: clipped };
   }
 
@@ -129,7 +131,24 @@ export function Cartouche({
   const padsVisible =
     showPads && (editable || keyWords || guessWords || historyByDigit);
   const sizeClass =
-    size === "xs" ? " cartouche-xs" : size === "sm" ? " cartouche-sm" : "";
+    size === "dense"
+      ? " cartouche-dense"
+      : size === "xs"
+        ? " cartouche-xs"
+        : size === "sm"
+          ? " cartouche-sm"
+          : "";
+  const clueGap = size === "dense" ? "gap-0.5" : "gap-1";
+  const clueText =
+    size === "dense"
+      ? "text-[9px] leading-tight"
+      : size === "xs"
+        ? "text-[11px] leading-tight"
+        : size === "sm"
+          ? "text-[12px] leading-snug"
+          : "text-[18px] leading-snug";
+  const ordText =
+    size === "dense" ? "text-[8px]" : "text-[10px]";
 
   return (
     <div>
@@ -178,17 +197,11 @@ export function Cartouche({
           );
           if (!clues) return <Fragment key={i}>{slot}</Fragment>;
           return (
-            <div key={i} className="flex flex-col gap-1">
+            <div key={i} className={`flex flex-col ${clueGap}`}>
               <div className="text-center px-0.5">
-                <p className="text-[10px] text-muted leading-none mb-0.5">{ORDINALS[i]}</p>
+                <p className={`${ordText} text-muted leading-none mb-0.5`}>{ORDINALS[i]}</p>
                 <p
-                  className={`${
-                    size === "xs"
-                      ? "text-[11px] leading-tight"
-                      : size === "sm"
-                        ? "text-[12px] leading-snug"
-                        : "text-[18px] leading-snug"
-                  } font-medium`}
+                  className={`${clueText} font-medium`}
                   style={{ color: chrome.accent }}
                   title={clue}
                 >

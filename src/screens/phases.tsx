@@ -683,21 +683,21 @@ function EncryptorGuessWatch({
   const enemySentBy = enemyDraft?.submittedIntercept ?? null;
 
   return (
-    <div className="pb-28">
-      <div className="px-4 pt-2 space-y-2.5 fade-in">
-        <Banner tone="lock">
-          أنت كتبت هذه التلميحات. راقب فقط — لا تُظهر أي ردّ فعل.
-        </Banner>
+    <div className="pb-20">
+      <div className="px-3 pt-1.5 space-y-1.5 fade-in">
+        <p className="rounded-lg border border-[#3A2A5A] bg-[#1A1230] px-2.5 py-1 text-[11px] leading-snug text-[#B49CD8] text-center">
+          راقب فقط — لا تُظهر ردّ فعل
+        </p>
 
         <section
-          className="rounded-xl border px-2.5 py-2 space-y-2"
+          className="rounded-lg border px-2 py-1.5 space-y-1"
           style={{ borderColor: `${mineColor}66`, background: `${mineColor}0F` }}
         >
           <header className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-bold" style={{ color: mineColor }}>
+            <p className="text-[11px] font-bold" style={{ color: mineColor }}>
               فريقكم: {TEAM_LABEL[myTeam]}
             </p>
-            <span className="text-[10px] text-muted">يفكّون شفرتكم</span>
+            <span className="text-[9px] text-muted">يفكّون شفرتكم</span>
           </header>
 
           <Cartouche
@@ -706,19 +706,19 @@ function EncryptorGuessWatch({
             tone={myTeam}
             keyWords={keys}
             showPads={false}
-            size="xs"
+            size="dense"
           />
         </section>
 
         <section
-          className="rounded-xl border px-2.5 py-2 space-y-2"
+          className="rounded-lg border px-2 py-1.5 space-y-1"
           style={{ borderColor: `${enemyColor}66`, background: `${enemyColor}0F` }}
         >
           <header className="flex items-center justify-between gap-2">
-            <p className="text-[13px] font-bold" style={{ color: enemyColor }}>
+            <p className="text-[11px] font-bold" style={{ color: enemyColor }}>
               العدو: {TEAM_LABEL[enemy]}
             </p>
-            <span className="text-[10px] text-muted">يعترضون شفرتكم · مباشر</span>
+            <span className="text-[9px] text-muted">يعترضون · مباشر</span>
           </header>
 
           <Cartouche
@@ -729,9 +729,9 @@ function EncryptorGuessWatch({
               lane.clues.map((c) => c.text)
             )}
             showPads={false}
-            size="xs"
+            size="dense"
           />
-          <p className="text-[10px] text-muted text-center">
+          <p className="text-[9px] text-muted text-center leading-tight">
             {enemySentBy
               ? `أرسل الاعتراض ${room.players[enemySentBy]?.name ?? "خصم"}`
               : "تشاهدون أرقامهم وهي تتحرّك"}
@@ -740,13 +740,13 @@ function EncryptorGuessWatch({
       </div>
 
       <div
-        className="fixed inset-x-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3"
+        className="fixed inset-x-0 bg-ink/95 backdrop-blur-sm border-t border-line px-3 pt-1.5"
         style={{
           bottom: "calc(3.25rem + var(--safe-b))",
-          paddingBottom: "10px",
+          paddingBottom: "6px",
         }}
       >
-        <p className="text-center text-[13px] text-muted py-2">
+        <p className="text-center text-[11px] text-muted py-0.5 leading-snug">
           {sentBy
             ? `أرسلها ${room.players[sentBy]?.name ?? "زميل"} — بانتظار الطرف الآخر`
             : "بانتظار فريقك ليفكّ الشفرة…"}
