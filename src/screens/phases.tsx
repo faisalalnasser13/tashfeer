@@ -6,7 +6,7 @@ import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "../lib/types"
 import { OTHER, TEAMS } from "../lib/types";
 import { Cartouche } from "../components/Cartouche";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
-import { Banner, Btn, Empty, Stamp, TEAM_HEX, TEAM_LABEL } from "../components/ui";
+import { Banner, Btn, Empty, PipBoard, Stamp, TEAM_HEX, TEAM_LABEL } from "../components/ui";
 import { codesEqual } from "../lib/rules";
 
 interface Ctx {
@@ -986,12 +986,19 @@ function AttemptMark({ ok }: { ok: boolean }) {
 /* round end                                                          */
 /* ================================================================== */
 
-export function RoundEndPhase({ room, uid, myTeam, rounds, away }: Ctx) {
+const BREACH = "#8FAE5C";
+const FAULT = "#F03B2E";
+
+export function RoundEndPhase({ room, uid, away }: Ctx) {
   const isHost = room.hostUid === uid;
-  const rec = rounds.find((r) => r.round === room.round);
+  const maxRounds = room.settings.maxRounds;
+  const hardCap = maxRounds + 4;
+  const remaining = Math.max(0, maxRounds - Math.min(room.round, maxRounds));
+  const sdExtra = Math.max(0, Math.min(room.round, hardCap) - maxRounds);
+  const cellCount = maxRounds + sdExtra;
 
   const wanderers = away
-    .filter((a) => a.count > 0)
+    .filter((a) => a.count >= 2 || a.ms >= 10000)
     .sort((a, b) => b.ms - a.ms)
     .slice(0, 5);
 
@@ -1003,71 +1010,125 @@ export function RoundEndPhase({ room, uid, myTeam, rounds, away }: Ctx) {
 
   return (
     <div className="px-4 py-5 space-y-4 pb-36 fade-in">
-      <div className="card p-4">
-        <p className="text-[12px] text-muted mb-3">الحصيلة</p>
-        <div className="space-y-2.5">
+      <div className="rend-strip -mx-4 px-4">
+        <span className="rend-strip-label">النوبات</span>
+        <div className="rend-strip-cells" aria-hidden>
+          {Array.from({ length: cellCount }, (_, i) => {
+            const n = i + 1;
+            const sd = n > maxRounds;
+            const done = n < room.round;
+            const now = n === room.round;
+            return (
+              <span
+                key={n}
+                className={[
+                  "rend-cell",
+                  sd ? "rend-cell-sd" : "",
+                  done ? "rend-cell-done" : "",
+                  now ? "rend-cell-now" : "",
+                ].filter(Boolean).join(" ")}
+              />
+            );
+          })}
+        </div>
+        <span className="rend-strip-left num">
+          بقيت {remaining}
+        </span>
+      </div>
+
+      <section className="rend-sec">
+        <div className="rend-sec-head">
+          <span>الحصيلة</span>
+          <span className="rend-sec-counter num">بعد النوبة {room.round}</span>
+        </div>
+        <div className="rend-sec-body">
           {TEAMS.map((t) => {
             const s = room.teams[t].score;
             return (
-              <div key={t} className="flex items-center justify-between">
-                <span className="font-display text-[15px]" style={{ color: TEAM_HEX[t] }}>
+              <div key={t} className="rend-row">
+                <span className="font-display text-[15px] truncate" style={{ color: TEAM_HEX[t] }}>
                   {TEAM_LABEL[t]}
                 </span>
-                <span className="flex items-center gap-4 text-[12.5px]">
-                  <span style={{ color: "#8FAE5C" }}>
-                    اختراق <span className="num">{s.breach}</span>/<span className="num">{2}</span>
+                <span className="rend-score-side">
+                  <span className="rend-score-unit" title="اختراق">
+                    <span className="rend-score-n" style={{ color: BREACH }}>{s.breach}</span>
+                    <PipBoard n={s.breach} color={BREACH} title="اختراق" />
+                    <span className="rend-score-lbl">اختراق</span>
                   </span>
-                  <span style={{ color: "#F03B2E" }}>
-                    خلل <span className="num">{s.fault}</span>/<span className="num">{2}</span>
+                  <span className="w-px h-3 bg-line" />
+                  <span className="rend-score-unit" title="خلل">
+                    <span className="rend-score-n" style={{ color: FAULT }}>{s.fault}</span>
+                    <PipBoard n={s.fault} color={FAULT} title="خلل" />
+                    <span className="rend-score-lbl">خلل</span>
                   </span>
                 </span>
               </div>
             );
           })}
         </div>
-        <p className="text-[11.5px] text-muted mt-3.5 leading-relaxed border-t border-line pt-3">
+        <p className="rend-sec-foot">
           اختراقان يفوزان باللعبة. خللان يخسرانها.
         </p>
-      </div>
+      </section>
 
       {wanderers.length > 0 && (
-        <div className="card p-4" style={{ borderColor: "#7A4A2A" }}>
-          <p className="text-[12px] mb-3" style={{ color: "#E0A46C" }}>
-            من غادر الشاشة هذه الجولة
-          </p>
-          <div className="space-y-2">
+        <section className="rend-sec rend-sec-away">
+          <div className="rend-sec-head">
+            <span>من غادر الشاشة هذه الجولة</span>
+            <span className="rend-sec-counter num">{wanderers.length}</span>
+          </div>
+          <div className="rend-sec-body">
             {wanderers.map((a) => (
-              <div key={a.uid} className="flex items-center justify-between gap-2">
+              <div key={a.uid} className="rend-row">
                 <span className="truncate text-[14px]">
                   {room.players[a.uid]?.name ?? "؟"}
                 </span>
-                <span className="num text-[12px] text-muted shrink-0">
-                  {a.count}× · {Math.round(a.ms / 1000)}ث
+                <span className="flex items-baseline gap-2 shrink-0">
+                  <span className="rend-away-count">{a.count}×</span>
+                  <span className="rend-away-ms">{Math.round(a.ms / 1000)}ث</span>
                 </span>
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-muted mt-3 leading-relaxed">
+          <p className="rend-sec-foot">
             إشعار على الهاتف يُحتسب أيضًا. لقطات الشاشة لا يمكن رصدها من المتصفح.
           </p>
-        </div>
+        </section>
       )}
 
-      <div className="card p-4">
-        <p className="text-[12px] text-muted mb-3">المُشفِّر في الجولة القادمة</p>
-        <div className="space-y-2">
-          {nextEncryptors.map(({ team, uid: u }) => (
-            <div key={team} className="flex items-center justify-between gap-2">
-              <span className="truncate text-[14px]">
-                {room.players[u]?.name ?? "؟"}
-              </span>
-              <span className="text-[12px] shrink-0" style={{ color: TEAM_HEX[team] }}>
-                {TEAM_LABEL[team]}
-              </span>
-            </div>
-          ))}
+      <section className="rend-sec">
+        <div className="rend-sec-head">
+          <span>المُشفِّر في الجولة القادمة</span>
+          <span className="rend-sec-counter num">النوبة {room.round + 1}</span>
         </div>
-      </div>
+        <div className="rend-sec-body">
+          {nextEncryptors.map(({ team, uid: u }) => {
+            const mine = u === uid;
+            const color = TEAM_HEX[team];
+            return (
+              <div
+                key={team}
+                className={`rend-row${mine ? " rend-enc-you" : ""}`}
+              >
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <span className="rend-enc-badge" style={{ color }} aria-hidden>
+                    م
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-medium">
+                      {room.players[u]?.name ?? "؟"}
+                      {mine && <span className="rend-you-tag">أنت</span>}
+                    </span>
+                    <span className="block text-[11px] mt-0.5" style={{ color }}>
+                      {TEAM_LABEL[team]}
+                    </span>
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {isHost && (
         <HostContinue
