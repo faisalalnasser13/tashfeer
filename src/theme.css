@@ -1252,10 +1252,17 @@ textarea {
 
 /* ------------------------------------------------------------------ */
 /* encryptor clue card — fixed-height rows, past chips overflow sheet  */
+/* Sharp corners only here — do not bleed into other .card/.chip/.btn.  */
 /* ------------------------------------------------------------------ */
 
 .encrypt-card {
   padding: 0;
+  border-radius: 0;
+}
+
+.encrypt-card .btn,
+.encrypt-card .rounded-xl {
+  border-radius: 0 !important;
 }
 
 .encrypt-row {
@@ -1278,7 +1285,7 @@ textarea {
   justify-content: center;
   gap: 2px;
   border: 1px solid;
-  border-radius: 3px;
+  border-radius: 0;
   padding: 0.2rem 0.25rem;
   box-sizing: border-box;
 }
@@ -1332,6 +1339,7 @@ textarea {
   padding-inline: 0.3rem !important;
   font-size: 10px !important;
   line-height: 1.15;
+  border-radius: 0;
 }
 
 .encrypt-past-more {
@@ -1341,13 +1349,14 @@ textarea {
   font-size: 10px !important;
   line-height: 1.15;
   cursor: pointer;
+  border-radius: 0;
 }
 
 .encrypt-input {
   width: 100%;
   min-width: 0;
   height: 1.85rem;
-  border-radius: 3px;
+  border-radius: 0;
   padding: 0 0.55rem;
   font-weight: 500;
   color: var(--parch);
@@ -1387,6 +1396,11 @@ textarea {
   width: 100%;
   max-width: 22rem;
   padding: 0.85rem 0.9rem 1rem;
+  border-radius: 0;
+}
+
+.encrypt-past-panel .chip {
+  border-radius: 0;
 }
 
 /* ------------------------------------------------------------------ */
