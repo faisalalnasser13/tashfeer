@@ -54,7 +54,7 @@ export function KeysStrip({
                 return (
                   <div
                     key={i}
-                    className="card px-3 py-2 flex items-center gap-2.5"
+                    className="card !rounded-none px-3 py-2 flex items-center gap-2.5"
                     style={{
                       borderColor: on ? `${color}88` : `${color}3A`,
                       background: on ? `${color}14` : undefined,
@@ -82,7 +82,7 @@ export function KeysStrip({
               return (
                 <span
                   key={i}
-                  className={`chip min-w-0 w-full justify-center !px-1 transition ${
+                  className={`chip !rounded-none min-w-0 w-full justify-center !px-1 transition ${
                     on ? "!py-1 !text-[13px]" : "!py-0.5 !text-[11px]"
                   }`}
                   style={{
@@ -145,7 +145,7 @@ function TheoryChip({
   if (!onChange) {
     return (
       <span
-        className="chip min-w-0 w-full justify-center !py-0.5 !px-1 !text-[11px]"
+        className="chip !rounded-none min-w-0 w-full justify-center !py-0.5 !px-1 !text-[11px]"
         style={{ borderColor: `${color}55`, color }}
         title={show ? `${show}؟` : "؟"}
       >
@@ -157,7 +157,7 @@ function TheoryChip({
 
   return (
     <label
-      className="chip min-w-0 w-full justify-center !py-0.5 !px-1 !text-[11px]
+      className="chip !rounded-none min-w-0 w-full justify-center !py-0.5 !px-1 !text-[11px]
                  flex items-center gap-0.5 cursor-text"
       style={{ borderColor: `${color}66`, color }}
     >
