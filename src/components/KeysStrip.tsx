@@ -89,7 +89,7 @@ export function KeysStrip({
                     borderColor: on ? `${color}88` : `${color}3A`,
                     background: on ? `${color}18` : undefined,
                     color: on ? "#EFE7D4" : undefined,
-                    opacity: lighting && !on ? 0.45 : 1,
+                    opacity: lighting && !on ? 0.7 : 1,
                   }}
                   title={k}
                 >
