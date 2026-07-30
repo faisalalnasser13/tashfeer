@@ -993,7 +993,6 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
   const isHost = room.hostUid === uid;
   const maxRounds = room.settings.maxRounds;
   const hardCap = maxRounds + 4;
-  const remaining = Math.max(0, maxRounds - Math.min(room.round, maxRounds));
   const sdExtra = Math.max(0, Math.min(room.round, hardCap) - maxRounds);
   const cellCount = maxRounds + sdExtra;
 
@@ -1032,7 +1031,7 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
           })}
         </div>
         <span className="rend-strip-left num">
-          بقيت {remaining}
+          {room.round}/{maxRounds}
         </span>
       </div>
 
