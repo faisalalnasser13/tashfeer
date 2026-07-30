@@ -2129,6 +2129,61 @@ textarea {
   line-height: 1;
 }
 
+.rend-duel {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.75rem 0.65rem;
+  min-width: 0;
+}
+
+.rend-duel-side {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.5rem;
+  position: relative;
+}
+
+.rend-duel-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.rend-duel-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.rend-duel-team {
+  display: block;
+  font-size: 11px;
+  line-height: 1.2;
+  opacity: 0.95;
+}
+
+.rend-duel-mark {
+  flex-shrink: 0;
+  align-self: center;
+  font-family: "Courier Prime", ui-monospace, monospace;
+  font-size: 1.45rem;
+  font-weight: 400;
+  line-height: 1;
+  color: #b89a4e;
+  opacity: 0.78;
+  padding-inline: 0.15rem;
+  letter-spacing: 0;
+  user-select: none;
+}
+
 .rend-enc-you {
   position: relative;
   background: rgba(211, 180, 95, 0.08);

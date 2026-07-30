@@ -1077,15 +1077,16 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
           <span className="rend-sec-counter num">الجولة {room.round + 1}</span>
         </div>
         <div className="rend-sec-body">
-          {nextEncryptors.map(({ team, uid: u }) => {
-            const mine = u === uid;
-            const color = TEAM_HEX[team];
-            return (
-              <div
-                key={team}
-                className={`rend-row${mine ? " rend-enc-you" : ""}`}
-              >
-                <span className="flex items-center gap-2.5 min-w-0">
+          <div className="rend-duel" role="group" aria-label="المُشفِّران القادمان">
+            {nextEncryptors.flatMap(({ team, uid: u }, i) => {
+              const mine = !!u && u === uid;
+              const color = TEAM_HEX[team];
+              const name = u ? (room.players[u]?.name ?? "؟") : "؟";
+              const side = (
+                <div
+                  key={team}
+                  className={`rend-duel-side${mine ? " rend-enc-you" : ""}`}
+                >
                   <span className="rend-enc-badge" style={{ color }} aria-hidden>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
                       <circle cx="5.5" cy="5.5" r="2.75" stroke="currentColor" strokeWidth="1.4" />
@@ -1098,19 +1099,25 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
                       />
                     </svg>
                   </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-medium">
-                      {room.players[u]?.name ?? "؟"}
+                  <span className="rend-duel-meta min-w-0">
+                    <span className="rend-duel-name truncate">
+                      {name}
                       {mine && <span className="rend-you-tag">أنت</span>}
                     </span>
-                    <span className="block text-[11px] mt-0.5" style={{ color }}>
+                    <span className="rend-duel-team" style={{ color }}>
                       {TEAM_LABEL[team]}
                     </span>
                   </span>
-                </span>
-              </div>
-            );
-          })}
+                </div>
+              );
+              return i === 0
+                ? [side]
+                : [
+                    <span key="duel-mark" className="rend-duel-mark" aria-hidden>×</span>,
+                    side,
+                  ];
+            })}
+          </div>
         </div>
       </section>
 
