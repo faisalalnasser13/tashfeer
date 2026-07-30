@@ -824,14 +824,14 @@ function RevealCard({
   const hasFault = side.faulted;
   const dramatic = hasBreach || hasFault;
   // Decrypting team: keywords under their digits.
-  // Interceptors: prior-round clues only — same history they had while guessing
+  // Prior-round clues only — same history interceptors had while guessing
   // (current round's clues were shown above the slots, never filed under digits yet).
+  // Encryptor's team also needs this on the intercept attempt cartouche.
   const keyWords = mine ? keys : null;
-  const historyByDigit = mine
-    ? null
-    : buildLanes(rounds, team, null).map((lane) =>
-        lane.clues.filter((c) => c.round < rec.round).map((c) => c.text)
-      );
+  const priorHistoryByDigit = buildLanes(rounds, team, null).map((lane) =>
+    lane.clues.filter((c) => c.round < rec.round).map((c) => c.text)
+  );
+  const decryptHistory = mine ? null : priorHistoryByDigit;
   const decryptOk = codesEqual(side.decrypt, side.code);
   const interceptOk =
     rec.round >= 2 && codesEqual(side.intercept, side.code);
@@ -910,7 +910,7 @@ function RevealCard({
                   tone={team}
                   truth={side.code}
                   keyWords={keyWords}
-                  historyByDigit={historyByDigit}
+                  historyByDigit={decryptHistory}
                   showPads={false}
                   size="xs"
                 />
@@ -926,7 +926,7 @@ function RevealCard({
                     tone={opp}
                     truth={side.code}
                     keyWords={keyWords}
-                    historyByDigit={historyByDigit}
+                    historyByDigit={priorHistoryByDigit}
                     showPads={false}
                     size="xs"
                   />
