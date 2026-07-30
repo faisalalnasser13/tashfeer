@@ -339,7 +339,7 @@ function EncryptorShame({
   const color = TEAM_HEX[loserTeam];
 
   return (
-    <div className="card shame-card fade-in">
+    <div className="over-section shame-panel">
       <p className="shame-title">
         لائحة النكبات · {TEAM_LABEL[loserTeam]}
       </p>
@@ -413,15 +413,34 @@ export function GameOver({
 
   return (
     <div className="px-4 py-5 pb-28" style={{ paddingTop: "calc(var(--safe-t) + 20px)" }}>
-      <div className="over-file fade-in">
+      {/*
+        One continuous closed-file sheet. DOM order in over-head: names then stamp —
+        under dir=rtl that puts names on the visual right and the stamp on the visual left.
+      */}
+      <div className="over-sheet fade-in">
         <div className="over-file-bar">
           <span className="num">نموذج خت-1</span>
           <span>{draw ? "مغلق · تعادل" : "مغلق"}</span>
         </div>
-        <div className="over-head">
+
+        <div className={`over-head${winnerTeam ? "" : " over-head-closed"}`}>
+          {winnerNames.length > 0 && (
+            <ul
+              className="over-winners"
+              style={{ color: TEAM_HEX[winnerTeam!] }}
+            >
+              {winnerNames.map((name) => (
+                <li key={name} className="over-winner-name">
+                  <span className="over-winner-medal" aria-hidden>🥇</span>
+                  {name}
+                </li>
+              ))}
+            </ul>
+          )}
           {winnerTeam ? (
             <div
               className="over-winner-stamp"
+              style={{ ["--stamp-color" as string]: TEAM_HEX[winnerTeam] }}
               aria-label={`فائز: ${TEAM_LABEL[winnerTeam]}`}
             >
               <span className="over-winner-team">{TEAM_LABEL[winnerTeam]}</span>
@@ -432,61 +451,57 @@ export function GameOver({
               {draw ? "تعادل" : "مغلق"}
             </span>
           )}
-          {winnerNames.length > 0 && (
-            <p
-              className="over-winners"
-              style={{ color: TEAM_HEX[winnerTeam!] }}
-            >
-              {winnerNames.join(" · ")}
-            </p>
-          )}
         </div>
-        <div className="over-file-score">
+
+        <div className="over-section over-file-score">
           <ScoreStrip room={room} myTeam={myTeam} showMineLabel={false} />
         </div>
-      </div>
 
-      {loserTeam && (
-        <EncryptorShame room={room} rounds={rounds} loserTeam={loserTeam} />
-      )}
-      {draw &&
-        TEAMS.map((t) => (
-          <EncryptorShame key={t} room={room} rounds={rounds} loserTeam={t} />
-        ))}
-
-      <section className="over-records fade-in">
-        <div
-          className="over-declass-stamp"
-          aria-label="رُفعت السرية"
-        >
-          <span className="over-declass-mark">رُفعت</span>
-          <span className="over-declass-sub">السرية</span>
-        </div>
-        <div className="over-records-head">
-          <h2 className="over-records-title">السجل الكامل</h2>
-        </div>
-        <hr className="over-records-rule" />
-        <div className="space-y-3">
-          {TEAMS.map((t) => (
-            <div key={t} className="card p-3.5" style={{ borderColor: `${TEAM_HEX[t]}44` }}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-display text-[15px]" style={{ color: TEAM_HEX[t] }}>
-                  {TEAM_LABEL[t]}
-                </span>
-                <span className="text-[11.5px] text-muted">
-                  اختراق <span className="num">{room.teams[t].score.breach}</span>
-                  {" · "}خلل <span className="num">{room.teams[t].score.fault}</span>
-                </span>
-              </div>
-              <ClueGrid
-                lanes={buildLanes(rounds, t, finalKeys?.[t] ?? (t === myTeam ? keys : null))}
-                team={t}
-                declassified
-              />
-            </div>
+        {loserTeam && (
+          <EncryptorShame room={room} rounds={rounds} loserTeam={loserTeam} />
+        )}
+        {draw &&
+          TEAMS.map((t) => (
+            <EncryptorShame key={t} room={room} rounds={rounds} loserTeam={t} />
           ))}
-        </div>
-      </section>
+
+        <section className="over-section over-records">
+          <div
+            className="over-declass-stamp"
+            aria-label="رُفعت السرية"
+          >
+            <span className="over-declass-mark">رُفعت</span>
+            <span className="over-declass-sub">السرية</span>
+          </div>
+          <div className="over-records-head">
+            <h2 className="over-records-title">السجل الكامل</h2>
+          </div>
+          <div className="over-records-body">
+            {TEAMS.map((t) => (
+              <div
+                key={t}
+                className="over-team-block"
+                style={{ borderColor: `${TEAM_HEX[t]}44` }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-display text-[15px]" style={{ color: TEAM_HEX[t] }}>
+                    {TEAM_LABEL[t]}
+                  </span>
+                  <span className="text-[11.5px] text-muted">
+                    اختراق <span className="num">{room.teams[t].score.breach}</span>
+                    {" · "}خلل <span className="num">{room.teams[t].score.fault}</span>
+                  </span>
+                </div>
+                <ClueGrid
+                  lanes={buildLanes(rounds, t, finalKeys?.[t] ?? (t === myTeam ? keys : null))}
+                  team={t}
+                  declassified
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
 
       <div
         className="fixed inset-x-0 bottom-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3"

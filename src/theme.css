@@ -1473,12 +1473,11 @@ textarea {
 }
 
 /* ------------------------------------------------------------------ */
-/* game over — closed file, winner stamp, shame ledger, records hero   */
+/* game over — one closed-file sheet; dashed grey section hairlines    */
 /* ------------------------------------------------------------------ */
 
-.over-file {
+.over-sheet {
   position: relative;
-  margin-block-end: 0.55rem;
   border: 1px solid #3a3629;
   background: linear-gradient(180deg, #23211a 0%, #1e1c15 100%);
   box-shadow: inset 0 1px 0 rgba(237, 228, 206, 0.05);
@@ -1498,17 +1497,57 @@ textarea {
   background: #18170f;
 }
 
-.over-head {
-  position: relative;
-  padding: 1.85rem 0.85rem 0.85rem;
-  text-align: center;
+/* Sections after the header: dashed grey hairlines, not separate cards. */
+.over-section {
+  border-block-start: 1px dashed #5c5748;
 }
 
+/*
+ * RTL flex: first child → visual right, last → visual left.
+ * Names first in DOM (visual right); stamp last (visual left).
+ */
+.over-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1.05rem 0.85rem 1rem;
+  min-height: 5rem;
+}
+
+.over-head-closed {
+  justify-content: center;
+}
+
+.over-winners {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: start;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.over-winner-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.over-winner-medal {
+  margin-inline-end: 0.28em;
+}
+
+/* Team-coloured die stamp — oblong, slight rotation, inner impression. */
 .over-winner-stamp {
-  position: absolute;
-  inset-block-start: -0.55rem;
-  inset-inline: 0;
+  --stamp-color: var(--gold);
+  position: relative;
   z-index: 1;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1516,24 +1555,22 @@ textarea {
   gap: 2px;
   width: max-content;
   min-width: 7.25rem;
-  margin-inline: auto;
-  padding: 0.45rem 1.1rem 0.5rem;
-  border: 3px solid var(--gold);
-  border-radius: 2px;
-  color: var(--gold);
-  background: rgba(211, 180, 95, 0.1);
-  box-shadow: inset 0 0 0 1px rgba(211, 180, 95, 0.35);
+  padding: 0.45rem 1.15rem 0.5rem;
+  border: 3px solid var(--stamp-color);
+  border-radius: 2px / 3px;
+  color: var(--stamp-color);
+  background: color-mix(in srgb, var(--stamp-color) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--stamp-color) 35%, transparent);
   transform: rotate(-4.5deg);
   animation: over-stamp-in 0.55s cubic-bezier(0.2, 1.6, 0.35, 1) both;
   pointer-events: none;
 }
 
-/* Die impression — thin inner ring, not a second drawn box. */
 .over-winner-stamp::after {
   content: "";
   position: absolute;
   inset: 2px;
-  border: 1px solid rgba(211, 180, 95, 0.38);
+  border: 1px solid color-mix(in srgb, var(--stamp-color) 38%, transparent);
   border-radius: 1px;
   pointer-events: none;
 }
@@ -1552,14 +1589,12 @@ textarea {
   font-weight: 700;
   letter-spacing: 0.28em;
   line-height: 1;
-  color: rgba(211, 180, 95, 0.88);
+  color: color-mix(in srgb, var(--stamp-color) 88%, transparent);
   padding-inline-start: 0.28em; /* optical balance for letter-spacing */
 }
 
 .over-closed-mark {
   display: inline-block;
-  margin-block-start: 0.15rem;
-  margin-block-end: 0.35rem;
   padding: 0.35rem 0.9rem;
   border: 2px solid #6e6858;
   color: #9a8f78;
@@ -1569,16 +1604,7 @@ textarea {
   transform: rotate(-3deg);
 }
 
-.over-winners {
-  margin: 0.4rem 0 0;
-  font-size: 12px;
-  line-height: 1.35;
-  font-weight: 500;
-}
-
-/* Score strip is the closed-file footer — same border, no second card. */
 .over-file-score {
-  border-block-start: 1px solid #3a3629;
   background: rgba(18, 17, 12, 0.55);
 }
 
@@ -1599,12 +1625,10 @@ textarea {
   }
 }
 
-/* Shame ledger — warm panel, tight rows, round as leading column. */
-.shame-card {
-  border-color: rgba(184, 72, 64, 0.42);
-  background: linear-gradient(180deg, #2a1c16 0%, #221814 100%);
-  padding: 0.65rem 0.7rem 0.7rem;
-  margin-block-start: 0.55rem;
+/* Shame ledger — warm wash inside the sheet, not its own card. */
+.shame-panel {
+  padding: 0.7rem 0.75rem 0.75rem;
+  background: linear-gradient(180deg, rgba(42, 28, 22, 0.55) 0%, rgba(34, 24, 20, 0.35) 100%);
 }
 
 .shame-title {
@@ -1686,17 +1710,15 @@ textarea {
   color: #f0d0cc;
 }
 
-/* Records hero — brass declass stamp struck into the corner. */
+/* Records — brass declass stamp in the corner, still inside the sheet. */
 .over-records {
   position: relative;
-  margin-block-start: 1.25rem;
-  padding-block-start: 0.35rem;
+  padding: 0.75rem 0.75rem 0.85rem;
 }
 
 .over-records-head {
-  margin-block-end: 0.45rem;
-  padding-inline: 0.15rem;
-  padding-inline-end: 5.5rem; /* clear the corner stamp */
+  margin-block-end: 0.55rem;
+  padding-inline-end: 5.25rem; /* clear the corner stamp */
 }
 
 .over-records-title {
@@ -1707,10 +1729,22 @@ textarea {
   color: #efe7d4;
 }
 
+.over-records-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.over-team-block {
+  padding: 0.75rem;
+  border: 1px solid #3a3629;
+  background: rgba(18, 17, 12, 0.4);
+}
+
 .over-declass-stamp {
   position: absolute;
-  inset-block-start: -0.35rem;
-  inset-inline-end: -0.35rem;
+  inset-block-start: 0.35rem;
+  inset-inline-end: 0.4rem; /* visual left under RTL */
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -1718,10 +1752,10 @@ textarea {
   justify-content: center;
   gap: 1px;
   width: max-content;
-  min-width: 5.5rem;
-  padding: 0.4rem 0.85rem 0.45rem;
+  min-width: 5.25rem;
+  padding: 0.35rem 0.75rem 0.4rem;
   border: 3px solid var(--gold);
-  border-radius: 2px;
+  border-radius: 2px / 3px;
   color: var(--gold);
   background: rgba(211, 180, 95, 0.12);
   box-shadow:
@@ -1743,7 +1777,7 @@ textarea {
 
 .over-declass-mark {
   font-family: "Noto Kufi Arabic", sans-serif;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: 0.04em;
@@ -1774,11 +1808,4 @@ textarea {
     transform: rotate(8deg) scale(1);
     opacity: 1;
   }
-}
-
-.over-records-rule {
-  height: 0;
-  margin-block-end: 0.65rem;
-  border: none;
-  border-block-end: 1px solid #3a3629;
 }
