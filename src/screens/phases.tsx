@@ -209,11 +209,13 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
   }
 
   /**
-   * Mobile browsers scroll a focused input toward the top of the visual
+   * iOS Safari scrolls a focused input toward the top of the visual
    * viewport (especially the last field). Undo that so the consolidated
-   * encrypt layout stays put. Kept until iOS device verification.
+   * encrypt layout stays put. Android must keep default scroll-into-view
+   * — cancelling it buries lower fields under the keyboard.
    */
   function holdScrollOnFocus() {
+    if (!/iPad|iPhone|iPod/.test(navigator.userAgent)) return;
     const scroller = document.querySelector(".scroll-y") as HTMLElement | null;
     const yWin = window.scrollY;
     const yMain = scroller?.scrollTop ?? 0;
@@ -563,77 +565,72 @@ export function GuessPhase(ctx: Ctx) {
 
   const lockedOut = amOwner && amEncryptor;
 
+  // Send dock is in document flow (like encrypt-foot), not position:fixed —
+  // a fixed dock sits under the Android keyboard when ClueGrid theory inputs
+  // are focused. TabBar is already below the scroll area in Game's flex layout.
   return (
-    <div className="pb-36">
-      <div className="px-4 pt-3 space-y-3 fade-in">
-        <Banner>
-          {amOwner ? (
-            <>
-              <span className="font-bold">فكّوا شفرة فريقكم من:</span>{" "}
-              <span className="font-bold" style={{ color: encColor }}>{encName}</span>
-            </>
-          ) : (
-            <>
-              <span className="font-bold">اعترضوا شفرة العدو من:</span>{" "}
-              <span className="font-bold" style={{ color: encColor }}>{encName}</span>
-            </>
-          )}
-        </Banner>
-
-        {lockedOut && (
-          <Banner tone="lock">
-            أنت كتبت هذه التلميحات. لا تشارك في الفكّ ولا تُظهر أي ردّ فعل.
-          </Banner>
+    <div className="px-4 pt-3 pb-4 space-y-3 fade-in">
+      <Banner>
+        {amOwner ? (
+          <>
+            <span className="font-bold">فكّوا شفرة فريقكم من:</span>{" "}
+            <span className="font-bold" style={{ color: encColor }}>{encName}</span>
+          </>
+        ) : (
+          <>
+            <span className="font-bold">اعترضوا شفرة العدو من:</span>{" "}
+            <span className="font-bold" style={{ color: encColor }}>{encName}</span>
+          </>
         )}
+      </Banner>
 
-        <Cartouche
-          values={values}
-          clues={activeClues.length === 3 ? activeClues : ["—", "—", "—"]}
-          onChange={
-            sent || lockedOut ? undefined : (next) => setField(next)
-          }
-          tone={active}
-          keyWords={amOwner ? keys : null}
-          guessWords={
-            amInterceptor
-              ? [1, 2, 3, 4].map((n) => theories[String(n)] ?? "")
-              : null
-          }
-          historyByDigit={
-            amInterceptor
-              ? ownerLanes.map((lane) => lane.clues.map((c) => c.text))
-              : null
-          }
-        />
+      {lockedOut && (
+        <Banner tone="lock">
+          أنت كتبت هذه التلميحات. لا تشارك في الفكّ ولا تُظهر أي ردّ فعل.
+        </Banner>
+      )}
 
-        <p className="text-[11.5px] text-muted text-center">
-          {sent
-            ? "أُرسلت — لا يمكن التعديل"
-            : lockedOut
-            ? "بانتظار فريقك…"
-            : "أي لاعب في فريقكم يستطيع تحريك الأرقام — الجميع يرى نفس الشاشة"}
-        </p>
+      <Cartouche
+        values={values}
+        clues={activeClues.length === 3 ? activeClues : ["—", "—", "—"]}
+        onChange={
+          sent || lockedOut ? undefined : (next) => setField(next)
+        }
+        tone={active}
+        keyWords={amOwner ? keys : null}
+        guessWords={
+          amInterceptor
+            ? [1, 2, 3, 4].map((n) => theories[String(n)] ?? "")
+            : null
+        }
+        historyByDigit={
+          amInterceptor
+            ? ownerLanes.map((lane) => lane.clues.map((c) => c.text))
+            : null
+        }
+      />
 
-        <SectionLine>
-          {amOwner ? "سجلّكم" : `سجلّ ${TEAM_LABEL[active]}`}
-        </SectionLine>
-        <ClueGrid
-          lanes={ownerLanes}
-          team={active}
-          theories={amInterceptor ? theories : undefined}
-          onGuess={amInterceptor ? (n, t) => setTheory?.(n, t) : undefined}
-        />
+      <p className="text-[11.5px] text-muted text-center">
+        {sent
+          ? "أُرسلت — لا يمكن التعديل"
+          : lockedOut
+          ? "بانتظار فريقك…"
+          : "أي لاعب في فريقكم يستطيع تحريك الأرقام — الجميع يرى نفس الشاشة"}
+      </p>
 
-        {err && <Banner tone="warn">{err}</Banner>}
-      </div>
+      <SectionLine>
+        {amOwner ? "سجلّكم" : `سجلّ ${TEAM_LABEL[active]}`}
+      </SectionLine>
+      <ClueGrid
+        lanes={ownerLanes}
+        team={active}
+        theories={amInterceptor ? theories : undefined}
+        onGuess={amInterceptor ? (n, t) => setTheory?.(n, t) : undefined}
+      />
 
-      <div
-        className="fixed inset-x-0 bg-ink/95 backdrop-blur-sm border-t border-line px-4 pt-3"
-        style={{
-          bottom: "calc(3.25rem + var(--safe-b))",
-          paddingBottom: "10px",
-        }}
-      >
+      {err && <Banner tone="warn">{err}</Banner>}
+
+      <div className="border-t border-line pt-3">
         {sent ? (
           <div className="flex items-center justify-center py-2">
             <span className="text-[13.5px] text-muted">
