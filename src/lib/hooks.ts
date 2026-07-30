@@ -410,15 +410,29 @@ export function useAwayTracker(
 /* local identity                                                     */
 /* ------------------------------------------------------------------ */
 
+function readLocal<T>(key: string, initial: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : initial;
+  } catch {
+    return initial;
+  }
+}
+
+/**
+ * Persists `v` under `key`. Re-reads when `key` changes — the mount-only
+ * useState initializer would otherwise keep the previous value and the
+ * write effect would stamp it onto the new key.
+ */
 export function useLocal<T>(key: string, initial: T) {
-  const [v, setV] = useState<T>(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T) : initial;
-    } catch {
-      return initial;
-    }
-  });
+  const [v, setV] = useState<T>(() => readLocal(key, initial));
+  const [storedKey, setStoredKey] = useState(key);
+
+  if (key !== storedKey) {
+    setStoredKey(key);
+    setV(readLocal(key, initial));
+  }
+
   useEffect(() => {
     try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* private mode */ }
   }, [key, v]);

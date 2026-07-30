@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, errText } from "../lib/firebase";
 import type { Room, TeamId } from "../lib/types";
 import { TEAMS } from "../lib/types";
@@ -10,6 +10,19 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
   const [copied, setCopied] = useState(false);
   const isHost = room.hostUid === uid;
   const me = room.players[uid];
+
+  // Drop abandoned encrypt drafts for this room (incl. rematch → round 1).
+  useEffect(() => {
+    const prefix = `tashfeer.encryptClues.${room.id}.`;
+    try {
+      const doomed: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) doomed.push(k);
+      }
+      for (const k of doomed) localStorage.removeItem(k);
+    } catch { /* private mode */ }
+  }, [room.id]);
 
   const byTeam = (t: TeamId | null) =>
     Object.entries(room.players)

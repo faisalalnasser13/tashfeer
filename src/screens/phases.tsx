@@ -232,6 +232,9 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
     try {
       await api.submitClues({ roomId: room.id, clues: clues.map((c) => c.trim()) });
       setSentLocal(true);
+      try {
+        localStorage.removeItem(`tashfeer.encryptClues.${room.id}.${room.round}`);
+      } catch { /* private mode */ }
     } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
   }
 
