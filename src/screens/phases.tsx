@@ -148,8 +148,8 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
             onClick={() => reshuffle(myTeam)}
             className="keys-cmd"
           >
-            <span className="keys-cmd-label">خلط مفاتيح {TEAM_LABEL[myTeam]}</span>
-            <span className="keys-cmd-action">{busy === myTeam ? "…" : "خلط"}</span>
+            <span className="keys-cmd-label">تغيير مفاتيح {TEAM_LABEL[myTeam]}</span>
+            <span className="keys-cmd-action">{busy === myTeam ? "…" : "تغيير"}</span>
           </button>
           <button
             type="button"
@@ -159,10 +159,10 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
             style={{ borderColor: `${TEAM_HEX[other]}66` }}
           >
             <span className="keys-cmd-label" style={{ color: TEAM_HEX[other] }}>
-              خلط مفاتيح {TEAM_LABEL[other]}
+              تغيير مفاتيح {TEAM_LABEL[other]}
               <span className="keys-cmd-hint">بدون عرض كلماتهم</span>
             </span>
-            <span className="keys-cmd-action">{busy === other ? "…" : "خلط"}</span>
+            <span className="keys-cmd-action">{busy === other ? "…" : "تغيير"}</span>
           </button>
         </div>
       )}
