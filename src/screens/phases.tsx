@@ -90,12 +90,12 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
 
   return (
     <div className={`px-5 py-6 fade-in ${isHost ? "pb-36" : "pb-28"}`}>
-      <h2 className={`text-[22px] font-semibold text-center ${isHost ? "mb-5" : "mb-1.5"}`}>
+      <h2 className={`text-[22px] font-semibold text-center ${isHost ? "mb-5" : "mb-1"}`}>
         مفاتيحكم الأربعة
       </h2>
       {!isHost && (
-        <p className="text-[15px] text-muted text-center mb-5 leading-relaxed">
-          لن تتغيّر طوال اللعبة. انتظروا المضيف للمتابعة.
+        <p className="text-[15px] text-muted text-center mb-3 leading-relaxed -mt-0.5">
+          لن تتغيّر طوال اللعبة.
         </p>
       )}
       {err && (
