@@ -89,13 +89,6 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
 
         {/* Assignment board */}
         <section className="lobby-board mb-3">
-          <header className="lobby-board-head">
-            <span className="lobby-tt">محطات الفرق</span>
-            <span className="num text-[11px]" style={{ color: BRASS }}>
-              {totalPlayers}/8
-            </span>
-          </header>
-
           <div className="lobby-stations">
             {TEAMS.map((t) => {
               const list = t === "gold" ? gold : silver;
