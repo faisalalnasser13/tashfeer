@@ -273,7 +273,10 @@ function Station({
         <span className={`lobby-emblem-wrap ${dimEmblem ? "lobby-emblem-dim" : ""}`}>
           <TeamEmblem team={team} size={28} />
         </span>
-        <span className="font-display text-[14px] leading-none truncate" style={{ color }}>
+        <span
+          className={`font-display text-[14px] leading-none truncate ${dimEmblem ? "lobby-emblem-dim" : ""}`}
+          style={{ color }}
+        >
           {TEAM_LABEL[team]}
         </span>
         <span className="num text-[11px] text-muted ms-auto shrink-0">
