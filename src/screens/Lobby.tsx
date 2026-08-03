@@ -101,6 +101,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
                   mine={mine}
                   dimEmblem={otherJoined}
                   isHost={isHost}
+                  showCount={isHost}
                   hostUid={room.hostUid}
                   uid={uid}
                   busy={busy}
@@ -236,13 +237,14 @@ function ReadyIcon({ ok }: { ok: boolean }) {
 /* ------------------------------------------------------------------ */
 
 function Station({
-  team, list, mine, dimEmblem, isHost, hostUid, uid, busy, onJoin, onKick,
+  team, list, mine, dimEmblem, isHost, showCount, hostUid, uid, busy, onJoin, onKick,
 }: {
   team: TeamId;
   list: [string, Room["players"][string]][];
   mine: boolean;
   dimEmblem: boolean;
   isHost: boolean;
+  showCount: boolean;
   hostUid: string;
   uid: string;
   busy: boolean;
@@ -279,9 +281,11 @@ function Station({
         >
           {TEAM_LABEL[team]}
         </span>
-        <span className="num text-[11px] text-muted ms-auto shrink-0">
-          {list.length}/{MAX_SEATS}
-        </span>
+        {showCount && (
+          <span className="num text-[11px] text-muted ms-auto shrink-0">
+            {list.length}/{MAX_SEATS}
+          </span>
+        )}
       </div>
 
       <div className="lobby-station-body">
