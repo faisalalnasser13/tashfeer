@@ -476,38 +476,94 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
   );
 }
 
-function EncryptWaiting({ room, myTeam, rounds, keys }: Ctx) {
-  const mine = room.encryptor[myTeam];
-  const lanes = buildLanes(rounds, myTeam, keys);
+function EncryptWaiting({ room, myTeam, rounds, keys, theories, setTheory }: Ctx) {
+  const enemy = OTHER[myTeam];
+  const myLanes = buildLanes(rounds, myTeam, keys);
+  const enemyLanes = buildLanes(rounds, enemy, null);
 
   return (
-    <div className="px-4 py-5 space-y-5 fade-in">
-      <div className="card p-5 text-center">
-        <p className="text-[20px] font-medium">
-          {mine ? room.players[mine]?.name : "المُشفِّر"} يكتب التلميحات
-        </p>
-        <div className="flex justify-center gap-4 mt-4">
-          {TEAMS.map((t) => (
-            <span key={t} className="chip">
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ background: room.cluesIn[t] ? "#6FBF95" : "#4A5680" }}
-              />
-              {TEAM_LABEL[t]}
-              <span className="text-muted">{room.cluesIn[t] ? "جاهز" : "يكتب…"}</span>
-            </span>
-          ))}
-        </div>
+    <div className="px-4 pt-2 pb-8 space-y-4 fade-in">
+      <div className="duel encrypt-wait-duel" role="group" aria-label="المُشفِّران">
+        {TEAMS.flatMap((team, i) => {
+          const encUid = room.encryptor[team];
+          const ready = room.cluesIn[team] === true;
+          const color = TEAM_HEX[team];
+          const fullName = encUid ? (room.players[encUid]?.name ?? "؟") : "؟";
+          const display = fullName.split(" ")[0] || fullName;
+          const side = (
+            <div
+              key={team}
+              className={`side ${team === "gold" ? "a" : "b"}${ready ? " encrypt-wait-ready" : ""}`}
+              style={{ color }}
+            >
+              <span className="sig">
+                <TeamEmblem team={team} size={26} />
+              </span>
+              <span className="col">
+                <span
+                  className="nm"
+                  title={fullName}
+                  style={{ "--len": display.length } as CSSProperties}
+                >
+                  {display}
+                </span>
+                <span className="tm">{TEAM_LABEL[team]}</span>
+                {ready ? (
+                  <span className="encrypt-wait-check" aria-label="جاهز">
+                    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+                      <path
+                        d="M2.5 7.2 5.6 10.2 11.5 3.8"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                ) : (
+                  <span className="encrypt-wait-dots" aria-label="يكتب">
+                    <i /><i /><i />
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+          return i === 0
+            ? [side]
+            : [
+                <div key="mid" className="mid" aria-hidden>
+                  <span className="hair top" />
+                  <span className="x">×</span>
+                  <span className="hair bot" />
+                </div>,
+                side,
+              ];
+        })}
       </div>
 
       <div>
+        <p className="text-[13px] font-medium mb-1 px-1">سجل العدو</p>
+        <p className="text-[12px] text-muted mb-2 px-1">
+          أضيفوا تخميناتكم لكلماتهم
+        </p>
+        <ClueGrid
+          lanes={enemyLanes}
+          team={enemy}
+          theories={theories}
+          onGuess={setTheory ? (n, t) => setTheory(n, t) : undefined}
+        />
+      </div>
+
+      <div>
+        <p className="text-[13px] font-medium mb-1 px-1">سجل فريقكم</p>
         <p className="text-[12px] text-muted mb-2 px-1">
           راجعوا تلميحاتكم السابقة — الخصم يحفظها كلها
         </p>
         {rounds.length === 0 ? (
           <Empty title="الجولة الأولى" body="لا سجلّ بعد. في هذه الجولة لا اعتراض على أحد." />
         ) : (
-          <ClueGrid lanes={lanes} team={myTeam} />
+          <ClueGrid lanes={myLanes} team={myTeam} />
         )}
       </div>
     </div>

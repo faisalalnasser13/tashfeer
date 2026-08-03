@@ -150,7 +150,10 @@ export function Game({
             amEncryptor && room.phase === "encrypt" && code ? code : null
           }
         />
-        <ScoreStrip room={room} myTeam={myTeam} />
+        {/* Encrypt waiters lead with the duel — score strip would push it down. */}
+        {!(room.phase === "encrypt" && tab === "play") && (
+          <ScoreStrip room={room} myTeam={myTeam} />
+        )}
         {tab === "play" && <PhaseView ctx={ctx} />}
         {tab === "log" && (
           <LogTab
