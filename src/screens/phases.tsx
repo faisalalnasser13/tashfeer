@@ -89,8 +89,8 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
     .sort((a, b) => a[1].joinedAt - b[1].joinedAt);
 
   return (
-    <div className={`px-5 py-6 fade-in ${isHost ? "pb-36" : "pb-28"}`}>
-      <h2 className={`text-[22px] font-semibold text-center ${isHost ? "mb-5" : "mb-1"}`}>
+    <div className={`px-5 pt-2 fade-in ${isHost ? "pb-36" : "pb-28"}`}>
+      <h2 className={`text-[22px] font-semibold text-center ${isHost ? "mb-4" : "mb-1"}`}>
         مفاتيحكم الأربعة
       </h2>
       {!isHost && (
