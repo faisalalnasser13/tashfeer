@@ -140,6 +140,17 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
           </div>
         )}
 
+        {isHost && (
+          <button
+            type="button"
+            disabled={busy || Object.keys(room.players).length < 2}
+            onClick={() => guard(() => api.shuffleTeams({ roomId: room.id }))}
+            className="lobby-mix mb-3"
+          >
+            اخلط الفرق
+          </button>
+        )}
+
         <ReadinessLine ready={canStart} reason={readyReason} />
 
         {isHost ? (
@@ -149,7 +160,6 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
             canStart={canStart}
             readyReason={readyReason}
             onSave={(s) => guard(() => api.updateSettings({ roomId: room.id, settings: s }))}
-            onShuffle={() => guard(() => api.shuffleTeams({ roomId: room.id }))}
             onStart={() => guard(() => api.startGame({ roomId: room.id }))}
           />
         ) : (
@@ -245,7 +255,22 @@ function Station({
   const color = TEAM_HEX[team];
 
   return (
-    <div className={`lobby-station ${mine ? "lobby-station-mine" : ""}`} data-team={team}>
+    <div
+      role="button"
+      tabIndex={busy ? -1 : 0}
+      data-team={team}
+      className={`lobby-station ${mine ? "lobby-station-mine" : ""} ${busy ? "lobby-station-busy" : ""}`}
+      onClick={() => {
+        if (!busy) onJoin();
+      }}
+      onKeyDown={(e) => {
+        if (busy) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onJoin();
+        }
+      }}
+    >
       <div className="lobby-station-top">
         <span className={`lobby-emblem-wrap ${dimEmblem ? "lobby-emblem-dim" : ""}`}>
           <TeamEmblem team={team} size={28} />
@@ -287,15 +312,12 @@ function Station({
         ))}
       </div>
 
-      <button
-        type="button"
-        disabled={busy}
-        onClick={onJoin}
+      <div
         className="lobby-station-action"
         style={{ color: mine ? color : "#8A8474" }}
       >
-        {mine ? "أنت هنا · اضغط للخروج" : "انضم"}
-      </button>
+        {mine ? "خروج" : "انضم"}
+      </div>
     </div>
   );
 }
@@ -356,19 +378,17 @@ function TeamEmblem({ team, size }: { team: TeamId; size: number }) {
 /* ------------------------------------------------------------------ */
 
 function OrdersPanel({
-  room, busy, canStart, readyReason, onSave, onShuffle, onStart,
+  room, busy, canStart, readyReason, onSave, onStart,
 }: {
   room: Room;
   busy: boolean;
   canStart: boolean;
   readyReason: string | null;
   onSave: (s: Partial<Room["settings"]>) => void;
-  onShuffle: () => void;
   onStart: () => void;
 }) {
   const s = room.settings;
   const timerOpts = [45, 60, 75] as const;
-  const playerCount = Object.keys(room.players).length;
 
   return (
     <section className="lobby-orders mt-3">
@@ -427,16 +447,6 @@ function OrdersPanel({
           onChange={(v) => onSave({ maxRounds: v })}
         />
       </div>
-
-      <button
-        type="button"
-        disabled={busy || playerCount < 2}
-        onClick={onShuffle}
-        className="lobby-orders-cmd"
-      >
-        <span>توزيع الفرق عشوائيًا</span>
-        <span style={{ color: BRASS }}>اخلط</span>
-      </button>
 
       <button
         type="button"
