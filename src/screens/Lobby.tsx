@@ -35,7 +35,6 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
   const gold = byTeam("gold");
   const silver = byTeam("silver");
   const idle = byTeam(null);
-  const totalPlayers = Object.keys(room.players).length;
   const canStart = gold.length >= 2 && silver.length >= 2;
   const readyReason = readinessReason(gold.length, silver.length, idle.length);
 
