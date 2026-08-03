@@ -1445,11 +1445,8 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.45rem;
   padding: 7px 4px;
-  font-family: "Courier Prime", monospace;
-  font-size: 10px;
-  letter-spacing: 0.05em;
   color: #6e6858;
 }
 
@@ -1459,13 +1456,28 @@ textarea {
 
 .keys-sheet-form,
 .keys-sheet-class {
-  font-family: inherit;
-  font-size: inherit;
-  letter-spacing: inherit;
+  flex-shrink: 0;
+  font-family: "Special Elite", "Courier Prime", monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+.keys-sheet-band-top .keys-sheet-valid {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+  font-family: "Courier Prime", monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  color: #6e6858;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .keys-sheet-heading {
-  padding: 14px 8px 4px;
+  padding: 12px 8px 8px;
   text-align: center;
 }
 
@@ -1478,12 +1490,54 @@ textarea {
   color: #efe7d4;
 }
 
-.keys-sheet-valid {
-  margin: 6px 0 0;
-  font-family: "Courier Prime", monospace;
-  font-size: 10px;
-  letter-spacing: 0.04em;
+.keys-sheet-crew {
+  padding: 2px 4px 10px;
+  border-block-end: 1px solid var(--keys-line);
+}
+
+.keys-sheet-crew-label {
+  margin: 0 0 8px;
+  text-align: center;
+  font-family: "Special Elite", "Courier Prime", monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
   color: #6e6858;
+}
+
+.keys-sheet-crew-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 14px;
+}
+
+.keys-sheet-sign {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 5.5rem;
+  min-width: 0;
+}
+
+.keys-sheet-sign-name {
+  max-width: 100%;
+  font-family: "Aref Ruqaa", "Noto Kufi Arabic", serif;
+  font-size: 16px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keys-sheet-crew-dense .keys-sheet-sign-name {
+  font-size: 13px;
+}
+
+.keys-sheet-sign-rule {
+  display: block;
+  width: 100%;
+  margin-block-start: 3px;
+  border-block-end: 1px solid #4a4638;
 }
 
 .keys-sheet-rows {

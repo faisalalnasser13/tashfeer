@@ -84,6 +84,9 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
 
   const rows = keys ?? ["", "", "", ""];
   const stampDelayMs = (rows.length - 1) * 90 + 150;
+  const crew = Object.entries(room.players)
+    .filter(([, p]) => p.team === myTeam)
+    .sort((a, b) => a[1].joinedAt - b[1].joinedAt);
 
   return (
     <div className={`px-5 py-6 fade-in ${isHost ? "pb-36" : "pb-28"}`}>
@@ -104,13 +107,33 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
       <div className="keys-sheet max-w-sm mx-auto">
         <div className="keys-sheet-band keys-sheet-band-top">
           <span className="keys-sheet-form num">نموذج مف-1</span>
+          <span className="keys-sheet-valid">صالحة طوال اللعبة</span>
           <span className="keys-sheet-class">تصنيف · سري</span>
         </div>
 
         <div className="keys-sheet-heading">
           <h3 className="keys-sheet-title">محطة {TEAM_LABEL[myTeam]}</h3>
-          <p className="keys-sheet-valid">صالحة طوال اللعبة · لا تُستبدل</p>
         </div>
+
+        {crew.length > 0 && (
+          <div className={`keys-sheet-crew ${crew.length > 6 ? "keys-sheet-crew-dense" : ""}`}>
+            <p className="keys-sheet-crew-label">توقيعات الطاقم المناوب</p>
+            <div className="keys-sheet-crew-row">
+              {crew.map(([id, p]) => (
+                <div key={id} className="keys-sheet-sign">
+                  <span
+                    className="keys-sheet-sign-name"
+                    style={{ color: id === uid ? color : "#8A8474" }}
+                    title={p.name}
+                  >
+                    {p.name}
+                  </span>
+                  <span className="keys-sheet-sign-rule" aria-hidden />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="keys-sheet-rows">
           {rows.map((k, i) => (
