@@ -2312,6 +2312,13 @@ textarea {
 }
 
 /* Encrypt waiters — duel status instead of the old status card */
+.encrypt-wait-caption {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  color: #8a8474;
+}
+
 .encrypt-wait-duel {
   border: 1px solid #3a3629;
   background: #1b1a14;
@@ -2330,13 +2337,13 @@ textarea {
 
 .encrypt-wait-dots {
   display: inline-flex;
-  gap: 3px;
-  margin-block-start: 0.35rem;
+  gap: 5px;
+  margin-block-start: 0.4rem;
 }
 
 .encrypt-wait-dots i {
-  width: 4px;
-  height: 4px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: currentColor;
   opacity: 0.35;

@@ -483,6 +483,7 @@ function EncryptWaiting({ room, myTeam, rounds, keys, theories, setTheory }: Ctx
 
   return (
     <div className="px-4 pt-2 pb-8 space-y-4 fade-in">
+      <p className="encrypt-wait-caption">بانتظار المشفّرين</p>
       <div className="duel encrypt-wait-duel" role="group" aria-label="المُشفِّران">
         {TEAMS.flatMap((team, i) => {
           const encUid = room.encryptor[team];
@@ -507,10 +508,9 @@ function EncryptWaiting({ room, myTeam, rounds, keys, theories, setTheory }: Ctx
                 >
                   {display}
                 </span>
-                <span className="tm">{TEAM_LABEL[team]}</span>
                 {ready ? (
                   <span className="encrypt-wait-check" aria-label="جاهز">
-                    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+                    <svg width="16" height="16" viewBox="0 0 14 14" aria-hidden>
                       <path
                         d="M2.5 7.2 5.6 10.2 11.5 3.8"
                         fill="none"
