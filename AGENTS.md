@@ -22,15 +22,15 @@ Auth + Hosting). **No backend.** The game engine runs in the browser.
 
 ## Hard constraints — do not violate without asking the user
 
-### 1. No Cloud Functions. Ever.
+### 1. No Cloud Functions — except the scheduled room purge
 
-This project deliberately has no server. Cloud Functions require Firebase's Blaze
-plan, which requires a credit card; the user chose to stay on the free Spark
-plan. The engine was ported from Cloud Functions into `src/lib/engine.ts`.
+The game engine stays in the browser (`src/lib/engine.ts`). The one allowed
+server job is `functions/` → `purgeStaleRooms`: a 24h schedule that
+`recursiveDelete`s rooms whose `updatedAt` is older than 6 hours. Do **not**
+add more Functions, and do **not** use Firestore TTL (it orphans subcollections).
 
-**Do not** suggest, scaffold, or add a `functions/` directory. If something seems
-to need a server, it doesn't — read `src/lib/engine.ts` to see how it's done in a
-transaction instead.
+That purge requires the Blaze plan. Everything else must still work as
+client-side transactions.
 
 ### 2. Every state change is a Firestore transaction with an idempotency guard
 

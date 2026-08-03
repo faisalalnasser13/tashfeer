@@ -1,9 +1,0 @@
-node_modules
-dist
-.env
-.firebase
-*.log
-.DS_Store
-*.tsbuildinfo
-files.zip
-test/sim/lib

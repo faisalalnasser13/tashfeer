@@ -1,7 +1,8 @@
 # Firebase setup
 
-Everything here runs on the **free Spark plan**. No card, no billing account,
-no Cloud Functions. Should take about ten minutes.
+Hosting, Auth, and Firestore rules run on the **free Spark plan**. The optional
+stale-room purge Cloud Function (`purgeStaleRooms`) needs **Blaze** billing.
+Should take about ten minutes for the free surface.
 
 ---
 
