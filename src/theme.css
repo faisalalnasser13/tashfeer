@@ -13,6 +13,8 @@
   --silver: #e07b35;     /* legacy alias → axis (was wrongly blue) */
   --parch: #ede4ce;
   --fault-signal: #b84840; /* duller than reveal red — shame ledger */
+  --ok: #6fbf95;
+  --warn: #e0a46c;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
 }
@@ -2273,4 +2275,394 @@ textarea {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: #6e6858;
+}
+
+/* ------------------------------------------------------------------ */
+/* lobby — equipment board + orders                                   */
+/* ------------------------------------------------------------------ */
+
+.lobby-tt {
+  font-family: "Courier Prime", monospace;
+  letter-spacing: 0.04em;
+}
+
+.lobby-board {
+  border: 1px solid #3a3629;
+  background: #1b1a14;
+  border-radius: 0;
+}
+
+.lobby-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 11px;
+  border-block-end: 1px solid #3a3629;
+  font-size: 10px;
+  color: #8a8474;
+}
+
+.lobby-stations {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.lobby-station {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 9px 0;
+  position: relative;
+}
+
+.lobby-station + .lobby-station {
+  border-inline-start: 1px solid #3a3629;
+}
+
+.lobby-station-mine {
+  background: color-mix(in srgb, var(--gold) 8%, transparent);
+}
+
+/* Physical inset shadow: gold station sits on the visual right in RTL. */
+.lobby-station-mine[data-team="gold"] {
+  box-shadow: inset -2px 0 0 0 color-mix(in srgb, var(--gold) 70%, transparent);
+}
+
+.lobby-station-mine[data-team="silver"] {
+  box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--gold) 70%, transparent);
+}
+
+.lobby-station-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-block-end: 8px;
+  min-width: 0;
+}
+
+.lobby-emblem-wrap {
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+.lobby-emblem-dim {
+  opacity: 0.32;
+}
+
+.lobby-station-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lobby-seat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 28px;
+  padding-block: 3px;
+  border-block-end: 1px solid color-mix(in srgb, #3a3629 70%, transparent);
+}
+
+.lobby-seat-empty {
+  color: #6e6858;
+}
+
+.lobby-seat-dots {
+  flex: 1;
+  min-width: 1.5rem;
+  border-block-end: 1px dotted #4a4638;
+  margin-inline-start: 6px;
+  transform: translateY(-4px);
+}
+
+.lobby-station-action {
+  width: 100%;
+  margin-block-start: auto;
+  padding: 9px 4px;
+  font-size: 11px;
+  text-align: center;
+  border: 0;
+  border-block-start: 1px solid #3a3629;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lobby-station-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lobby-kick {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: #c07060;
+  border: 1px solid color-mix(in srgb, #c07060 55%, #3a3629);
+  background: #2a1a14;
+  border-radius: 0;
+}
+
+.lobby-idle {
+  border: 1px solid #3a3629;
+  background: #1b1a14;
+  padding: 10px 11px;
+  border-radius: 0;
+}
+
+.lobby-ready {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block: 10px 4px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  border: 1px solid #3a3629;
+  background: #1b1a14;
+  border-radius: 0;
+}
+
+.lobby-ready-ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, #3a3629);
+}
+
+.lobby-ready-warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 35%, #3a3629);
+}
+
+.lobby-orders {
+  border: 1px solid #3a3629;
+  background: #1b1a14;
+  border-radius: 0;
+}
+
+.lobby-orders-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 11px;
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--parch);
+  border-block-end: 1px solid #3a3629;
+}
+
+.lobby-orders-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px;
+  border-block-end: 1px solid #3a3629;
+}
+
+.lobby-orders-stack {
+  display: block;
+}
+
+.lobby-orders-dim {
+  opacity: 0.4;
+}
+
+.lobby-lever {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid #3a3629;
+  background: #15140f;
+  border-radius: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.lobby-lever-label {
+  position: absolute;
+  inset-block: 0;
+  display: grid;
+  place-items: center;
+  width: 50%;
+  font-family: "Courier Prime", monospace;
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  color: #6e6858;
+  pointer-events: none;
+}
+
+.lobby-lever-on-label {
+  inset-inline-start: 0;
+}
+
+.lobby-lever-off-label {
+  inset-inline-end: 0;
+}
+
+.lobby-lever-on .lobby-lever-on-label {
+  color: #1b1a14;
+}
+
+.lobby-lever-bolt {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-end: 2px;
+  width: 22px;
+  height: 22px;
+  background: #4a4638;
+  border: 1px solid #6e6858;
+  transition: inset-inline-end 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.lobby-lever-on .lobby-lever-bolt {
+  inset-inline-end: calc(100% - 24px);
+  background: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 70%, #3a3629);
+}
+
+.lobby-seg {
+  display: flex;
+  width: 100%;
+  border: 1px solid #3a3629;
+  border-radius: 0;
+}
+
+.lobby-seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 4px;
+  font-size: 13px;
+  color: #8a8474;
+  background: transparent;
+  border: 0;
+  border-inline-start: 1px solid #3a3629;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.lobby-seg-btn:first-child {
+  border-inline-start: 0;
+}
+
+.lobby-seg-on {
+  color: #1b1a14;
+  background: color-mix(in srgb, var(--gold) 82%, #1b1a14);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
+.lobby-orders-cmd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 11px;
+  font-size: 13.5px;
+  color: var(--parch);
+  background: transparent;
+  border: 0;
+  border-block-end: 1px solid #3a3629;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.lobby-orders-cmd:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lobby-orders-start {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 11px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1b1a14;
+  background: var(--gold);
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.lobby-orders-start:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lobby-wait {
+  border: 1px solid #3a3629;
+  background: #1b1a14;
+  border-radius: 0;
+  padding: 12px 11px 10px;
+}
+
+.lobby-wait-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #8a8474;
+  margin: 0 0 12px;
+}
+
+.lobby-wait-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.lobby-wait-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+  opacity: 0.35;
+  animation: lobby-dot 1.2s ease-in-out infinite;
+}
+
+.lobby-wait-dots i:nth-child(2) { animation-delay: 0.15s; }
+.lobby-wait-dots i:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes lobby-dot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
+
+.lobby-summary {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.lobby-summary th {
+  text-align: start;
+  font-weight: 400;
+  color: #6e6858;
+  padding: 5px 0;
+  border-block-end: 1px solid color-mix(in srgb, #3a3629 80%, transparent);
+}
+
+.lobby-summary td {
+  text-align: end;
+  color: var(--parch);
+  padding: 5px 0;
+  border-block-end: 1px solid color-mix(in srgb, #3a3629 80%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-wait-dots i {
+    animation: none;
+    opacity: 0.7;
+  }
+  .lobby-lever-bolt {
+    transition: none;
+  }
 }

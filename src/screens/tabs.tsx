@@ -238,7 +238,10 @@ export function TeamTab({
 
       <button
         className="w-full text-[12px] text-muted/70 py-3"
-        onClick={() => api.leaveRoom({ roomId: room.id }).finally(onLeave)}
+        onClick={() => {
+          if (!window.confirm("مغادرة الغرفة؟ إن كنت آخر لاعب تُحذف الغرفة.")) return;
+          void api.leaveRoom({ roomId: room.id }).finally(onLeave);
+        }}
       >
         مغادرة الغرفة
       </button>
@@ -530,7 +533,10 @@ export function GameOver({
         )}
         <button
           className="w-full text-[12px] text-muted/70 pt-3"
-          onClick={() => api.leaveRoom({ roomId: room.id }).finally(onLeave)}
+          onClick={() => {
+            if (!window.confirm("مغادرة الغرفة؟ إن كنت آخر لاعب تُحذف الغرفة.")) return;
+            void api.leaveRoom({ roomId: room.id }).finally(onLeave);
+          }}
         >
           مغادرة الغرفة
         </button>
