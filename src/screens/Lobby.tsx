@@ -151,8 +151,6 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
           </button>
         )}
 
-        <ReadinessLine ready={canStart} reason={readyReason} />
-
         {isHost ? (
           <OrdersPanel
             room={room}
@@ -448,13 +446,17 @@ function OrdersPanel({
         />
       </div>
 
+      <div className="lobby-orders-ready">
+        <ReadinessLine ready={canStart} reason={readyReason} />
+      </div>
+
       <button
         type="button"
         disabled={!canStart || busy}
         onClick={onStart}
         className="lobby-orders-start"
       >
-        {canStart ? "ابدأ اللعبة" : (readyReason ?? "بانتظار اكتمال الفريقين")}
+        ابدأ اللعبة
       </button>
     </section>
   );

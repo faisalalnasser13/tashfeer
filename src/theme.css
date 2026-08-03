@@ -2574,6 +2574,18 @@ textarea {
   box-shadow: inset 0 0 0 1px var(--gold);
 }
 
+.lobby-orders-ready {
+  padding: 8px 11px;
+  border-block-end: 1px solid #3a3629;
+}
+
+.lobby-orders-ready .lobby-ready {
+  margin: 0;
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+}
+
 .lobby-orders-start {
   width: 100%;
   min-height: 46px;
