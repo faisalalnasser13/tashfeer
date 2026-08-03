@@ -2187,7 +2187,7 @@ textarea {
 }
 
 /* Next-encryptors duel — gold | mid | silver. DOM order fixed for every viewer.
-   .side.b row-reverse + .side.a .sig scaleX(-1) are intentional layout mirrors,
+   .side.b row-reverse keeps silver mast on the outer edge;
    not cartouche code ordering. */
 .duel {
   display: flex;
@@ -2212,13 +2212,9 @@ textarea {
 
 .duel .sig {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
   display: block;
-}
-
-.duel .side.a .sig {
-  transform: scaleX(-1);
+  width: 26px;
+  height: 26px;
 }
 
 .duel .col {

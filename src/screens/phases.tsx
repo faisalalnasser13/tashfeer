@@ -6,6 +6,7 @@ import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "../lib/types"
 import { OTHER, TEAMS } from "../lib/types";
 import { Cartouche } from "../components/Cartouche";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
+import { TeamEmblem } from "../components/TeamEmblem";
 import { Banner, Btn, Empty, PipBoard, Stamp, TEAM_HEX, TEAM_LABEL } from "../components/ui";
 import { codesEqual } from "../lib/rules";
 
@@ -1106,29 +1107,9 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
                   className={`side ${team === "gold" ? "a" : "b"}${mine ? " you" : ""}`}
                   style={{ color }}
                 >
-                  <svg
-                    className="sig"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    aria-hidden
-                  >
-                    <path d="M8 20V6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-                    <circle cx="8" cy="4.5" r="1.6" fill="currentColor" stroke="none" />
-                    <path
-                      d="M11.5 5.5a6.5 6.5 0 0 1 0 9"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M15 3a10 10 0 0 1 0 14"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  <span className="sig">
+                    <TeamEmblem team={team} size={26} />
+                  </span>
                   <span className="col">
                     <span
                       className="nm"
