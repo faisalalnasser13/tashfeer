@@ -107,12 +107,7 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
       <div className="keys-sheet max-w-sm mx-auto">
         <div className="keys-sheet-band keys-sheet-band-top">
           <span className="keys-sheet-form num">نموذج مف-1</span>
-          <span className="keys-sheet-valid">صالحة طوال اللعبة</span>
           <span className="keys-sheet-class">تصنيف · سري</span>
-        </div>
-
-        <div className="keys-sheet-heading">
-          <h3 className="keys-sheet-title">محطة {TEAM_LABEL[myTeam]}</h3>
         </div>
 
         {crew.length > 0 && (
