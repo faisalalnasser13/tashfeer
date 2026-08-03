@@ -2217,6 +2217,11 @@ textarea {
   height: 26px;
 }
 
+.rend-duel .sig {
+  width: 32px;
+  height: 32px;
+}
+
 .duel .col {
   display: flex;
   flex-direction: column;
@@ -2233,6 +2238,14 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.rend-duel .nm {
+  font-size: clamp(13px, calc(18px - (var(--len, 6) - 9) * 0.45px), 18px);
+}
+
+.rend-sec-duel {
+  overflow: hidden;
 }
 
 .duel .tm {

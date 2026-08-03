@@ -1145,52 +1145,45 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
         </p>
       </section>
 
-      <section className="rend-sec">
-        <div className="rend-sec-head">
-          <span>المشفّرون</span>
-          <span className="rend-sec-counter num">الجولة {room.round + 1}</span>
-        </div>
-        <div className="rend-sec-body">
-          <div className="duel" role="group" aria-label="المُشفِّران القادمان">
-            {nextEncryptors.flatMap(({ team, uid: u }, i) => {
-              const mine = !!u && u === uid;
-              const color = TEAM_HEX[team];
-              const fullName = u ? (room.players[u]?.name ?? "؟") : "؟";
-              const display = fullName.split(" ")[0] || fullName;
-              const side = (
-                <div
-                  key={team}
-                  className={`side ${team === "gold" ? "a" : "b"}${mine ? " you" : ""}`}
-                  style={{ color }}
-                >
-                  <span className="sig">
-                    <TeamEmblem team={team} size={26} />
+      <section className="rend-sec rend-sec-duel">
+        <div className="duel rend-duel" role="group" aria-label="المُشفِّران القادمان">
+          {nextEncryptors.flatMap(({ team, uid: u }, i) => {
+            const mine = !!u && u === uid;
+            const color = TEAM_HEX[team];
+            const fullName = u ? (room.players[u]?.name ?? "؟") : "؟";
+            const display = fullName.split(" ")[0] || fullName;
+            const side = (
+              <div
+                key={team}
+                className={`side ${team === "gold" ? "a" : "b"}${mine ? " you" : ""}`}
+                style={{ color }}
+              >
+                <span className="sig">
+                  <TeamEmblem team={team} size={32} />
+                </span>
+                <span className="col">
+                  <span
+                    className="nm"
+                    title={fullName}
+                    style={{ "--len": display.length } as CSSProperties}
+                  >
+                    {display}
                   </span>
-                  <span className="col">
-                    <span
-                      className="nm"
-                      title={fullName}
-                      style={{ "--len": display.length } as CSSProperties}
-                    >
-                      {display}
-                    </span>
-                    <span className="tm">{TEAM_LABEL[team]}</span>
-                    {mine && <span className="you-tag">أنت</span>}
-                  </span>
-                </div>
-              );
-              return i === 0
-                ? [side]
-                : [
-                    <div key="mid" className="mid" aria-hidden>
-                      <span className="hair top" />
-                      <span className="x">×</span>
-                      <span className="hair bot" />
-                    </div>,
-                    side,
-                  ];
-            })}
-          </div>
+                  {mine && <span className="you-tag">أنت</span>}
+                </span>
+              </div>
+            );
+            return i === 0
+              ? [side]
+              : [
+                  <div key="mid" className="mid" aria-hidden>
+                    <span className="hair top" />
+                    <span className="x">×</span>
+                    <span className="hair bot" />
+                  </div>,
+                  side,
+                ];
+          })}
         </div>
       </section>
 
