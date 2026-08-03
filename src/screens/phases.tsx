@@ -1008,7 +1008,7 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
   });
 
   return (
-    <div className="px-4 py-5 space-y-4 pb-36 fade-in">
+    <div className="px-4 pt-0.5 pb-36 space-y-4 fade-in">
       <div className="rend-strip -mx-4 px-4">
         <span className="rend-strip-label">الجولات</span>
         <div className="rend-strip-cells" aria-hidden>
