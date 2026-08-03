@@ -1072,7 +1072,7 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
 
       <section className="rend-sec">
         <div className="rend-sec-head">
-          <span>المُشفِّر في الجولة القادمة</span>
+          <span>المشفّرون</span>
           <span className="rend-sec-counter num">الجولة {room.round + 1}</span>
         </div>
         <div className="rend-sec-body">
