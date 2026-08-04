@@ -24,7 +24,6 @@
 import {
   doc, collection, getDoc, getDocs, deleteDoc, runTransaction,
   arrayUnion, arrayRemove, deleteField, writeBatch, updateDoc, Transaction, DocumentReference,
-  query, where, orderBy, limit,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import {
@@ -52,10 +51,6 @@ export const TIMER_GRACE_MS = 2500;
  * covers network/snapshot lag after a phase flip.
  */
 export const TIMER_START_GRACE_MS = 1000;
-/** Rooms with no updatedAt bump for this long are safe to tear down. */
-const STALE_ROOM_MS = 24 * 60 * 60 * 1000;
-/** How many stale rooms createRoom tries to purge before minting an id. */
-const STALE_SWEEP_LIMIT = 3;
 const TIMER_OPTIONS = [45, 60, 75] as const;
 
 export const DEFAULTS: Settings = {
@@ -180,9 +175,6 @@ async function createRoom({ name, avatar }: { name: string; avatar: number }) {
   const uid = me();
   const clean = String(name || "").trim().slice(0, 16);
   if (!clean) throw new GameError("invalid-argument", "اكتب اسمك.");
-
-  // Opportunistic GC — rides on traffic, no Cloud Functions / Blaze.
-  await sweepStaleRooms();
 
   for (let attempt = 0; attempt < 6; attempt++) {
     const id = newRoomId();
@@ -407,15 +399,13 @@ async function kickPlayer({ roomId, uid: target }: { roomId: string; uid: string
 
 async function leaveRoom({ roomId }: { roomId: string }) {
   const uid = me();
-  let emptyRoom: Room | null = null;
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
     if (!snap.exists()) return;
     const room = snap.data() as Room;
     const remaining = Object.keys(room.players).filter((u) => u !== uid);
     if (remaining.length === 0) {
-      // Tear down outside the tx — deleteRoomData walks subcollections.
-      emptyRoom = { ...room, id: roomId };
+      tx.delete(roomRef(roomId));
       return;
     }
     const patch: Record<string, unknown> = {
@@ -433,7 +423,6 @@ async function leaveRoom({ roomId }: { roomId: string }) {
     }
     tx.update(roomRef(roomId), patch);
   });
-  if (emptyRoom) await deleteRoomData(roomId, emptyRoom);
   return { ok: true };
 }
 
@@ -1142,13 +1131,16 @@ async function hostControl({ roomId, action }: { roomId: string; action: string 
 }
 
 /**
- * Delete every known subdoc for a room. Never `getDocs` on `private` /
- * `guesses` / `final` — those reads are member-scoped (or sealed), so a
- * collection query fails even when individual deletes are allowed.
+ * Wipe round state and reopen the lobby; teams/players stay.
+ *
+ * Deletes by known paths — never `getDocs` on `private` / `guesses` /
+ * `final`. Those collections have member-scoped (or phase-sealed) reads,
+ * so a collection query is rejected for everyone mid-game even when
+ * individual deletes are allowed.
  */
-async function purgeRoomDocs(roomId: string, room: Room) {
+async function returnToLobby(roomId: string, room: Room) {
   const maxR = Math.max(room.round, room.settings?.maxRounds ?? 8) + 4;
-  const uids = Object.keys(room.players ?? {});
+  const uids = Object.keys(room.players);
   const jobs: Promise<unknown>[] = [];
 
   for (const t of TEAMS) {
@@ -1171,7 +1163,7 @@ async function purgeRoomDocs(roomId: string, room: Room) {
     jobs.push(deleteDoc(guessRef(roomId, uid)));
   }
 
-  // Orphans in fully-readable collections (safe to list when allowed).
+  // Orphans in fully-readable collections (safe to list).
   for (const sub of ["rounds", "drafts", "secret", "away"] as const) {
     try {
       const snap = await getDocs(collection(db, "rooms", roomId, sub));
@@ -1182,48 +1174,6 @@ async function purgeRoomDocs(roomId: string, room: Room) {
   }
 
   await Promise.allSettled(jobs);
-}
-
-/** Full teardown: subcollections then the room doc itself. */
-async function deleteRoomData(roomId: string, room: Room) {
-  await purgeRoomDocs(roomId, room);
-  try {
-    await deleteDoc(roomRef(roomId));
-  } catch {
-    /* already gone, or rules denied a race */
-  }
-}
-
-/**
- * Best-effort GC of rooms idle 24h+. Runs from createRoom so cleanup
- * rides normal traffic — no Functions, no Blaze.
- */
-async function sweepStaleRooms() {
-  // Slightly older than the rules' 24h gate so a fast client clock can't
-  // request a doc the server still considers live.
-  const cutoff = Date.now() - STALE_ROOM_MS - 120_000;
-  try {
-    const snap = await getDocs(
-      query(
-        collection(db, "rooms"),
-        where("updatedAt", "<", cutoff),
-        orderBy("updatedAt", "asc"),
-        limit(STALE_SWEEP_LIMIT),
-      ),
-    );
-    for (const d of snap.docs) {
-      await deleteRoomData(d.id, { id: d.id, ...(d.data() as object) } as Room);
-    }
-  } catch {
-    /* query/rules miss — never block room creation */
-  }
-}
-
-/**
- * Wipe round state and reopen the lobby; teams/players stay.
- */
-async function returnToLobby(roomId: string, room: Room) {
-  await purgeRoomDocs(roomId, room);
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));

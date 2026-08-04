@@ -11,8 +11,6 @@ rules_version = '2';
 //   · only signed-in players who are in a room can touch it at all
 //   · a team's four keywords are unreadable to the other team
 //   · the final reveal stays sealed until the game is actually over
-//   · stale rooms (updatedAt ≥ 24h old) may be listed/deleted by any
-//     signed-in client so createRoom can GC a few on the way in
 //
 // What they DON'T stop: a player who opens devtools during a round can
 // read the opposing team's code for that round. This is a deliberate
@@ -34,44 +32,22 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in roomData(roomId).players;
     }
 
-    // Milliseconds — matches client Date.now() stored on room.updatedAt.
-    function staleCutoff() {
-      return request.time.toMillis() - 24 * 60 * 60 * 1000;
-    }
-
-    function roomDocStale() {
-      return resource.data.updatedAt is number
-             && resource.data.updatedAt < staleCutoff();
-    }
-
-    function parentRoomStale(roomId) {
-      return roomData(roomId).updatedAt is number
-             && roomData(roomId).updatedAt < staleCutoff();
-    }
-
     match /rooms/{roomId} {
       // createRoom does tx.get on a missing doc (resource == null). joinRoom
       // reads a lobby before the joiner is in players. Mid-game, only members.
-      // Stale rooms: allow get so teardown can re-read before delete.
       allow get: if signedIn() && (
                    resource == null
                    || request.auth.uid in resource.data.players
                    || resource.data.phase == 'lobby'
-                   || roomDocStale()
                  );
-      // Only stale rooms are listable — the client query must also filter
-      // updatedAt < cutoff or Firestore rejects the whole query.
-      allow list: if signedIn() && roomDocStale();
+      allow list: if false;
       allow create: if signedIn()
                     && request.resource.data.hostUid == request.auth.uid
                     && request.auth.uid in request.resource.data.players;
       allow update: if signedIn()
                     && (request.auth.uid in resource.data.players
                         || request.auth.uid in request.resource.data.players);
-      // Members may delete (last-player leave). Non-members only when stale.
-      allow delete: if signedIn()
-                    && (request.auth.uid in resource.data.players
-                        || roomDocStale());
+      allow delete: if signedIn() && request.auth.uid in resource.data.players;
     }
 
     // The four keywords. Still sealed from the opposing team — this is
@@ -99,7 +75,7 @@ service cloud.firestore {
                           && roomData(roomId).hostUid == request.auth.uid
                           && roomData(roomId).phase == 'keys')
                     );
-      allow delete: if inRoom(roomId) || (signedIn() && parentRoomStale(roomId));
+      allow delete: if inRoom(roomId);
     }
 
     // Per-round codes and the deck. Readable by anyone in the room,
@@ -107,14 +83,12 @@ service cloud.firestore {
     // there is no server to do it for them.
     match /rooms/{roomId}/secret/{docId} {
       allow read, write: if inRoom(roomId);
-      allow delete: if inRoom(roomId) || (signedIn() && parentRoomStale(roomId));
     }
 
     // The shared live draft: numbers everyone on the team can move, and
     // whoever taps send, sends.
     match /rooms/{roomId}/drafts/{docId} {
       allow read, write: if inRoom(roomId);
-      allow delete: if inRoom(roomId) || (signedIn() && parentRoomStale(roomId));
     }
 
     // Each player's sheet of theories about the opponent's four words.
@@ -123,13 +97,12 @@ service cloud.firestore {
       allow read: if signedIn() && request.auth.uid in resource.data.members;
       allow create: if inRoom(roomId);
       allow update: if signedIn() && request.auth.uid in resource.data.members;
-      allow delete: if inRoom(roomId) || (signedIn() && parentRoomStale(roomId));
+      allow delete: if inRoom(roomId);
     }
 
     // Finished rounds — public to the table by the time they exist.
     match /rooms/{roomId}/rounds/{roundId} {
       allow read, write: if inRoom(roomId);
-      allow delete: if inRoom(roomId) || (signedIn() && parentRoomStale(roomId));
     }
 
     // "Who wandered off" — everyone sees it, that's the point.
@@ -139,7 +112,7 @@ service cloud.firestore {
       // on return-to-lobby must clear everyone's away docs).
       allow create, update: if inRoom(roomId)
                             && request.resource.data.uid == request.auth.uid;
-      allow delete: if inRoom(roomId) || (signedIn() && parentRoomStale(roomId));
+      allow delete: if inRoom(roomId);
     }
 
     // All eight keywords, written at deal time and unreadable until the
@@ -148,7 +121,6 @@ service cloud.firestore {
     match /rooms/{roomId}/final/{docId} {
       allow read: if inRoom(roomId) && roomData(roomId).phase == 'over';
       allow write: if inRoom(roomId);
-      allow delete: if inRoom(roomId) || (signedIn() && parentRoomStale(roomId));
     }
   }
 }
