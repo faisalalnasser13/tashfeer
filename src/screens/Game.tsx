@@ -146,12 +146,9 @@ export function Game({
             <KeysStrip
               keys={priv?.keys ?? null}
               team={myTeam}
-              theories={priv?.theories ?? { "1": "", "2": "", "3": "", "4": "" }}
-              setTheory={setTheory}
               highlight={
                 amEncryptor && room.phase === "encrypt" && code ? code : null
               }
-              hideTheories={amEncryptor && room.phase === "encrypt"}
             />
             {/* Encrypt waiters lead with the duel — score strip would push it down. */}
             {!(room.phase === "encrypt" && tab === "play") && (
