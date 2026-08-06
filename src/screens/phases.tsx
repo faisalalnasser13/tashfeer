@@ -1083,8 +1083,8 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
   });
 
   return (
-    <div className="px-4 pt-0.5 pb-36 space-y-4 fade-in">
-      <div className="rend-strip -mx-4 px-4">
+    <div className="pb-36 space-y-4 fade-in">
+      <div className="rend-strip">
         <span className="rend-strip-label">الجولات</span>
         <div className="rend-strip-cells" aria-hidden>
           {Array.from({ length: cellCount }, (_, i) => {
@@ -1110,11 +1110,8 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
         </span>
       </div>
 
+      <div className="px-4 space-y-4">
       <section className="rend-sec">
-        <div className="rend-sec-head">
-          <span>الحصيلة</span>
-          <span className="rend-sec-counter num">بعد الجولة {room.round}</span>
-        </div>
         <div className="rend-sec-body">
           {TEAMS.map((t) => {
             const s = room.teams[t].score;
@@ -1208,6 +1205,7 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
           </div>
         </section>
       )}
+      </div>
 
       {isHost && (
         <HostContinue

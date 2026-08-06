@@ -2023,31 +2023,33 @@ textarea {
 .rend-strip {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  padding-block: 0.45rem;
-  background: #18170f;
-  border-block-end: 1px solid #3a3629;
+  gap: 0.7rem;
+  padding: 0.85rem 1rem;
+  background: #1c1a14;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .rend-strip-label {
   flex-shrink: 0;
   font-family: "Courier Prime", monospace;
-  font-size: 9.5px;
+  font-size: 11px;
   letter-spacing: 0.06em;
-  color: #6e6858;
+  color: #8a8474;
 }
 
 .rend-strip-cells {
   display: flex;
   flex: 1;
   min-width: 0;
-  gap: 3px;
+  gap: 4px;
 }
 
 .rend-cell {
   flex: 1 1 0;
   min-width: 0;
-  height: 8px;
+  height: 14px;
   box-sizing: border-box;
   border: 1px solid color-mix(in srgb, var(--gold) 45%, #3a3629);
   background: transparent;
@@ -2081,7 +2083,7 @@ textarea {
 .rend-strip-left {
   flex-shrink: 0;
   font-family: "Courier Prime", monospace;
-  font-size: 9.5px;
+  font-size: 13px;
   letter-spacing: 0.04em;
   color: #b8a878;
   font-variant-numeric: tabular-nums;

@@ -140,19 +140,23 @@ export function Game({
           ["--chrome-h" as string]: `${chromeH || 48}px`,
         }}
       >
-        {/* Keys + score scroll with content — sticky chrome is timer-only. */}
-        <KeysStrip
-          keys={priv?.keys ?? null}
-          team={myTeam}
-          theories={priv?.theories ?? { "1": "", "2": "", "3": "", "4": "" }}
-          setTheory={setTheory}
-          highlight={
-            amEncryptor && room.phase === "encrypt" && code ? code : null
-          }
-        />
-        {/* Encrypt waiters lead with the duel — score strip would push it down. */}
-        {!(room.phase === "encrypt" && tab === "play") && (
-          <ScoreStrip room={room} myTeam={myTeam} />
+        {/* Round-end leads with its own rounds bar — drop keys/score chrome. */}
+        {!(room.phase === "roundEnd" && tab === "play") && (
+          <>
+            <KeysStrip
+              keys={priv?.keys ?? null}
+              team={myTeam}
+              theories={priv?.theories ?? { "1": "", "2": "", "3": "", "4": "" }}
+              setTheory={setTheory}
+              highlight={
+                amEncryptor && room.phase === "encrypt" && code ? code : null
+              }
+            />
+            {/* Encrypt waiters lead with the duel — score strip would push it down. */}
+            {!(room.phase === "encrypt" && tab === "play") && (
+              <ScoreStrip room={room} myTeam={myTeam} />
+            )}
+          </>
         )}
         {tab === "play" && <PhaseView ctx={ctx} />}
         {tab === "log" && (
