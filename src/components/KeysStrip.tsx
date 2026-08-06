@@ -11,7 +11,7 @@ import { TEAM_HEX } from "./ui";
  * light up so the writer doesn't hunt the strip.
  */
 export function KeysStrip({
-  keys, team, theories, setTheory, highlight,
+  keys, team, theories, setTheory, highlight, hideTheories = false,
 }: {
   keys: string[] | null;
   team: TeamId;
@@ -19,6 +19,8 @@ export function KeysStrip({
   setTheory?: ((n: string, text: string) => void) | null;
   /** Digits 1–4 that appear in the encryptor's code this round. */
   highlight?: number[] | null;
+  /** Encryptor writing clues — opponent ؟ row is noise. */
+  hideTheories?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const color = TEAM_HEX[team];
@@ -73,10 +75,12 @@ export function KeysStrip({
                 );
               })}
             </div>
-            <p className="text-[11px] text-muted px-1 pt-3 pb-1.5">تخمينات الخصم</p>
+            {!hideTheories && (
+              <p className="text-[11px] text-muted px-1 pt-3 pb-1.5">تخمينات الخصم</p>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-4 gap-1 px-2 pt-1.5 pb-1">
+          <div className={`grid grid-cols-4 gap-1 px-2 pt-1.5 ${hideTheories ? "pb-1.5" : "pb-1"}`}>
             {keys.map((k, i) => {
               const on = lit.has(i + 1);
               return (
@@ -107,20 +111,22 @@ export function KeysStrip({
         )}
       </button>
 
-      <div
-        className="grid grid-cols-4 gap-1 px-2 pb-1.5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {[1, 2, 3, 4].map((n) => (
-          <TheoryChip
-            key={n}
-            n={n}
-            remote={theories?.[String(n)] ?? ""}
-            color={guessColor}
-            onChange={setTheory ? (t) => setTheory(String(n), t) : undefined}
-          />
-        ))}
-      </div>
+      {!hideTheories && (
+        <div
+          className="grid grid-cols-4 gap-1 px-2 pb-1.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {[1, 2, 3, 4].map((n) => (
+            <TheoryChip
+              key={n}
+              n={n}
+              remote={theories?.[String(n)] ?? ""}
+              color={guessColor}
+              onChange={setTheory ? (t) => setTheory(String(n), t) : undefined}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

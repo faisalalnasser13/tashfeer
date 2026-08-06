@@ -151,6 +151,7 @@ export function Game({
               highlight={
                 amEncryptor && room.phase === "encrypt" && code ? code : null
               }
+              hideTheories={amEncryptor && room.phase === "encrypt"}
             />
             {/* Encrypt waiters lead with the duel — score strip would push it down. */}
             {!(room.phase === "encrypt" && tab === "play") && (
