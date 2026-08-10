@@ -158,22 +158,26 @@ export function ClueGrid({
  * the visual viewport instead — `nearest` corrects without the encrypt-only
  * holdScroll cancel that buries fields under the Android keyboard.
  */
-function pinTheoryFieldInView(el: HTMLElement) {
+export function pinTheoryFieldInView(el: HTMLElement) {
   el.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 /**
  * Local draft so keystrokes paint immediately; Firestore is async.
  * While focused, ignore remote overwrites so a lagging snapshot can't
- * wipe the caret.
+ * wipe the caret. Used by the log theory sheet and the showdown inputs.
  */
-function SharedGuessInput({
-  n, remote, color, onGuess,
+export function SharedGuessInput({
+  n, remote, color, onGuess, disabled, className, placeholder = "—", showQMark = true,
 }: {
-  n: number;
+  n: number | string;
   remote: string;
-  color: string;
+  color?: string;
   onGuess: (n: string, text: string) => void;
+  disabled?: boolean;
+  className?: string;
+  placeholder?: string;
+  showQMark?: boolean;
 }) {
   const [value, setValue] = useState(remote);
   const focused = useRef(false);
@@ -186,6 +190,7 @@ function SharedGuessInput({
     <div className="relative w-full">
       <input
         value={value}
+        disabled={disabled}
         onFocus={(e) => {
           focused.current = true;
           const el = e.currentTarget;
@@ -201,15 +206,17 @@ function SharedGuessInput({
           setValue(t);
           onGuess(String(n), t);
         }}
-        placeholder="—"
+        placeholder={placeholder}
         maxLength={24}
-        className="watch-sheet-input"
-        style={{ color: value ? color : undefined, fontSize: "16px" }}
+        className={className ?? "watch-sheet-input"}
+        style={{ color: value && color ? color : undefined, fontSize: "16px" }}
         aria-label={`تخمين الكلمة ${n}`}
       />
-      <span className="watch-sheet-qmark" style={{ color }} aria-hidden>
-        ؟
-      </span>
+      {showQMark && (
+        <span className="watch-sheet-qmark" style={{ color }} aria-hidden>
+          ؟
+        </span>
+      )}
     </div>
   );
 }

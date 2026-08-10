@@ -19,6 +19,9 @@ function deleteField() {
 function arrayUnion(...values) {
   return new FieldValue("arrayUnion", values);
 }
+function arrayRemove(...values) {
+  return new FieldValue("arrayRemove", values);
+}
 function increment(n) {
   return new FieldValue("increment", n);
 }
@@ -64,6 +67,10 @@ function resolveField(prev, val) {
       if (!base.includes(v)) base.push(v);
     }
     return base;
+  }
+  if (val._kind === "arrayRemove") {
+    const base = Array.isArray(prev) ? [...prev] : [];
+    return base.filter((v) => !val._payload.includes(v));
   }
   if (val._kind === "increment") {
     return (typeof prev === "number" ? prev : 0) + val._payload;
@@ -262,6 +269,7 @@ module.exports = {
   getFirestore,
   deleteField,
   arrayUnion,
+  arrayRemove,
   increment,
   __setUser,
   __getUser,

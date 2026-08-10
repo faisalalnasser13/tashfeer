@@ -5,7 +5,7 @@ import { useDraft, useLocal } from "../lib/hooks";
 import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { Cartouche } from "../components/Cartouche";
-import { buildLanes, ClueGrid } from "../components/ClueGrid";
+import { buildLanes, ClueGrid, SharedGuessInput } from "../components/ClueGrid";
 import { TeamEmblem } from "../components/TeamEmblem";
 import { Banner, Btn, Empty, PipBoard, Stamp, TEAM_HEX, TEAM_LABEL } from "../components/ui";
 import { codesEqual, points, tiebreakTrigger, type TiebreakTrigger } from "../lib/rules";
@@ -1333,7 +1333,7 @@ export function ShowdownPhase({
   }, [sent, room.phaseEndsAt, room.paused, room.id]);
 
   return (
-    <div className="px-3 pt-2 pb-28 fade-in space-y-3">
+    <div className="px-3 pt-2 pb-6 fade-in space-y-3">
       <div className="px-3 py-2.5 rounded-xl bg-alarm/15 border border-alarm/40">
         <p className="text-[13px] text-alarm font-medium leading-snug">
           تعادل بعد {room.round} جولات. اكتبوا كلمات الخصم الأربع — الأكثر إصابة يفوز.
@@ -1364,14 +1364,17 @@ export function ShowdownPhase({
                 <p className="text-[11px] text-muted truncate" title={clueLine}>
                   {clueLine}
                 </p>
-                <input
-                  className="w-full bg-[#1B1A14] border border-line rounded-lg px-3 py-2 text-parch placeholder:text-[#6E6858] focus:border-gold focus:outline-none"
-                  style={{ fontSize: "16px" }}
-                  value={guessWords[key] ?? ""}
+                <SharedGuessInput
+                  n={key}
+                  remote={guessWords[key] ?? ""}
                   disabled={sent}
-                  maxLength={24}
+                  showQMark={false}
                   placeholder="كلمة الخصم"
-                  onChange={(e) => setGuessWord?.(key, e.target.value)}
+                  className="w-full bg-[#1B1A14] border border-line rounded-lg px-3 py-2 text-parch placeholder:text-[#6E6858] focus:border-gold focus:outline-none disabled:opacity-60"
+                  onGuess={(digit, text) => {
+                    wordsRef.current = { ...wordsRef.current, [digit]: text };
+                    setGuessWord?.(digit, text);
+                  }}
                 />
               </div>
             </div>
@@ -1384,17 +1387,9 @@ export function ShowdownPhase({
       {sent ? (
         <Empty title="أُرسل تخمينكم" body="بانتظار الفريق الآخر…" />
       ) : (
-        <div
-          className="fixed inset-x-0 z-40 px-4 pt-3 bg-ink/95 backdrop-blur-sm border-t border-line"
-          style={{
-            bottom: "calc(3.25rem + var(--safe-b))",
-            paddingBottom: "10px",
-          }}
-        >
-          <Btn className="w-full" disabled={busy} onClick={() => void send()}>
-            {busy ? "…" : "إرسال التخمين"}
-          </Btn>
-        </div>
+        <Btn className="w-full" disabled={busy || !setGuessWord} onClick={() => void send()}>
+          {busy ? "…" : "إرسال التخمين"}
+        </Btn>
       )}
 
       {(room.showdownIn?.gold || room.showdownIn?.silver) && (

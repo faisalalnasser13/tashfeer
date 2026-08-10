@@ -21,6 +21,7 @@ async function it(name, fn) {
   catch (e) { fail++; console.log(`  FAIL ${name}\n       ${e.message}`); }
 }
 function eq(a, b, m) { if (a !== b) throw new Error(`${m}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`); }
+function assert(cond, m) { if (!cond) throw new Error(m || "assertion failed"); }
 async function throws(fn, needle) {
   try { await fn(); } catch (e) {
     if (needle && !e.message.includes(needle)) throw new Error(`wrong error: ${e.message}`);
@@ -123,14 +124,15 @@ await it("the definite article does not smuggle a keyword through", async () => 
 await it("a clue cannot be reused in a later round", async () => {
   const { roomId, HOST } = await freshGame();
   const r = room(roomId);
-  await call(fns.submitClues, r.encryptor.gold, { roomId, clues: ["نار", "بحر", "جبل"] });
-  await call(fns.submitClues, r.encryptor.silver, { roomId, clues: ["ظل", "قفل", "ريح"] });
+  // Nonsense clues — real bank words can randomly be a team's keywords.
+  await call(fns.submitClues, r.encryptor.gold, { roomId, clues: ["قققا", "قققب", "قققج"] });
+  await call(fns.submitClues, r.encryptor.silver, { roomId, clues: ["فففا", "فففب", "فففج"] });
   for (const p of ["encrypt", "guess", "reveal", "guess", "reveal", "roundEnd"]) {
     await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: p, fromRound: 1 });
   }
   eq(room(roomId).round, 2, "did not reach round 2");
   await throws(
-    () => call(fns.submitClues, room(roomId).encryptor.gold, { roomId, clues: ["نار", "ققق", "ففف"] }),
+    () => call(fns.submitClues, room(roomId).encryptor.gold, { roomId, clues: ["قققا", "نننا", "نننب"] }),
     "جولة سابقة"
   );
 });
@@ -138,14 +140,14 @@ await it("a clue cannot be reused in a later round", async () => {
 await it("normalisation catches a respelled repeat", async () => {
   const { roomId, HOST } = await freshGame();
   const r = room(roomId);
-  await call(fns.submitClues, r.encryptor.gold, { roomId, clues: ["الأسد", "بحر", "جبل"] });
-  await call(fns.submitClues, r.encryptor.silver, { roomId, clues: ["ظل", "قفل", "ريح"] });
+  await call(fns.submitClues, r.encryptor.gold, { roomId, clues: ["أقققا", "قققب", "قققج"] });
+  await call(fns.submitClues, r.encryptor.silver, { roomId, clues: ["فففا", "فففب", "فففج"] });
   for (const p of ["encrypt", "guess", "reveal", "guess", "reveal", "roundEnd"]) {
     await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: p, fromRound: 1 });
   }
   // same word, alif hamza dropped
   await throws(
-    () => call(fns.submitClues, room(roomId).encryptor.gold, { roomId, clues: ["الاسد", "x", "y"] }),
+    () => call(fns.submitClues, room(roomId).encryptor.gold, { roomId, clues: ["اقققا", "نننا", "نننب"] }),
     "جولة سابقة"
   );
 });
@@ -153,7 +155,7 @@ await it("normalisation catches a respelled repeat", async () => {
 await it("the three clues in one round must differ", async () => {
   const { roomId } = await freshGame();
   await throws(
-    () => call(fns.submitClues, room(roomId).encryptor.gold, { roomId, clues: ["نار", "نار", "بحر"] }),
+    () => call(fns.submitClues, room(roomId).encryptor.gold, { roomId, clues: ["قققا", "قققا", "قققب"] }),
     "مكررة"
   );
 });
@@ -304,6 +306,50 @@ await it("a silent encryptor in later rounds skips guess and intercept", async (
   eq(rec.data.gold.faulted, true, "miscommunication fault");
   eq(rec.data.gold.wasBreached, false, "no interception on silence");
   eq(room(roomId).teams.silver.score.breach, 0, "no breach token from silence");
+});
+
+console.log("\nmid-game join / leave");
+
+await it("mid-game joiner gets a guesses sheet and is on teammates' members lists", async () => {
+  const { roomId, HOST } = await freshGame();
+  await call(fns.joinRoom, "late", { roomId, name: "late", avatar: 9 });
+  const r = room(roomId);
+  const team = r.players.late.team;
+  assert(team === "gold" || team === "silver", "joiner was not seated");
+  const sheet = S().get(`rooms/${roomId}/guesses/late`);
+  assert(sheet, "joiner has no guess sheet");
+  eq(sheet.team, team, "sheet team");
+  assert(sheet.members.includes("late"), "joiner missing from own members");
+  for (const u of r.teams[team].members) {
+    const g = S().get(`rooms/${roomId}/guesses/${u}`);
+    assert(g?.members?.includes("late"), `${u} guess.members missing joiner`);
+  }
+  // Showdown seed must not throw on the new sheet.
+  r.round = 8;
+  r.showdown = true;
+  r.phase = "roundEnd";
+  r.winner = null;
+  await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "roundEnd", fromRound: 8 });
+  eq(room(roomId).phase, "showdown", "showdown entered with mid-game joiner");
+});
+
+await it("leaveRoom reassigns the encryptor and drops private/guess membership", async () => {
+  const { roomId } = await freshGame();
+  const r0 = room(roomId);
+  const enc = r0.encryptor.gold;
+  const other = r0.teams.gold.members.find((m) => m !== enc);
+  assert(other, "need a teammate");
+  await call(fns.leaveRoom, enc, { roomId });
+  const r = room(roomId);
+  eq(r.encryptor.gold, other, "encryptor not reassigned");
+  assert(!r.teams.gold.members.includes(enc), "leaver still on team");
+  assert(!S().get(`rooms/${roomId}/guesses/${enc}`), "leaver guess sheet not deleted");
+  const priv = S().get(`rooms/${roomId}/private/gold`);
+  assert(!priv.members.includes(enc), "leaver still on private.members");
+  for (const u of r.teams.gold.members) {
+    const g = S().get(`rooms/${roomId}/guesses/${u}`);
+    assert(!g?.members?.includes(enc), `${u} still lists leaver`);
+  }
 });
 
 console.log("\nevaluate / showdown");

@@ -22,7 +22,7 @@
  */
 
 import {
-  doc, collection, getDoc, getDocs, deleteDoc, runTransaction,
+  doc, collection, getDoc, getDocs, deleteDoc, setDoc, runTransaction,
   arrayUnion, arrayRemove, deleteField, writeBatch, updateDoc, Transaction, DocumentReference,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
@@ -189,6 +189,84 @@ function emptySubmitMs(): Record<TeamId, number> {
   return { gold: 0, silver: 0 };
 }
 
+/** Patch room fields when someone leaves a seated team mid-game. */
+function applyMemberRemoval(
+  r: Room,
+  target: string,
+  team: TeamId,
+  patch: Record<string, unknown>,
+): string[] {
+  const members = r.teams[team].members;
+  if (!members.includes(target)) return members;
+  const nextMembers = members.filter((u) => u !== target);
+  patch[`teams.${team}.members`] = nextMembers;
+
+  if (r.phase !== "lobby" && r.phase !== "over") {
+    if (nextMembers.length === 0) {
+      patch[`encryptor.${team}`] = "";
+      patch[`teams.${team}.encryptorIdx`] = 0;
+    } else if (r.encryptor[team] === target) {
+      const oldIdx = members.indexOf(target);
+      const newIdx = oldIdx < nextMembers.length ? oldIdx : 0;
+      patch[`encryptor.${team}`] = nextMembers[newIdx];
+      patch[`teams.${team}.encryptorIdx`] = newIdx;
+    } else {
+      const encUid = r.encryptor[team] || "";
+      const encIdx = nextMembers.indexOf(encUid);
+      if (encIdx >= 0) patch[`teams.${team}.encryptorIdx`] = encIdx;
+    }
+  }
+  return nextMembers;
+}
+
+/**
+ * Keep private / deck / guesses membership in sync with the room.
+ * Mid-game joiners need a guesses/{uid} sheet or showdown hard-locks.
+ */
+async function syncTeamSideDocs(
+  roomId: string,
+  team: TeamId,
+  uid: string,
+  action: "add" | "remove",
+  teamMembers: string[],
+) {
+  const jobs: Promise<unknown>[] = [
+    updateDoc(privateRef(roomId, team), {
+      members: action === "add" ? arrayUnion(uid) : arrayRemove(uid),
+    }).catch(() => {}),
+    updateDoc(deckRef(roomId, team), {
+      members: action === "add" ? arrayUnion(uid) : arrayRemove(uid),
+    }).catch(() => {}),
+  ];
+
+  if (action === "add") {
+    const members = teamMembers.includes(uid) ? teamMembers : [...teamMembers, uid];
+    jobs.push(
+      setDoc(guessRef(roomId, uid), {
+        uid,
+        team,
+        members,
+        words: { "1": "", "2": "", "3": "", "4": "" },
+      }, { merge: true }).catch(() => {}),
+    );
+    for (const u of members) {
+      if (u === uid) continue;
+      jobs.push(
+        updateDoc(guessRef(roomId, u), { members: arrayUnion(uid) }).catch(() => {}),
+      );
+    }
+  } else {
+    jobs.push(deleteDoc(guessRef(roomId, uid)).catch(() => {}));
+    for (const u of teamMembers) {
+      jobs.push(
+        updateDoc(guessRef(roomId, u), { members: arrayRemove(uid) }).catch(() => {}),
+      );
+    }
+  }
+
+  await Promise.all(jobs);
+}
+
 /* ------------------------------------------------------------------ */
 /* lobby                                                              */
 /* ------------------------------------------------------------------ */
@@ -245,9 +323,7 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
   const clean = String(name || "").trim().slice(0, 16);
   if (!clean) throw new GameError("invalid-argument", "اكتب اسمك.");
 
-  let assigned: TeamId | null = null;
-
-  await runTransaction(db, async (tx) => {
+  const assigned = await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(id));
     if (!snap.exists()) throw new GameError("not-found", "لا توجد غرفة بهذا الرمز.");
     const room = snap.data() as Room;
@@ -265,6 +341,7 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
         },
         updatedAt: now,
       };
+      let seated: TeamId | null = null;
       if (!team && room.phase !== "lobby") {
         team = pickBalancedTeam(
           room.teams.gold.members.length,
@@ -278,10 +355,10 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
           team,
         };
         patch[`teams.${team}.members`] = arrayUnion(uid);
-        assigned = team;
+        seated = team;
       }
       tx.update(roomRef(id), patch);
-      return;
+      return seated;
     }
 
     if (Object.keys(room.players).length >= 10) {
@@ -296,7 +373,7 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
         },
         updatedAt: now,
       });
-      return;
+      return null;
     }
 
     // Mid-game (and post-game over): auto-seat on the shorter team.
@@ -305,7 +382,6 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
       room.teams.silver.members.length,
       uid
     );
-    assigned = team;
     tx.update(roomRef(id), {
       [`players.${uid}`]: {
         name: clean, avatar: Number(avatar) || 0, team, joinedAt: now,
@@ -313,14 +389,14 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
       [`teams.${team}.members`]: arrayUnion(uid),
       updatedAt: now,
     });
+    return team;
   });
 
-  // Patch private/deck membership after the room write so rules see our team.
+  // Patch private/deck/guesses after the room write so rules see our team.
   if (assigned) {
-    await Promise.all([
-      updateDoc(privateRef(id, assigned), { members: arrayUnion(uid) }).catch(() => {}),
-      updateDoc(deckRef(id, assigned), { members: arrayUnion(uid) }).catch(() => {}),
-    ]);
+    const after = await loadRoom(id).catch(() => null);
+    const members = after ? after.teams[assigned].members : [uid];
+    await syncTeamSideDocs(id, assigned, uid, "add", members);
   }
 
   return { roomId: id };
@@ -366,6 +442,7 @@ async function kickPlayer({ roomId, uid: target }: { roomId: string; uid: string
   }
 
   let removedFrom: TeamId | null = null;
+  let remainingMembers: string[] = [];
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
@@ -387,38 +464,14 @@ async function kickPlayer({ roomId, uid: target }: { roomId: string; uid: string
 
     if (team) {
       removedFrom = team;
-      const members = r.teams[team].members;
-      if (members.includes(target)) {
-        const nextMembers = members.filter((u) => u !== target);
-        patch[`teams.${team}.members`] = nextMembers;
-
-        if (r.phase !== "lobby") {
-          if (nextMembers.length === 0) {
-            patch[`encryptor.${team}`] = "";
-            patch[`teams.${team}.encryptorIdx`] = 0;
-          } else if (r.encryptor[team] === target) {
-            const oldIdx = members.indexOf(target);
-            const newIdx = oldIdx < nextMembers.length ? oldIdx : 0;
-            patch[`encryptor.${team}`] = nextMembers[newIdx];
-            patch[`teams.${team}.encryptorIdx`] = newIdx;
-          } else {
-            const encUid = r.encryptor[team] || "";
-            const encIdx = nextMembers.indexOf(encUid);
-            if (encIdx >= 0) patch[`teams.${team}.encryptorIdx`] = encIdx;
-          }
-        }
-      }
+      remainingMembers = applyMemberRemoval(r, target, team, patch);
     }
 
     tx.update(roomRef(roomId), patch);
   });
 
-  // Drop them from private/deck member lists (mid-game join writes these).
   if (removedFrom && room.phase !== "lobby") {
-    await Promise.all([
-      updateDoc(privateRef(roomId, removedFrom), { members: arrayRemove(target) }).catch(() => {}),
-      updateDoc(deckRef(roomId, removedFrom), { members: arrayRemove(target) }).catch(() => {}),
-    ]);
+    await syncTeamSideDocs(roomId, removedFrom, target, "remove", remainingMembers);
   }
 
   return { ok: true };
@@ -426,12 +479,19 @@ async function kickPlayer({ roomId, uid: target }: { roomId: string; uid: string
 
 async function leaveRoom({ roomId }: { roomId: string }) {
   const uid = me();
+  let removedFrom: TeamId | null = null;
+  let remainingMembers: string[] = [];
+  let phase: Phase | null = null;
+  let roomGone = false;
+
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
     if (!snap.exists()) return;
     const room = snap.data() as Room;
+    phase = room.phase;
     const remaining = Object.keys(room.players).filter((u) => u !== uid);
     if (remaining.length === 0) {
+      roomGone = true;
       tx.delete(roomRef(roomId));
       return;
     }
@@ -439,17 +499,27 @@ async function leaveRoom({ roomId }: { roomId: string }) {
       [`players.${uid}`]: deleteField(),
       updatedAt: Date.now(),
     };
-    for (const t of ["gold", "silver"] as TeamId[]) {
-      if (room.teams[t].members.includes(uid)) {
-        patch[`teams.${t}.members`] = room.teams[t].members.filter((u) => u !== uid);
-      }
+
+    const team =
+      TEAMS.find((t) => room.teams[t].members.includes(uid)) ??
+      room.players[uid]?.team ??
+      null;
+    if (team) {
+      removedFrom = team;
+      remainingMembers = applyMemberRemoval(room, uid, team, patch);
     }
+
     if (room.hostUid === uid) {
       remaining.sort((a, b) => room.players[a].joinedAt - room.players[b].joinedAt);
       patch.hostUid = remaining[0];
     }
     tx.update(roomRef(roomId), patch);
   });
+
+  if (!roomGone && removedFrom && phase && phase !== "lobby") {
+    await syncTeamSideDocs(roomId, removedFrom, uid, "remove", remainingMembers);
+  }
+
   return { ok: true };
 }
 
@@ -701,7 +771,9 @@ async function submitShowdown({
     const now = Date.now();
     const members = cur.teams[team].members;
     for (const u of members) {
-      tx.update(guessRef(roomId, u), { words, submittedAt: now });
+      tx.set(guessRef(roomId, u), {
+        uid: u, team, members, words, submittedAt: now,
+      }, { merge: true });
     }
     tx.update(roomRef(roomId), {
       [`showdownIn.${team}`]: true,
@@ -1072,10 +1144,14 @@ async function beginShowdown(tx: Transaction, room: Room): Promise<void> {
     const words = wordsRecord(theories);
     const members = room.teams[team].members;
     for (const u of members) {
-      tx.update(guessRef(id, u), {
+      // merge: true — create if a member lacks a sheet (safer than update).
+      tx.set(guessRef(id, u), {
+        uid: u,
+        team,
+        members,
         words,
         submittedAt: deleteField(),
-      });
+      }, { merge: true });
     }
   }
 
@@ -1091,12 +1167,31 @@ type GuessDoc = { words?: Record<string, string>; submittedAt?: number | null };
 /** Grade both sheets against final/keys and end the game. */
 async function resolveShowdown(tx: Transaction, room: Room): Promise<void> {
   const id = room.id;
+  const goldMembers = room.teams.gold.members;
+  const silverMembers = room.teams.silver.members;
+
+  // Empty side forfeits — invalid path if we called guessRef(id, "").
+  if (goldMembers.length === 0 || silverMembers.length === 0) {
+    const winner: TeamId | "draw" =
+      goldMembers.length === 0 && silverMembers.length === 0 ? "draw"
+      : goldMembers.length === 0 ? "silver"
+      : "gold";
+    tx.update(roomRef(id), {
+      ...phasePatch(room.settings, "over"),
+      activeTeam: null,
+      winner,
+      endReason: "showdown",
+      showdownHits: { gold: 0, silver: 0 },
+      showdownGuesses: { gold: ["", "", "", ""], silver: ["", "", "", ""] },
+      showdownTimeBreak: false,
+    });
+    return;
+  }
+
   const keysSnap = await tx.get(doc(db, "rooms", id, "final", "keys"));
-  const goldUid = room.teams.gold.members[0] ?? "";
-  const silverUid = room.teams.silver.members[0] ?? "";
   const guessSnaps = {
-    gold: await tx.get(guessRef(id, goldUid)),
-    silver: await tx.get(guessRef(id, silverUid)),
+    gold: await tx.get(guessRef(id, goldMembers[0])),
+    silver: await tx.get(guessRef(id, silverMembers[0])),
   };
 
   const keys = (keysSnap.data() ?? {}) as Record<TeamId, string[]>;
