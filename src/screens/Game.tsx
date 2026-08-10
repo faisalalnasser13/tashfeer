@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   useAutoAdvance, useAway, useAwayTracker, useCode, useCountdown, useDraft,
-  useEnsureCode, useFinalKeys, usePhaseDriver, useRounds, useTeamPrivate,
+  useEnsureCode, useFinalKeys, useGuessSheet, usePhaseDriver, useRounds,
+  useTeamPrivate,
 } from "../lib/hooks";
 import type { Room, TeamId } from "../lib/types";
 import { Header } from "../components/Header";
 import { KeysStrip } from "../components/KeysStrip";
 import { ScoreStrip } from "../components/ScoreStrip";
 import { Banner, Empty } from "../components/ui";
-import { EncryptPhase, GuessPhase, KeysPhase, RevealPhase, RoundEndPhase } from "./phases";
+import {
+  EncryptPhase, GuessPhase, KeysPhase, RevealPhase, RoundEndPhase, ShowdownPhase,
+} from "./phases";
 import { GameOver, LogTab, TeamTab } from "./tabs";
 
 type Tab = "play" | "log" | "team";
@@ -56,9 +59,21 @@ export function Game({
   usePhaseDriver(room, uid);
   useEnsureCode(room.id, myTeam, room.round, amEncryptor, room.phase);
 
+  const members = myTeam ? room.teams[myTeam].members : [];
+  const {
+    words: guessWords, setWord: setGuessWord, submittedAt: guessSubmittedAt,
+  } = useGuessSheet(
+    room.id,
+    myTeam,
+    members,
+    myTeam && room.phase === "showdown" ? uid : null,
+  );
+
   const locallyDone =
     room.phase === "encrypt"
       ? room.cluesIn.gold === true && room.cluesIn.silver === true
+      : room.phase === "showdown"
+      ? room.showdownIn?.gold === true && room.showdownIn?.silver === true
       : room.phase === "guess" && myTeam
       ? (() => {
           // Round 1: both teams decrypt at once. Silent encryptor → nothing to send.
@@ -76,7 +91,7 @@ export function Game({
 
   useAwayTracker(
     room.id, room.round, uid,
-    room.phase === "encrypt" || room.phase === "guess"
+    room.phase === "encrypt" || room.phase === "guess" || room.phase === "showdown"
   );
 
   useEffect(() => {
@@ -116,6 +131,7 @@ export function Game({
     theories: priv?.theories ?? { "1": "", "2": "", "3": "", "4": "" },
     rounds, draft, actions, code, mySubmittedClues, away,
     setTheory,
+    guessWords, setGuessWord, guessSubmittedAt,
   };
 
   return (
@@ -140,8 +156,10 @@ export function Game({
           ["--chrome-h" as string]: `${chromeH || 48}px`,
         }}
       >
-        {/* Round-end leads with its own rounds bar — drop keys/score chrome. */}
-        {!(room.phase === "roundEnd" && tab === "play") && (
+        {/* Round-end / showdown lead with their own chrome — drop keys/score. */}
+        {!(
+          (room.phase === "roundEnd" || room.phase === "showdown") && tab === "play"
+        ) && (
           <>
             <KeysStrip
               keys={priv?.keys ?? null}
@@ -184,6 +202,7 @@ function PhaseView({ ctx }: { ctx: Parameters<typeof EncryptPhase>[0] }) {
     case "guess": return <GuessPhase {...ctx} />;
     case "reveal": return <RevealPhase {...ctx} />;
     case "roundEnd": return <RoundEndPhase {...ctx} />;
+    case "showdown": return <ShowdownPhase {...ctx} />;
     default: return <Empty title="…" />;
   }
 }

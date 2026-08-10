@@ -8,7 +8,7 @@
 const fbs = require("firebase/firestore");
 const eng = require("./lib/engine.cjs");
 const fns = eng.api;
-const { evaluate } = require("./lib/rules.cjs");
+const { evaluate, scoreShowdown } = require("./lib/rules.cjs");
 
 // The engine reads the signed-in uid from auth, so acting "as" someone
 // means setting that first. Keeps the old call(fn, uid, data) shape.
@@ -113,17 +113,44 @@ async function playGame(opts = {}) {
 
         if (owner) {
           owner.decrypt = Math.random() < decryptAcc ? [...code] : wrong(code);
-          if (useReadyPath) owner.submittedDecrypt = r.teams[active].members[0];
+          if (useReadyPath) {
+            owner.submittedDecrypt = r.teams[active].members[0];
+            owner.submittedDecryptAt = Date.now();
+          }
         }
         if (interceptor && r.round >= 2) {
           interceptor.intercept = Math.random() < interceptAcc ? [...code] : wrong(code);
-          if (useReadyPath) interceptor.submittedIntercept = r.teams[opp].members[0];
+          if (useReadyPath) {
+            interceptor.submittedIntercept = r.teams[opp].members[0];
+            interceptor.submittedInterceptAt = Date.now();
+          }
+        }
+      }
+    }
+
+    if (r.phase === "showdown") {
+      const sealed = S().get(`rooms/${roomId}/final/keys`);
+      for (const team of ["gold", "silver"]) {
+        const opp = team === "gold" ? "silver" : "gold";
+        const member = r.teams[team].members[0];
+        // Mostly wrong — hits rarely decide; time / submittedAt break ties.
+        const words = (sealed?.[opp] || ["", "", "", ""]).map((w, i) =>
+          Math.random() < 0.35 ? w : `x-${team}-${i}`
+        );
+        if (useReadyPath) {
+          await call(fns.submitShowdown, member, { roomId, words });
+        } else {
+          // Prefill the sheet so a forced advance still has something to grade.
+          for (const u of r.teams[team].members) {
+            const g = S().get(`rooms/${roomId}/guesses/${u}`);
+            if (g) g.words = { "1": words[0], "2": words[1], "3": words[2], "4": words[3] };
+          }
         }
       }
     }
 
     // advance
-    if (useReadyPath && (r.phase === "encrypt" || r.phase === "guess")) {
+    if (useReadyPath && (r.phase === "encrypt" || r.phase === "guess" || r.phase === "showdown")) {
       await call(fns.advancePhase, uids[1], {
         roomId, fromPhase: r.phase, fromRound: r.round,
       });
@@ -177,10 +204,22 @@ async function playGame(opts = {}) {
     }
   }
 
-  // the declared winner must match the rules
+  // the declared winner must match the rules (showdown is settled outside evaluate)
   const g = fin.teams.gold.score, l = fin.teams.silver.score;
-  if (fin.endReason !== "abandoned") {
-    const v = evaluate(g, l, fin.round, fin.settings, fin.suddenDeath);
+  if (fin.endReason === "showdown") {
+    check(fin.showdown === true, "showdown ending without showdown flag");
+    check(fin.winner === "gold" || fin.winner === "silver" || fin.winner === "draw",
+      "showdown winner malformed", { winner: fin.winner });
+    const sealed = S().get(`rooms/${roomId}/final/keys`);
+    if (fin.showdownGuesses && sealed) {
+      const scored = scoreShowdown(fin.showdownGuesses, sealed);
+      check(scored.hits.gold === (fin.showdownHits?.gold ?? -1),
+        "showdown gold hits drifted", { scored: scored.hits, stored: fin.showdownHits });
+      check(scored.hits.silver === (fin.showdownHits?.silver ?? -1),
+        "showdown silver hits drifted", { scored: scored.hits, stored: fin.showdownHits });
+    }
+  } else if (fin.endReason !== "abandoned") {
+    const v = evaluate(g, l, fin.round, fin.settings, Boolean(fin.showdown));
     check(v.done, "game ended while the rules say play on", { g, l, round: fin.round });
     check(v.winner === fin.winner, "winner disagrees with the rules engine",
       { declared: fin.winner, expected: v.winner, g, l });
@@ -191,6 +230,7 @@ async function playGame(opts = {}) {
   check(sealed && sealed.gold.length === 4 && sealed.silver.length === 4,
     "the sealed keyword doc is missing or malformed");
   check(fin.phase === "over", "game did not reach the final screen", { phase: fin.phase });
+  check(fin.endReason !== "exhausted", "legacy exhausted ending still produced");
 
   // the encryptor role must rotate
   for (const t of ["gold", "silver"]) {
@@ -201,19 +241,19 @@ async function playGame(opts = {}) {
     }
   }
 
-  return { rounds: fin.round, winner: fin.winner, reason: fin.endReason, sudden: fin.suddenDeath };
+  return { rounds: fin.round, winner: fin.winner, reason: fin.endReason, showdown: fin.showdown };
 }
 
 /* ---------------- run ---------------- */
 
 (async () => {
   const N = Number(process.argv[2] || 300);
-  const stats = { winners: {}, reasons: {}, rounds: [], sudden: 0 };
+  const stats = { winners: {}, reasons: {}, rounds: [], showdown: 0 };
 
   const configs = [
     { decryptAcc: 0.85, interceptAcc: 0.2 },
     { decryptAcc: 0.5, interceptAcc: 0.5 },
-    { decryptAcc: 0.95, interceptAcc: 0.05 },   // long games, forces the round limit
+    { decryptAcc: 0.95, interceptAcc: 0.05 },   // long games, forces the round limit → showdown
     { decryptAcc: 0.3, interceptAcc: 0.3 },     // fast, messy games
     { decryptAcc: 0.7, interceptAcc: 0.3, silentEncryptorChance: 0.15 },
     { decryptAcc: 0.7, interceptAcc: 0.3, perTeam: 4 },
@@ -229,7 +269,7 @@ async function playGame(opts = {}) {
       stats.winners[res.winner] = (stats.winners[res.winner] || 0) + 1;
       stats.reasons[res.reason] = (stats.reasons[res.reason] || 0) + 1;
       stats.rounds.push(res.rounds);
-      if (res.sudden) stats.sudden++;
+      if (res.showdown) stats.showdown++;
     } catch (e) {
       failures.push(`THREW (${JSON.stringify(cfg)}): ${e.message}`);
       if (failures.length > 8) break;
@@ -239,7 +279,7 @@ async function playGame(opts = {}) {
   console.log(`\nplayed ${N} games`);
   console.log("winners:", stats.winners);
   console.log("endings:", stats.reasons);
-  console.log("sudden death:", stats.sudden);
+  console.log("showdown:", stats.showdown);
   const rs = stats.rounds;
   if (rs.length) {
     console.log(`rounds: min ${Math.min(...rs)}, max ${Math.max(...rs)}, avg ${(rs.reduce((a, b) => a + b, 0) / rs.length).toFixed(1)}`);

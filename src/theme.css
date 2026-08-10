@@ -939,6 +939,9 @@ textarea {
   background: repeating-linear-gradient(90deg,
     #161309 0 3px, #1d1810 3px 6px, #120f08 6px 11px);
 }
+.timer-track-showdown {
+  background: color-mix(in srgb, #F03B2E 22%, #161309);
+}
 
 .timer-fill {
   position: relative;
@@ -2244,6 +2247,20 @@ textarea {
 
 .rend-duel .nm {
   font-size: clamp(13px, calc(18px - (var(--len, 6) - 9) * 0.45px), 18px);
+}
+
+/* Showdown roster: every teammate under the emblem. */
+.rend-duel-roster .col {
+  gap: 0.2rem;
+}
+.rend-duel-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.rend-duel-roster .nm {
+  font-size: clamp(12px, calc(15px - (var(--len, 6) - 9) * 0.4px), 15px);
 }
 
 .rend-sec-duel {

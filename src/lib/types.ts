@@ -1,7 +1,7 @@
 export type TeamId = "gold" | "silver";
 
 export type Phase =
-  | "lobby" | "keys" | "encrypt" | "guess" | "reveal" | "roundEnd" | "over";
+  | "lobby" | "keys" | "encrypt" | "guess" | "reveal" | "roundEnd" | "showdown" | "over";
 
 export const OTHER: Record<TeamId, TeamId> = { gold: "silver", silver: "gold" };
 export const TEAMS: TeamId[] = ["gold", "silver"];
@@ -36,7 +36,8 @@ export interface Room {
   hostUid: string;
   phase: Phase;
   round: number;
-  suddenDeath: boolean;
+  /** True once a points tie commits the table to a showdown. */
+  showdown: boolean;
   paused: boolean;
   phaseStartedAt: number;
   phaseEndsAt: number | null;
@@ -46,6 +47,9 @@ export interface Room {
   /** Published clue sets — only the active half's clues need be live. */
   clues: Record<TeamId, string[] | null>;
   cluesIn: Record<TeamId, boolean>;
+  showdownIn: Record<TeamId, boolean>;
+  /** Cumulative encrypt + decrypt submit elapsed ms (lower wins a showdown hit-tie). */
+  submitMs: Record<TeamId, number>;
   encryptor: Record<TeamId, string | null>;
   /**
    * Which team's code is being guessed / revealed right now.
@@ -54,7 +58,11 @@ export interface Room {
    */
   activeTeam: TeamId | null;
   winner: TeamId | "draw" | null;
-  endReason: "breach" | "opponentFault" | "points" | "exhausted" | "abandoned" | null;
+  endReason: "breach" | "opponentFault" | "points" | "showdown" | "exhausted" | "abandoned" | null;
+  /** Written when showdown resolves — public so the over screen can show both sides. */
+  showdownHits?: Record<TeamId, number> | null;
+  showdownGuesses?: Record<TeamId, string[]> | null;
+  showdownTimeBreak?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -70,6 +78,8 @@ export interface Draft {
   submittedDecrypt: string | null;
   /** uid who locked in this team's interception of the opponent */
   submittedIntercept: string | null;
+  submittedDecryptAt?: number | null;
+  submittedInterceptAt?: number | null;
 }
 
 /** One player's running theory about the opponent's four words. */
@@ -78,6 +88,8 @@ export interface PlayerGuess {
   team: TeamId;
   members: string[];
   words: Record<string, string>;
+  /** Wall-clock when the team locked in their showdown sheet. */
+  submittedAt?: number | null;
 }
 
 export interface RoundSide {

@@ -24,9 +24,19 @@ mkdirSync(outdir, { recursive: true });
 const target = process.argv[2] || "rules.mjs";
 const extraArgs = process.argv.slice(3);
 
+// rules imports arabic — bundle so the CJS require resolves under Node.
+await esbuild.build({
+  entryPoints: [join(root, "src/lib/rules.ts")],
+  outfile: join(outdir, "rules.cjs"),
+  bundle: true,
+  format: "cjs",
+  platform: "node",
+  target: "node18",
+  logLevel: "silent",
+});
+
 await esbuild.build({
   entryPoints: [
-    join(root, "src/lib/rules.ts"),
     join(root, "src/lib/arabic.ts"),
     join(root, "src/lib/words.ts"),
   ],

@@ -3,6 +3,8 @@
  * and imported by the client for previews.
  */
 
+import { normalizeAr } from "./arabic";
+
 export type TeamId = "gold" | "silver";
 export type Phase =
   | "lobby"
@@ -11,6 +13,7 @@ export type Phase =
   | "guess"    // decrypt (+ intercept from r2); round 1 is simultaneous
   | "reveal"   // code(s) revealed and scored (10s)
   | "roundEnd" // scoreboard after both halves
+  | "showdown" // tied on points — both teams name the opponent's four words
   | "over";
 
 export const OTHER: Record<TeamId, TeamId> = { gold: "silver", silver: "gold" };
@@ -50,7 +53,8 @@ export interface Room {
   hostUid: string;
   phase: Phase;
   round: number;
-  suddenDeath: boolean;
+  /** True once a points tie commits the table to a showdown. */
+  showdown: boolean;
   paused: boolean;
   phaseEndsAt: number | null;
   settings: Settings;
@@ -59,10 +63,17 @@ export interface Room {
   /** clues publish when that team's half begins */
   clues: Record<TeamId, string[] | null>;
   cluesIn: Record<TeamId, boolean>;
+  showdownIn: Record<TeamId, boolean>;
+  /** Cumulative encrypt + decrypt submit elapsed ms (lower wins a showdown tie). */
+  submitMs: Record<TeamId, number>;
   encryptor: Record<TeamId, string | null>;
   activeTeam: TeamId | null;
   winner: TeamId | "draw" | null;
   endReason: EndReason | null;
+  /** Persisted at showdown resolution for the over screen (guesses are team-scoped). */
+  showdownHits?: Record<TeamId, number> | null;
+  showdownGuesses?: Record<TeamId, string[]> | null;
+  showdownTimeBreak?: boolean;
   createdAt: number;
   updatedAt: number;
   phaseStartedAt?: number;
@@ -72,7 +83,8 @@ export type EndReason =
   | "breach"       // won by two interceptions
   | "opponentFault" // won because they misread twice
   | "points"       // tiebreak on points
-  | "exhausted"    // sudden death ran out
+  | "showdown"     // settled by naming the opponent's keywords
+  | "exhausted"    // legacy — sudden death hard-cap (no longer produced)
   | "abandoned";
 
 export interface RoundRecord {
@@ -142,11 +154,45 @@ export function points(s: Score): number {
   return s.breach - s.fault;
 }
 
+/**
+ * Why the table entered the points / showdown tiebreak path.
+ * Null when a clean breach or opponentFault already decided the game.
+ */
+export type TiebreakTrigger =
+  | "mixed"       // a team hit 2 اختراق and 2 خلل at once
+  | "bothBreach"  // both teams collected their second interception
+  | "bothFault"   // both teams collected their second miscommunication
+  | "lastRound";  // last round ended with no decisive win/loss
+
+export function tiebreakTrigger(
+  gold: Score,
+  silver: Score,
+  round: number,
+  maxRounds: number,
+): TiebreakTrigger | null {
+  const gMixed = gold.breach >= 2 && gold.fault >= 2;
+  const sMixed = silver.breach >= 2 && silver.fault >= 2;
+  if (gMixed || sMixed) return "mixed";
+
+  const gWin = gold.breach >= 2 && gold.fault < 2;
+  const sWin = silver.breach >= 2 && silver.fault < 2;
+  const gLose = gold.fault >= 2 && gold.breach < 2;
+  const sLose = silver.fault >= 2 && silver.breach < 2;
+
+  if ((gWin && !sWin) || (sWin && !gWin) || (gLose && !sLose) || (sLose && !gLose)) {
+    return null;
+  }
+
+  if (gWin && sWin) return "bothBreach";
+  if (gLose && sLose) return "bothFault";
+  return "lastRound";
+}
+
 export interface Verdict {
   done: boolean;
   winner?: TeamId | "draw";
   reason?: EndReason;
-  suddenDeath?: boolean;
+  showdown?: boolean;
 }
 
 /**
@@ -155,20 +201,21 @@ export interface Verdict {
  * Order matters. A clean single condition resolves directly; anything
  * tangled (both teams win at once, a team that both wins and loses,
  * or the round limit) falls through to points, and a points tie sends
- * the game to sudden death.
+ * the game to showdown.
  */
 export function evaluate(
   gold: Score,
   silver: Score,
   round: number,
   settings: Settings,
-  suddenDeath: boolean
+  showdown: boolean
 ): Verdict {
   const gDec = gold.breach >= 2 || gold.fault >= 2;
   const lDec = silver.breach >= 2 || silver.fault >= 2;
   const limitHit = round >= settings.maxRounds;
 
-  if (!gDec && !lDec && !limitHit && !suddenDeath) return { done: false };
+  // Already committed to resolving (showdown queued) — evaluate rather than continue.
+  if (!gDec && !lDec && !limitHit && !showdown) return { done: false };
 
   const gWin = gold.breach >= 2 && gold.fault < 2;
   const lWin = silver.breach >= 2 && silver.fault < 2;
@@ -180,13 +227,36 @@ export function evaluate(
   if (gLose && !lLose) return { done: true, winner: "silver", reason: "opponentFault" };
   if (lLose && !gLose) return { done: true, winner: "gold", reason: "opponentFault" };
 
+  // Tiebreak step 1: points (اختراق +1, خلل −1). Unequal → game over.
   const gp = points(gold);
   const lp = points(silver);
   if (gp > lp) return { done: true, winner: "gold", reason: "points" };
   if (lp > gp) return { done: true, winner: "silver", reason: "points" };
 
-  // Dead level. Keep playing until someone pulls ahead.
-  const hardCap = settings.maxRounds + 4;
-  if (round >= hardCap) return { done: true, winner: "draw", reason: "exhausted" };
-  return { done: false, suddenDeath: true };
+  // Tiebreak step 2: keyword showdown (then time, in the engine).
+  return { done: false, showdown: true };
+}
+
+/**
+ * Score the showdown: each team names the opponent's four keywords.
+ * Comparison uses the same Arabic normalisation as repeated-clue checks.
+ */
+export function scoreShowdown(
+  guesses: Record<TeamId, string[]>,
+  keys: Record<TeamId, string[]>,
+): { hits: Record<TeamId, number>; winner: TeamId | "draw" } {
+  const hits: Record<TeamId, number> = { gold: 0, silver: 0 };
+  for (const team of TEAMS) {
+    const opp = OTHER[team];
+    const guessed = guesses[team] || [];
+    const actual = keys[opp] || [];
+    for (let i = 0; i < 4; i++) {
+      const g = normalizeAr(guessed[i] || "");
+      const k = normalizeAr(actual[i] || "");
+      if (g && k && g === k) hits[team] += 1;
+    }
+  }
+  if (hits.gold > hits.silver) return { hits, winner: "gold" };
+  if (hits.silver > hits.gold) return { hits, winner: "silver" };
+  return { hits, winner: "draw" };
 }

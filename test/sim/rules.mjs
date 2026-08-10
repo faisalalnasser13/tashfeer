@@ -306,6 +306,135 @@ await it("a silent encryptor in later rounds skips guess and intercept", async (
   eq(room(roomId).teams.silver.score.breach, 0, "no breach token from silence");
 });
 
+console.log("\nevaluate / showdown");
+
+const { evaluate, scoreShowdown } = require("./lib/rules.cjs");
+const settings = { encryptSecs: 60, guessSecs: 60, maxRounds: 8, useTimer: true };
+
+await it("a points tie at the round limit queues showdown", async () => {
+  const v = evaluate(
+    { breach: 1, fault: 1 }, { breach: 1, fault: 1 },
+    8, settings, false
+  );
+  eq(v.done, false, "done");
+  eq(v.showdown, true, "showdown");
+  eq(v.reason, undefined, "no end reason yet");
+});
+
+await it("clean breach still wins before showdown", async () => {
+  const v = evaluate(
+    { breach: 2, fault: 0 }, { breach: 0, fault: 0 },
+    3, settings, false
+  );
+  eq(v.done, true, "done");
+  eq(v.winner, "gold", "winner");
+  eq(v.reason, "breach", "reason");
+});
+
+await it("points decide a tangled end without showdown", async () => {
+  // Both teams hit a decisive token at once → fall through to points.
+  const v = evaluate(
+    { breach: 2, fault: 0 }, { breach: 2, fault: 1 },
+    5, settings, false
+  );
+  eq(v.done, true, "done");
+  eq(v.winner, "gold", "winner");
+  eq(v.reason, "points", "reason");
+});
+
+await it("scoreShowdown matches diacritics and alef variants", async () => {
+  const keys = { gold: ["أسد", "رماد", "قمر", "بحر"], silver: ["نار", "ظل", "ريح", "جبل"] };
+  const guesses = {
+    // gold guesses silver's keys
+    gold: ["نار", "ظِل", "ريح", "جبل"],
+    // silver guesses gold's keys with alef / tashkeel variants
+    silver: ["اسد", "رَماد", "قمر", "بحر"],
+  };
+  const r = scoreShowdown(guesses, keys);
+  eq(r.hits.gold, 4, "gold hits");
+  eq(r.hits.silver, 4, "silver hits");
+  eq(r.winner, "draw", "equal hits");
+});
+
+await it("scoreShowdown ignores empty guesses", async () => {
+  const keys = { gold: ["أ", "ب", "ج", "د"], silver: ["ه", "و", "ز", "ح"] };
+  const r = scoreShowdown(
+    { gold: ["", "", "", ""], silver: ["أ", "", "ج", ""] },
+    keys
+  );
+  eq(r.hits.gold, 0, "empty gold");
+  eq(r.hits.silver, 2, "partial silver");
+  eq(r.winner, "silver", "winner");
+});
+
+await it("showdown phase seeds theories and resolves by hits", async () => {
+  const { roomId, HOST } = await freshGame();
+  // Force a tied board at round limit.
+  const r = room(roomId);
+  r.round = 8;
+  r.showdown = true;
+  r.teams.gold.score = { breach: 1, fault: 1 };
+  r.teams.silver.score = { breach: 1, fault: 1 };
+  r.phase = "roundEnd";
+  r.winner = null;
+  r.endReason = null;
+
+  S().get(`rooms/${roomId}/private/gold`).theories = {
+    "1": "ه", "2": "و", "3": "ز", "4": "ح",
+  };
+  const sealed = S().get(`rooms/${roomId}/final/keys`);
+  // Gold theories match silver keys → 4 hits if silver keys are ه و ز ح
+  sealed.silver = ["ه", "و", "ز", "ح"];
+  sealed.gold = ["أ", "ب", "ج", "د"];
+  S().get(`rooms/${roomId}/private/silver`).theories = {
+    "1": "خطأ", "2": "خطأ", "3": "خطأ", "4": "خطأ",
+  };
+
+  await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "roundEnd", fromRound: 8 });
+  eq(room(roomId).phase, "showdown", "entered showdown");
+  const gWords = S().get(`rooms/${roomId}/guesses/${room(roomId).teams.gold.members[0]}`).words;
+  eq(gWords["1"], "ه", "seeded from theories");
+
+  await call(fns.submitShowdown, room(roomId).teams.gold.members[0], {
+    roomId, words: ["ه", "و", "ز", "ح"],
+  });
+  await call(fns.submitShowdown, room(roomId).teams.silver.members[0], {
+    roomId, words: ["خطأ", "خطأ", "خطأ", "خطأ"],
+  });
+  await call(fns.advancePhase, HOST, { roomId, fromPhase: "showdown", fromRound: 8 });
+  eq(room(roomId).phase, "over", "ended");
+  eq(room(roomId).winner, "gold", "gold won on hits");
+  eq(room(roomId).endReason, "showdown", "reason");
+  eq(room(roomId).showdownHits.gold, 4, "gold hits stored");
+  eq(room(roomId).showdownHits.silver, 0, "silver hits stored");
+});
+
+await it("equal showdown hits break on cumulative encrypt/decrypt time", async () => {
+  const { roomId, HOST } = await freshGame();
+  const r = room(roomId);
+  r.round = 8;
+  r.showdown = true;
+  r.phase = "roundEnd";
+  r.winner = null;
+  r.submitMs = { gold: 12_000, silver: 40_000 };
+  const sealed = S().get(`rooms/${roomId}/final/keys`);
+  sealed.gold = ["أ", "ب", "ج", "د"];
+  sealed.silver = ["ه", "و", "ز", "ح"];
+
+  await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "roundEnd", fromRound: 8 });
+  // Both teams guess nothing useful → 0–0 hits; gold has less submitMs.
+  await call(fns.submitShowdown, room(roomId).teams.gold.members[0], {
+    roomId, words: ["", "", "", ""],
+  });
+  await call(fns.submitShowdown, room(roomId).teams.silver.members[0], {
+    roomId, words: ["", "", "", ""],
+  });
+  await call(fns.advancePhase, HOST, { roomId, fromPhase: "showdown", fromRound: 8 });
+  eq(room(roomId).winner, "gold", "faster team wins");
+  eq(room(roomId).showdownTimeBreak, true, "time break flagged");
+  eq(room(roomId).endReason, "showdown", "reason");
+});
+
 console.log("\nnegative control");
 
 await it("the transaction order detector really fires", async () => {

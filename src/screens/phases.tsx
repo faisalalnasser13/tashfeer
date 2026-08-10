@@ -8,7 +8,7 @@ import { Cartouche } from "../components/Cartouche";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
 import { TeamEmblem } from "../components/TeamEmblem";
 import { Banner, Btn, Empty, PipBoard, Stamp, TEAM_HEX, TEAM_LABEL } from "../components/ui";
-import { codesEqual } from "../lib/rules";
+import { codesEqual, points, tiebreakTrigger, type TiebreakTrigger } from "../lib/rules";
 
 interface Ctx {
   room: Room;
@@ -28,6 +28,9 @@ interface Ctx {
   mySubmittedClues: string[] | null;
   away: AwayRecord[];
   setTheory: ((n: string, text: string) => void) | null;
+  guessWords: Record<string, string>;
+  setGuessWord: ((n: string, text: string) => void) | null;
+  guessSubmittedAt: number | null;
 }
 
 /** Host skip for short transition beats (keys / reveal / roundEnd). */
@@ -1064,32 +1067,87 @@ function AttemptMark({ ok }: { ok: boolean }) {
 const BREACH = "#8FAE5C";
 const FAULT = "#F03B2E";
 
+const TIEBREAK_WHY: Record<TiebreakTrigger, string> = {
+  mixed: "فريق وصل إلى اختراقين وخللين في آن واحد (فوز وخسارة معًا).",
+  bothBreach: "الفريقان حققا اختراقهما الثاني في نفس الجولة.",
+  bothFault: "الفريقان وقعا في خللهما الثاني في نفس الجولة.",
+  lastRound: "انتهت الجولات دون فوز أو خسارة حاسمة، والنقاط متعادلة.",
+};
+
 export function RoundEndPhase({ room, uid, away }: Ctx) {
   const isHost = room.hostUid === uid;
   const maxRounds = room.settings.maxRounds;
-  const hardCap = maxRounds + 4;
-  const sdExtra = Math.max(0, Math.min(room.round, hardCap) - maxRounds);
-  const cellCount = maxRounds + sdExtra;
+  const cellCount = maxRounds;
+  const awaitingShowdown = room.showdown && !room.winner;
 
   const wanderers = away
     .filter((a) => a.count >= 2 || a.ms >= 10000)
     .sort((a, b) => b.ms - a.ms)
     .slice(0, 5);
 
-  const nextEncryptors = TEAMS.map((t) => {
-    const m = room.teams[t].members;
-    const next = m[(room.teams[t].encryptorIdx + 1) % Math.max(m.length, 1)];
-    return { team: t, uid: next };
+  const trigger = awaitingShowdown
+    ? tiebreakTrigger(
+        room.teams.gold.score,
+        room.teams.silver.score,
+        room.round,
+        maxRounds,
+      )
+    : null;
+
+  const gp = points(room.teams.gold.score);
+  const sp = points(room.teams.silver.score);
+
+  /** Showdown: every player. Otherwise: next encryptors only. */
+  const duelSides = TEAMS.map((t) => {
+    const members = room.teams[t].members;
+    if (awaitingShowdown) {
+      return {
+        team: t,
+        uids: members,
+        you: members.includes(uid),
+      };
+    }
+    const next = members[(room.teams[t].encryptorIdx + 1) % Math.max(members.length, 1)];
+    return {
+      team: t,
+      uids: next ? [next] : [],
+      you: !!next && next === uid,
+    };
   });
+
+  const continueLabel = room.winner
+    ? "النتيجة النهائية"
+    : awaitingShowdown
+    ? "المواجهة الحاسمة"
+    : "الجولة التالية";
 
   return (
     <div className="pb-36 space-y-4 fade-in">
+      {awaitingShowdown && (
+        <div className="mx-4 mt-2 px-3 py-2.5 rounded-xl bg-alarm/15 border border-alarm/40 space-y-1.5">
+          <p className="text-[13px] text-alarm font-medium leading-snug">
+            يلزم كسر التعادل — مواجهة الكلمات
+          </p>
+          <p className="text-[12px] text-alarm/85 leading-snug">
+            {trigger ? TIEBREAK_WHY[trigger] : "النقاط متعادلة بعد حسم الجولة."}
+          </p>
+          {trigger && trigger !== "lastRound" && (
+            <p className="text-[12px] text-alarm/85 leading-snug">
+              النقاط متعادلة ({gp} — {sp})، لذلك يخمن كل فريق كلمات الخصم الأربع.
+            </p>
+          )}
+          {trigger === "lastRound" && (
+            <p className="text-[12px] text-alarm/85 leading-snug">
+              يخمن كل فريق كلمات الخصم الأربع — الأكثر إصابة يفوز.
+            </p>
+          )}
+        </div>
+      )}
       <div className="rend-strip">
         <span className="rend-strip-label">الجولات</span>
         <div className="rend-strip-cells" aria-hidden>
           {Array.from({ length: cellCount }, (_, i) => {
             const n = i + 1;
-            const sd = n > maxRounds;
             const done = n < room.round;
             const now = n === room.round;
             return (
@@ -1097,7 +1155,6 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
                 key={n}
                 className={[
                   "rend-cell",
-                  sd ? "rend-cell-sd" : "",
                   done ? "rend-cell-done" : "",
                   now ? "rend-cell-now" : "",
                 ].filter(Boolean).join(" ")}
@@ -1138,35 +1195,47 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
           })}
         </div>
         <p className="rend-sec-foot">
-          اختراقان يفوزان باللعبة. خللان يخسرانها.
+          {awaitingShowdown
+            ? `النقاط: ${TEAM_LABEL.gold} ${gp} · ${TEAM_LABEL.silver} ${sp} (اختراق +1، خلل −1)`
+            : "اختراقان يفوزان باللعبة. خللان يخسرانها."}
         </p>
       </section>
 
       <section className="rend-sec rend-sec-duel">
-        <div className="duel rend-duel" role="group" aria-label="المُشفِّران القادمان">
-          {nextEncryptors.flatMap(({ team, uid: u }, i) => {
-            const mine = !!u && u === uid;
+        <div
+          className={`duel rend-duel${awaitingShowdown ? " rend-duel-roster" : ""}`}
+          role="group"
+          aria-label={awaitingShowdown ? "المواجهة الحاسمة" : "المُشفِّران القادمان"}
+        >
+          {duelSides.flatMap(({ team, uids, you }, i) => {
             const color = TEAM_HEX[team];
-            const fullName = u ? (room.players[u]?.name ?? "؟") : "؟";
-            const display = fullName.split(" ")[0] || fullName;
             const side = (
               <div
                 key={team}
-                className={`side ${team === "gold" ? "a" : "b"}${mine ? " you" : ""}`}
+                className={`side ${team === "gold" ? "a" : "b"}${you ? " you" : ""}`}
                 style={{ color }}
               >
                 <span className="sig">
                   <TeamEmblem team={team} size={32} />
                 </span>
                 <span className="col">
-                  <span
-                    className="nm"
-                    title={fullName}
-                    style={{ "--len": display.length } as CSSProperties}
-                  >
-                    {display}
-                  </span>
-                  {mine && <span className="you-tag">أنت</span>}
+                  {uids.map((u) => {
+                    const fullName = room.players[u]?.name ?? "؟";
+                    const display = fullName.split(" ")[0] || fullName;
+                    const mine = u === uid;
+                    return (
+                      <span key={u} className="rend-duel-name-row">
+                        <span
+                          className="nm"
+                          title={fullName}
+                          style={{ "--len": display.length } as CSSProperties}
+                        >
+                          {display}
+                        </span>
+                        {mine && <span className="you-tag">أنت</span>}
+                      </span>
+                    );
+                  })}
                 </span>
               </div>
             );
@@ -1211,8 +1280,136 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
         <HostContinue
           room={room}
           uid={uid}
-          label={room.winner ? "النتيجة النهائية" : "الجولة التالية"}
+          label={continueLabel}
         />
+      )}
+    </div>
+  );
+}
+
+/* ================================================================== */
+/* showdown                                                           */
+/* ================================================================== */
+
+export function ShowdownPhase({
+  room, myTeam, rounds, guessWords, setGuessWord, guessSubmittedAt,
+}: Ctx) {
+  const enemy = OTHER[myTeam];
+  const alreadyIn = room.showdownIn?.[myTeam] === true || guessSubmittedAt != null;
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [sentLocal, setSentLocal] = useState(false);
+  const autoSent = useRef(false);
+  const wordsRef = useRef(guessWords);
+  wordsRef.current = guessWords;
+  const enemyLanes = buildLanes(rounds, enemy, null);
+  const sent = alreadyIn || sentLocal;
+
+  async function send() {
+    if (alreadyIn || sentLocal || busy) return;
+    setBusy(true); setErr("");
+    try {
+      const words = ["1", "2", "3", "4"].map((n) => (wordsRef.current[n] ?? "").trim());
+      await api.submitShowdown({ roomId: room.id, words });
+      setSentLocal(true);
+    } catch (e) {
+      setErr(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Auto-submit at the visible deadline so resolve reads a locked sheet.
+  useEffect(() => {
+    if (sent || autoSent.current || !room.phaseEndsAt || room.paused) return;
+    const left = Math.max(0, room.phaseEndsAt - Date.now());
+    const t = setTimeout(() => {
+      if (autoSent.current) return;
+      autoSent.current = true;
+      void send();
+    }, left + 50);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sent, room.phaseEndsAt, room.paused, room.id]);
+
+  return (
+    <div className="px-3 pt-2 pb-28 fade-in space-y-3">
+      <div className="px-3 py-2.5 rounded-xl bg-alarm/15 border border-alarm/40">
+        <p className="text-[13px] text-alarm font-medium leading-snug">
+          تعادل بعد {room.round} جولات. اكتبوا كلمات الخصم الأربع — الأكثر إصابة يفوز.
+        </p>
+        <p className="text-[11px] text-alarm/70 mt-1 leading-snug">
+          عند التساوي يفوز الأسرع عبر الجولات (تشفير وفك).
+        </p>
+      </div>
+
+      <div className="card overflow-hidden divide-y divide-line">
+        {[1, 2, 3, 4].map((n) => {
+          const lane = enemyLanes[n - 1];
+          const clueLine = lane.clues.map((c) => c.text).join(" · ") || "—";
+          const key = String(n);
+          return (
+            <div key={n} className="px-3 py-2.5 flex items-start gap-2.5">
+              <span
+                className="num shrink-0 w-6 h-6 mt-1.5 rounded-md grid place-items-center text-[13px] font-bold"
+                style={{
+                  color: TEAM_HEX[enemy],
+                  background: `${TEAM_HEX[enemy]}22`,
+                  border: `1px solid ${TEAM_HEX[enemy]}55`,
+                }}
+              >
+                {n}
+              </span>
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="text-[11px] text-muted truncate" title={clueLine}>
+                  {clueLine}
+                </p>
+                <input
+                  className="w-full bg-[#1B1A14] border border-line rounded-lg px-3 py-2 text-parch placeholder:text-[#6E6858] focus:border-gold focus:outline-none"
+                  style={{ fontSize: "16px" }}
+                  value={guessWords[key] ?? ""}
+                  disabled={sent}
+                  maxLength={24}
+                  placeholder="كلمة الخصم"
+                  onChange={(e) => setGuessWord?.(key, e.target.value)}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {err && <Banner tone="warn">{err}</Banner>}
+
+      {sent ? (
+        <Empty title="أُرسل تخمينكم" body="بانتظار الفريق الآخر…" />
+      ) : (
+        <div
+          className="fixed inset-x-0 z-40 px-4 pt-3 bg-ink/95 backdrop-blur-sm border-t border-line"
+          style={{
+            bottom: "calc(3.25rem + var(--safe-b))",
+            paddingBottom: "10px",
+          }}
+        >
+          <Btn className="w-full" disabled={busy} onClick={() => void send()}>
+            {busy ? "…" : "إرسال التخمين"}
+          </Btn>
+        </div>
+      )}
+
+      {(room.showdownIn?.gold || room.showdownIn?.silver) && (
+        <div className="flex justify-center gap-4 pt-1 text-[12px]">
+          {TEAMS.map((t) => (
+            <span
+              key={t}
+              style={{ color: room.showdownIn?.[t] ? TEAM_HEX[t] : undefined }}
+              className={room.showdownIn?.[t] ? "font-medium" : "text-muted"}
+            >
+              {TEAM_LABEL[t]}
+              {room.showdownIn?.[t] ? " ✓" : " …"}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   );

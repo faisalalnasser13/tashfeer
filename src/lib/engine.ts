@@ -28,7 +28,7 @@ import {
 import { db, auth } from "./firebase";
 import {
   TeamId, TEAMS, OTHER, HALF_ORDER, Phase, Room, Settings, RoundRecord,
-  allCodes, shuffle, codesEqual, evaluate, encodeCode, decodeCode,
+  allCodes, shuffle, codesEqual, evaluate, scoreShowdown, encodeCode, decodeCode,
 } from "./rules";
 import { normalizeAr, normalizeKey } from "./arabic";
 import { dealWords } from "./words";
@@ -136,35 +136,57 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, Math.round(n)));
 }
 
+function isTimedPlayPhase(phase: Phase): boolean {
+  return phase === "encrypt" || phase === "guess" || phase === "showdown";
+}
+
 function phaseDuration(settings: Settings, phase: Phase): number | null {
   // Keys / reveal / roundEnd: host-driven only (no auto clock).
   if (phase === "keys" || phase === "reveal" || phase === "roundEnd") return null;
   if (!settings.useTimer) return null;
   if (phase === "encrypt") return settings.encryptSecs * 1000;
-  if (phase === "guess") return settings.guessSecs * 1000;
+  if (phase === "guess" || phase === "showdown") return settings.guessSecs * 1000;
   return null;
 }
 
 /** Grace only on the timed play phases — not on 2s transition beats. */
 function phaseGraceMs(phase: Phase): number {
-  return phase === "encrypt" || phase === "guess" ? TIMER_GRACE_MS : 0;
+  return isTimedPlayPhase(phase) ? TIMER_GRACE_MS : 0;
 }
 
 function phasePatch(settings: Settings, phase: Phase) {
   const now = Date.now();
   const dur = phaseDuration(settings, phase);
   const startGrace =
-    dur != null && (phase === "encrypt" || phase === "guess")
+    dur != null && isTimedPlayPhase(phase)
       ? TIMER_START_GRACE_MS
       : 0;
   return {
     phase,
     phaseStartedAt: now,
     // Visible 0:00. A hidden TIMER_GRACE_MS follows before advance.
-    // Encrypt/guess also get TIMER_START_GRACE_MS before the clock drains.
+    // Timed play phases also get TIMER_START_GRACE_MS before the clock drains.
     phaseEndsAt: dur === null ? null : now + startGrace + dur,
     updatedAt: now,
   };
+}
+
+function wordsRecord(src: Record<string, string> | undefined): Record<string, string> {
+  return {
+    "1": String(src?.["1"] ?? "").slice(0, 24),
+    "2": String(src?.["2"] ?? "").slice(0, 24),
+    "3": String(src?.["3"] ?? "").slice(0, 24),
+    "4": String(src?.["4"] ?? "").slice(0, 24),
+  };
+}
+
+function wordsToArr(words: Record<string, string> | undefined): string[] {
+  const w = wordsRecord(words);
+  return [w["1"], w["2"], w["3"], w["4"]];
+}
+
+function emptySubmitMs(): Record<TeamId, number> {
+  return { gold: 0, silver: 0 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -186,7 +208,7 @@ async function createRoom({ name, avatar }: { name: string; avatar: number }) {
         hostUid: uid,
         phase: "lobby",
         round: 0,
-        suddenDeath: false,
+        showdown: false,
         paused: false,
         phaseStartedAt: now,
         phaseEndsAt: null,
@@ -198,10 +220,15 @@ async function createRoom({ name, avatar }: { name: string; avatar: number }) {
         },
         clues: { gold: null, silver: null },
         cluesIn: { gold: false, silver: false },
+        showdownIn: { gold: false, silver: false },
+        submitMs: emptySubmitMs(),
         encryptor: { gold: null, silver: null },
         activeTeam: null,
         winner: null,
         endReason: null,
+        showdownHits: null,
+        showdownGuesses: null,
+        showdownTimeBreak: false,
         createdAt: now,
         updatedAt: now,
       });
@@ -492,11 +519,16 @@ async function startGame({ roomId }: { roomId: string }) {
   batch.update(roomRef(roomId), {
     ...phasePatch(room.settings, "keys"),
     round: 1,
-    suddenDeath: false,
+    showdown: false,
     winner: null,
     endReason: null,
     clues: { gold: null, silver: null },
     cluesIn: { gold: false, silver: false },
+    showdownIn: { gold: false, silver: false },
+    submitMs: emptySubmitMs(),
+    showdownHits: null,
+    showdownGuesses: null,
+    showdownTimeBreak: false,
     encryptor: { gold: gold[0], silver: silver[0] },
     activeTeam: null,
     "teams.gold.members": gold,
@@ -619,11 +651,62 @@ async function submitClues({ roomId, clues: raw }: { roomId: string; clues: stri
   }
 
   await runTransaction(db, async (tx) => {
-    tx.update(secretRef(roomId, team, room.round), { clues });
+    const snap = await tx.get(roomRef(roomId));
+    if (!snap.exists()) throw new GameError("not-found", "الغرفة غير موجودة.");
+    const cur = { id: roomId, ...(snap.data() as object) } as Room;
+    if (cur.phase !== "encrypt") return;
+    if (cur.cluesIn[team]) return;
+
+    const now = Date.now();
+    const elapsed = Math.max(0, now - (cur.phaseStartedAt ?? now));
+    const prevMs = cur.submitMs?.[team] ?? 0;
+
+    tx.update(secretRef(roomId, team, cur.round), { clues });
     tx.update(privateRef(roomId, team), {
       usedClues: arrayUnion(...clues.map(normalizeAr)),
     });
-    tx.update(roomRef(roomId), { [`cluesIn.${team}`]: true, updatedAt: Date.now() });
+    tx.update(roomRef(roomId), {
+      [`cluesIn.${team}`]: true,
+      [`submitMs.${team}`]: prevMs + elapsed,
+      updatedAt: now,
+    });
+  });
+  return { ok: true };
+}
+
+/**
+ * Lock in this team's four guesses about the opponent's keywords.
+ * Prefill lives on guesses/{uid}; the first teammate to send wins the flag.
+ */
+async function submitShowdown({
+  roomId, words: raw,
+}: { roomId: string; words: string[] | Record<string, string> }) {
+  const uid = me();
+  const room = await loadRoom(roomId);
+  const team = room.players[uid]?.team;
+  if (!team) throw new GameError("permission-denied", "لست في فريق.");
+
+  const asRecord = Array.isArray(raw)
+    ? { "1": raw[0] ?? "", "2": raw[1] ?? "", "3": raw[2] ?? "", "4": raw[3] ?? "" }
+    : raw;
+  const words = wordsRecord(asRecord);
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef(roomId));
+    if (!snap.exists()) throw new GameError("not-found", "الغرفة غير موجودة.");
+    const cur = { id: roomId, ...(snap.data() as object) } as Room;
+    if (cur.phase !== "showdown") return;
+    if (cur.showdownIn?.[team]) return;
+
+    const now = Date.now();
+    const members = cur.teams[team].members;
+    for (const u of members) {
+      tx.update(guessRef(roomId, u), { words, submittedAt: now });
+    }
+    tx.update(roomRef(roomId), {
+      [`showdownIn.${team}`]: true,
+      updatedAt: now,
+    });
   });
   return { ok: true };
 }
@@ -717,6 +800,8 @@ type DraftPrev = {
   intercept?: (number | null)[];
   submittedDecrypt?: string | null;
   submittedIntercept?: string | null;
+  submittedDecryptAt?: number | null;
+  submittedInterceptAt?: number | null;
 };
 
 type GradedSide = ReturnType<typeof gradeSide>;
@@ -725,6 +810,9 @@ type GradedSide = ReturnType<typeof gradeSide>;
 async function everyoneReady(tx: Transaction, room: Room): Promise<boolean> {
   if (room.phase === "encrypt") {
     return room.cluesIn.gold === true && room.cluesIn.silver === true;
+  }
+  if (room.phase === "showdown") {
+    return room.showdownIn?.gold === true && room.showdownIn?.silver === true;
   }
   if (room.phase === "guess") {
     // Round 1: both teams decrypt at once (no interception).
@@ -932,6 +1020,10 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
         tx.update(roomRef(id), { ...phasePatch(room.settings, "over"), activeTeam: null });
         return;
       }
+      if (room.showdown) {
+        await beginShowdown(tx, room);
+        return;
+      }
       const nextRound = room.round + 1;
       const encryptor: Record<TeamId, string> = { gold: "", silver: "" };
       const idx: Record<TeamId, number> = { gold: 0, silver: 0 };
@@ -944,7 +1036,6 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
       tx.update(roomRef(id), {
         ...phasePatch(room.settings, "encrypt"),
         round: nextRound,
-        suddenDeath: room.suddenDeath,
         clues: { gold: null, silver: null },
         cluesIn: { gold: false, silver: false },
         encryptor,
@@ -955,14 +1046,105 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
       return;
     }
 
+    case "showdown": {
+      await resolveShowdown(tx, room);
+      return;
+    }
+
     default:
       return;
   }
 }
 
 /**
+ * Open the decisive keyword sheet. Prefills guesses/{uid} from each team's
+ * accumulated theories — all reads before any writes.
+ */
+async function beginShowdown(tx: Transaction, room: Room): Promise<void> {
+  const id = room.id;
+  const privSnaps = {
+    gold: await tx.get(privateRef(id, "gold")),
+    silver: await tx.get(privateRef(id, "silver")),
+  };
+
+  for (const team of TEAMS) {
+    const theories = (privSnaps[team].data()?.theories as Record<string, string> | undefined) ?? {};
+    const words = wordsRecord(theories);
+    const members = room.teams[team].members;
+    for (const u of members) {
+      tx.update(guessRef(id, u), {
+        words,
+        submittedAt: deleteField(),
+      });
+    }
+  }
+
+  tx.update(roomRef(id), {
+    ...phasePatch(room.settings, "showdown"),
+    showdownIn: { gold: false, silver: false },
+    activeTeam: null,
+  });
+}
+
+type GuessDoc = { words?: Record<string, string>; submittedAt?: number | null };
+
+/** Grade both sheets against final/keys and end the game. */
+async function resolveShowdown(tx: Transaction, room: Room): Promise<void> {
+  const id = room.id;
+  const keysSnap = await tx.get(doc(db, "rooms", id, "final", "keys"));
+  const goldUid = room.teams.gold.members[0] ?? "";
+  const silverUid = room.teams.silver.members[0] ?? "";
+  const guessSnaps = {
+    gold: await tx.get(guessRef(id, goldUid)),
+    silver: await tx.get(guessRef(id, silverUid)),
+  };
+
+  const keys = (keysSnap.data() ?? {}) as Record<TeamId, string[]>;
+  const goldGuess = (guessSnaps.gold.data() ?? {}) as GuessDoc;
+  const silverGuess = (guessSnaps.silver.data() ?? {}) as GuessDoc;
+  const guesses: Record<TeamId, string[]> = {
+    gold: wordsToArr(goldGuess.words),
+    silver: wordsToArr(silverGuess.words),
+  };
+
+  const scored = scoreShowdown(guesses, {
+    gold: keys.gold ?? [],
+    silver: keys.silver ?? [],
+  });
+
+  let winner: TeamId | "draw" = scored.winner;
+  let timeBreak = false;
+
+  if (winner === "draw") {
+    const gMs = room.submitMs?.gold ?? 0;
+    const sMs = room.submitMs?.silver ?? 0;
+    if (gMs > 0 || sMs > 0) {
+      if (gMs < sMs) { winner = "gold"; timeBreak = true; }
+      else if (sMs < gMs) { winner = "silver"; timeBreak = true; }
+    }
+    if (winner === "draw") {
+      const gAt = goldGuess.submittedAt ?? Number.POSITIVE_INFINITY;
+      const sAt = silverGuess.submittedAt ?? Number.POSITIVE_INFINITY;
+      if (gAt < sAt) { winner = "gold"; timeBreak = true; }
+      else if (sAt < gAt) { winner = "silver"; timeBreak = true; }
+    }
+  }
+
+  tx.update(roomRef(id), {
+    ...phasePatch(room.settings, "over"),
+    activeTeam: null,
+    winner,
+    endReason: "showdown",
+    showdownHits: scored.hits,
+    showdownGuesses: guesses,
+    showdownTimeBreak: timeBreak,
+  });
+}
+
+/**
  * Write graded side(s) into the round log, update scores, open reveal.
  * `activeReveal` null = show both teams (round-1 dual reveal).
+ * `submitMsBump` adds decrypt/intercept elapsed time for this half.
  */
 function applyResolvedSides(
   tx: Transaction,
@@ -971,6 +1153,7 @@ function applyResolvedSides(
   prev: RoundRecord | undefined,
   bothDone: boolean,
   activeReveal: TeamId | null,
+  submitMsBump: Record<TeamId, number> = emptySubmitMs(),
 ): void {
   const id = room.id;
   const round = room.round;
@@ -994,29 +1177,42 @@ function applyResolvedSides(
 
   tx.set(doc(db, "rooms", id, "rounds", String(round)), {
     round,
-    suddenDeath: room.suddenDeath,
+    suddenDeath: false,
     at: Date.now(),
     data,
   } satisfies RoundRecord);
+
+  const submitMs: Record<TeamId, number> = {
+    gold: (room.submitMs?.gold ?? 0) + (submitMsBump.gold ?? 0),
+    silver: (room.submitMs?.silver ?? 0) + (submitMsBump.silver ?? 0),
+  };
 
   const patch: Record<string, unknown> = {
     ...phasePatch(room.settings, "reveal"),
     activeTeam: activeReveal,
     clues: room.clues,
+    submitMs,
     "teams.gold.score": score.gold,
     "teams.silver.score": score.silver,
   };
 
   if (bothDone) {
     const verdict = evaluate(
-      score.gold, score.silver, round, room.settings, room.suddenDeath
+      score.gold, score.silver, round, room.settings, room.showdown
     );
-    patch.suddenDeath = room.suddenDeath || Boolean(verdict.suddenDeath);
+    patch.showdown = room.showdown || Boolean(verdict.showdown);
     patch.winner = verdict.done ? verdict.winner ?? null : null;
     patch.endReason = verdict.done ? verdict.reason ?? null : null;
   }
 
   tx.update(roomRef(id), patch);
+}
+
+/** Elapsed from phase start to a draft submit timestamp (0 if missing). */
+function elapsedFromPhase(room: Room, at: unknown): number {
+  if (typeof at !== "number" || !Number.isFinite(at)) return 0;
+  const start = room.phaseStartedAt ?? at;
+  return Math.max(0, at - start);
 }
 
 /** Round 1: score both decrypts together, then dual reveal. */
@@ -1035,12 +1231,14 @@ async function resolveRound1(tx: Transaction, room: Room): Promise<void> {
   const prevRec = await tx.get(doc(db, "rooms", id, "rounds", String(round)));
 
   const graded: Partial<Record<TeamId, GradedSide>> = {};
+  const submitMsBump = emptySubmitMs();
   for (const t of TEAMS) {
     const secret = secretSnaps[t].data() as {
       code?: number[]; encryptorUid?: string;
     } | undefined;
     const clues = room.clues[t] || [];
-    const decrypt = (draftSnaps[t].data()?.decrypt as (number | null)[])
+    const draft = draftSnaps[t].data() as DraftPrev | undefined;
+    const decrypt = (draft?.decrypt as (number | null)[])
       || [null, null, null];
     graded[t] = gradeSide(
       round, t,
@@ -1048,6 +1246,7 @@ async function resolveRound1(tx: Transaction, room: Room): Promise<void> {
       secret?.encryptorUid ?? null,
       clues, decrypt, [null, null, null],
     );
+    submitMsBump[t] += elapsedFromPhase(room, draft?.submittedDecryptAt);
   }
 
   applyResolvedSides(
@@ -1055,6 +1254,7 @@ async function resolveRound1(tx: Transaction, room: Room): Promise<void> {
     prevRec.data() as RoundRecord | undefined,
     /* bothDone */ true,
     /* activeReveal */ null,
+    submitMsBump,
   );
 }
 
@@ -1073,20 +1273,27 @@ async function resolveHalf(tx: Transaction, room: Room): Promise<void> {
   const oppDraft = await tx.get(draftRef(id, opp, round));
   const prevRec = await tx.get(doc(db, "rooms", id, "rounds", String(round)));
 
+  const ownerPrev = ownerDraft.data() as DraftPrev | undefined;
+  const oppPrev = oppDraft.data() as DraftPrev | undefined;
   const graded = gradeSide(
     round, active,
     (secret.data()?.code as number[]) || [0, 0, 0],
     (secret.data()?.encryptorUid as string) ?? null,
     room.clues[active] || [],
-    (ownerDraft.data()?.decrypt as (number | null)[]) || [null, null, null],
-    (oppDraft.data()?.intercept as (number | null)[]) || [null, null, null],
+    (ownerPrev?.decrypt as (number | null)[]) || [null, null, null],
+    (oppPrev?.intercept as (number | null)[]) || [null, null, null],
   );
+
+  const submitMsBump = emptySubmitMs();
+  submitMsBump[active] += elapsedFromPhase(room, ownerPrev?.submittedDecryptAt);
+  submitMsBump[opp] += elapsedFromPhase(room, oppPrev?.submittedInterceptAt);
 
   applyResolvedSides(
     tx, room, { [active]: graded },
     prevRec.data() as RoundRecord | undefined,
     active === "silver",
     active,
+    submitMsBump,
   );
 }
 
@@ -1181,11 +1388,16 @@ async function returnToLobby(roomId: string, room: Room) {
     const cur = snap.data() as Room;
     if (cur.phase === "lobby") return;
     tx.update(roomRef(roomId), {
-      phase: "lobby", round: 0, suddenDeath: false, paused: false,
+      phase: "lobby", round: 0, showdown: false, paused: false,
       phaseEndsAt: null, phaseStartedAt: Date.now(),
       winner: null, endReason: null,
       clues: { gold: null, silver: null },
       cluesIn: { gold: false, silver: false },
+      showdownIn: { gold: false, silver: false },
+      submitMs: emptySubmitMs(),
+      showdownHits: null,
+      showdownGuesses: null,
+      showdownTimeBreak: false,
       encryptor: { gold: null, silver: null },
       activeTeam: null,
       "teams.gold.score": { breach: 0, fault: 0 },
@@ -1210,8 +1422,8 @@ async function rematch({ roomId }: { roomId: string }) {
 
 export const api = {
   createRoom, joinRoom, setTeam, shuffleTeams, kickPlayer, leaveRoom,
-  updateSettings, startGame, submitClues, advancePhase, hostControl, rematch,
-  shuffleTeamKeys,
+  updateSettings, startGame, submitClues, submitShowdown, advancePhase,
+  hostControl, rematch, shuffleTeamKeys,
 };
 
 export function errText(e: unknown): string {

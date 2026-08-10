@@ -2,7 +2,7 @@ import type { Room, TeamId } from "../lib/types";
 
 /** Phases with a player-facing countdown. Transition beats hide the clock. */
 export function phaseShowsTimer(phase: string): boolean {
-  return phase === "encrypt" || phase === "guess";
+  return phase === "encrypt" || phase === "guess" || phase === "showdown";
 }
 
 function clock(ms: number | null): string {
@@ -27,14 +27,17 @@ export function Header({
   // Thresholds use visible remaining (phaseEndsAt), not the hidden grace.
   const crit = showTimer && remaining != null && remaining <= 10_000;
   const warn = showTimer && remaining != null && remaining <= 15_000 && !crit;
-  const roundLabel = room.suddenDeath ? "جولة حاسمة" : `الجولة ${room.round}`;
+  const showdown = room.phase === "showdown" || room.showdown;
+  const roundLabel = showdown
+    ? (room.phase === "showdown" ? "المواجهة" : "تعادل · مواجهة")
+    : `الجولة ${room.round}`;
 
   return (
     <header
       className={`backdrop-blur-sm hairline transition-colors duration-200 ${
         room.paused
           ? "bg-ink/95"
-          : crit
+          : room.phase === "showdown" || crit
           ? "header-crit"
           : warn
           ? "header-warn"
@@ -67,9 +70,11 @@ export function Header({
       </div>
 
       {showTimer && (
-        <div className="timer-track">
+        <div className={`timer-track${room.phase === "showdown" ? " timer-track-showdown" : ""}`}>
           <div
-            className={`timer-fill ${crit ? "timer-crit" : warn ? "timer-warn" : ""}`}
+            className={`timer-fill ${
+              room.phase === "showdown" || crit ? "timer-crit" : warn ? "timer-warn" : ""
+            }`}
             style={{ width: `${remaining == null ? 100 : pct * 100}%` }}
           >
             <i className="ember" aria-hidden="true" />

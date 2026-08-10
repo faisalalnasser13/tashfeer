@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, errText } from "../lib/firebase";
-import { ORDINALS } from "../lib/arabic";
+import { normalizeAr, ORDINALS } from "../lib/arabic";
+import { points } from "../lib/rules";
 import type { Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { buildLanes, ClueGrid } from "../components/ClueGrid";
@@ -392,6 +393,92 @@ function EncryptorShame({
   );
 }
 
+function formatSubmitMs(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return m > 0 ? `${m}:${String(r).padStart(2, "0")}` : `${r}ث`;
+}
+
+/** Compact guess→actual grid for both teams after a showdown finish. */
+function ShowdownReveal({
+  room, finalKeys,
+}: {
+  room: Room;
+  finalKeys: Record<TeamId, string[]>;
+}) {
+  const guesses = room.showdownGuesses!;
+  const hits = room.showdownHits ?? { gold: 0, silver: 0 };
+  return (
+    <section className="over-panel fade-in mt-3 px-3 py-2.5 space-y-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="font-display text-[14px] text-parch">كشف المواجهة</h2>
+        <span className="text-[11px] text-muted num">
+          {hits.gold} — {hits.silver}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {TEAMS.map((t) => {
+          const opp = OTHER[t];
+          const g = guesses[t] ?? ["", "", "", ""];
+          const actual = finalKeys[opp] ?? ["", "", "", ""];
+          return (
+            <div key={t} className="min-w-0">
+              <div
+                className="text-[11px] font-medium mb-1 truncate"
+                style={{ color: TEAM_HEX[t] }}
+              >
+                {TEAM_LABEL[t]}
+                <span className="num text-muted ms-1">{hits[t] ?? 0}/4</span>
+              </div>
+              <ul className="space-y-0.5">
+                {[0, 1, 2, 3].map((i) => {
+                  const guess = (g[i] || "").trim() || "—";
+                  const key = actual[i] || "—";
+                  const a = normalizeAr(g[i] || "");
+                  const b = normalizeAr(actual[i] || "");
+                  const mark = Boolean(a && b && a === b);
+                  return (
+                    <li
+                      key={i}
+                      className="flex items-baseline gap-1 text-[11px] leading-tight"
+                    >
+                      <span
+                        className="num shrink-0"
+                        style={{ color: mark ? "#8FAE5C" : "#F03B2E" }}
+                      >
+                        {mark ? "✓" : "✗"}
+                      </span>
+                      <span className="truncate text-parch">{guess}</span>
+                      <span className="text-muted shrink-0">←</span>
+                      <span className="truncate text-muted">{key}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between text-[11px] text-muted pt-1 border-t border-line">
+        <span>
+          الحصيلة{" "}
+          <span className="num" style={{ color: TEAM_HEX.gold }}>{hits.gold}</span>
+          {" · "}
+          <span className="num" style={{ color: TEAM_HEX.silver }}>{hits.silver}</span>
+        </span>
+        {room.showdownTimeBreak && (
+          <span className="num">
+            الوقت {formatSubmitMs(room.submitMs?.gold ?? 0)}
+            {" / "}
+            {formatSubmitMs(room.submitMs?.silver ?? 0)}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function GameOver({
   room, uid, myTeam, keys, rounds, onLeave, finalKeys,
 }: {
@@ -413,6 +500,9 @@ export function GameOver({
         .map(([, p]) => p.name)
     : [];
   const [rematchErr, setRematchErr] = useState<string | null>(null);
+  const gp = points(room.teams.gold.score);
+  const sp = points(room.teams.silver.score);
+  const pointDiff = Math.abs(gp - sp);
 
   return (
     <div className="px-4 py-5 pb-28" style={{ paddingTop: "calc(var(--safe-t) + 20px)" }}>
@@ -459,12 +549,48 @@ export function GameOver({
         <div className="over-file-score">
           <ScoreStrip room={room} myTeam={myTeam} showMineLabel={false} />
         </div>
+
+        {room.endReason === "points" && (
+          <p className="px-3 pb-3 text-[12.5px] text-parch/90 leading-snug text-center">
+            حُسمت بفارق النقاط
+            {" "}
+            <span className="num font-medium">(+{pointDiff})</span>
+            {" — "}
+            اختراق <span className="num">+1</span>
+            {" · "}
+            خلل <span className="num">−1</span>
+            <br />
+            <span className="text-muted">
+              <span style={{ color: TEAM_HEX.gold }}>{TEAM_LABEL.gold}</span>
+              {" "}
+              <span className="num">{gp}</span>
+              {" · "}
+              <span style={{ color: TEAM_HEX.silver }}>{TEAM_LABEL.silver}</span>
+              {" "}
+              <span className="num">{sp}</span>
+            </span>
+          </p>
+        )}
+        {room.endReason === "showdown" && !room.showdownTimeBreak && (
+          <p className="px-3 pb-3 text-[12.5px] text-muted leading-snug text-center">
+            حُسمت بمواجهة الكلمات بعد تعادل النقاط
+          </p>
+        )}
+        {room.endReason === "showdown" && room.showdownTimeBreak && (
+          <p className="px-3 pb-3 text-[12.5px] text-muted leading-snug text-center">
+            تعادل في الكلمات — حُسمت بالوقت الأقل عبر الجولات
+          </p>
+        )}
       </div>
 
-      {loserTeam && (
+      {room.endReason === "showdown" && room.showdownGuesses && finalKeys && (
+        <ShowdownReveal room={room} finalKeys={finalKeys} />
+      )}
+
+      {loserTeam && room.endReason !== "showdown" && (
         <EncryptorShame room={room} rounds={rounds} loserTeam={loserTeam} />
       )}
-      {draw &&
+      {draw && room.endReason !== "showdown" &&
         TEAMS.map((t) => (
           <EncryptorShame key={t} room={room} rounds={rounds} loserTeam={t} />
         ))}

@@ -171,12 +171,72 @@ export function useDraft(roomId: string | null, team: TeamId | null, round: numb
       setCode: (field: "decrypt" | "intercept", values: (number | null)[]) =>
         write({ [field]: values }),
       /** Whoever taps first locks that field. Role depends on the half. */
-      submit: (uid: string, field: "decrypt" | "intercept") =>
-        write(field === "decrypt" ? { submittedDecrypt: uid } : { submittedIntercept: uid }),
+      submit: (uid: string, field: "decrypt" | "intercept") => {
+        const now = Date.now();
+        return write(
+          field === "decrypt"
+            ? { submittedDecrypt: uid, submittedDecryptAt: now }
+            : { submittedIntercept: uid, submittedInterceptAt: now }
+        );
+      },
     };
   }, [path]);
 
   return { draft, actions };
+}
+
+/**
+ * Shared showdown sheet — one words map mirrored onto every teammate's
+ * guesses/{uid} doc so live edits match setTheory.
+ */
+export function useGuessSheet(
+  roomId: string | null,
+  team: TeamId | null,
+  members: string[],
+  uid: string | null,
+) {
+  const [words, setWords] = useState<Record<string, string>>({
+    "1": "", "2": "", "3": "", "4": "",
+  });
+  const [submittedAt, setSubmittedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!roomId || !uid) {
+      setWords({ "1": "", "2": "", "3": "", "4": "" });
+      setSubmittedAt(null);
+      return;
+    }
+    return onSnapshot(
+      doc(db, "rooms", roomId, "guesses", uid),
+      (s) => {
+        if (!s.exists()) return;
+        const data = s.data();
+        setWords({
+          "1": String(data.words?.["1"] ?? ""),
+          "2": String(data.words?.["2"] ?? ""),
+          "3": String(data.words?.["3"] ?? ""),
+          "4": String(data.words?.["4"] ?? ""),
+        });
+        setSubmittedAt(typeof data.submittedAt === "number" ? data.submittedAt : null);
+      },
+      () => {}
+    );
+  }, [roomId, uid]);
+
+  const setWord = useMemo(() => {
+    if (!roomId || !team || members.length === 0) return null;
+    return (n: string, text: string) => {
+      const clipped = text.slice(0, 24);
+      setWords((prev) => ({ ...prev, [n]: clipped }));
+      for (const u of members) {
+        updateDoc(doc(db, "rooms", roomId, "guesses", u), {
+          [`words.${n}`]: clipped,
+        }).catch(() => {});
+      }
+    };
+  }, [roomId, team, members]);
+
+  return { words, setWord, submittedAt };
 }
 
 /** All eight keywords. Rules refuse this until the game is over. */
@@ -270,7 +330,8 @@ export function useCountdown(room: Room | null) {
     return { remaining: null, total: null, pct: 1, expired: false };
   }
 
-  const playPhase = room.phase === "encrypt" || room.phase === "guess";
+  const playPhase =
+    room.phase === "encrypt" || room.phase === "guess" || room.phase === "showdown";
   const startGrace = playPhase ? TIMER_START_GRACE_MS : 0;
   const total = Math.max(1, room.phaseEndsAt - room.phaseStartedAt - startGrace);
   // Cap at `total` so the first startGrace ms show a frozen full clock.
@@ -345,7 +406,7 @@ export function usePhaseDriver(room: Room | null, uid: string | null) {
 export function useAutoAdvance(room: Room | null, locallyDone: boolean) {
   useEffect(() => {
     if (!room || !locallyDone) return;
-    if (room.phase !== "encrypt" && room.phase !== "guess") return;
+    if (room.phase !== "encrypt" && room.phase !== "guess" && room.phase !== "showdown") return;
     if (room.paused) return;
 
     const phase = room.phase;
