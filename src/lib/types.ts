@@ -1,5 +1,7 @@
 export type TeamId = "gold" | "silver";
 
+export type Lang = "ar" | "en";
+
 export type Phase =
   | "lobby" | "keys" | "encrypt" | "guess" | "reveal" | "roundEnd" | "showdown" | "over";
 
@@ -34,6 +36,8 @@ export interface TeamState {
 export interface Room {
   id: string;
   hostUid: string;
+  /** Locked at create — never changes mid-game. Old rooms default to ar. */
+  lang: Lang;
   phase: Phase;
   round: number;
   /** True once a points tie commits the table to a showdown. */

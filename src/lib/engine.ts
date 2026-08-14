@@ -30,8 +30,10 @@ import {
   TeamId, TEAMS, OTHER, HALF_ORDER, Phase, Room, Settings, RoundRecord,
   allCodes, shuffle, codesEqual, evaluate, scoreShowdown, encodeCode, decodeCode,
 } from "./rules";
-import { normalizeAr, normalizeKey } from "./arabic";
+import { normalizeKeyword, normalizeText } from "./arabic";
 import { dealWords } from "./words";
+import { S, asLang } from "./strings";
+import type { Lang } from "./types";
 
 /* ------------------------------------------------------------------ */
 /* plumbing                                                           */
@@ -86,21 +88,25 @@ const draftRef = (id: string, t: TeamId, r: number) =>
   doc(db, "rooms", id, "drafts", `${t}_r${r}`);
 const guessRef = (id: string, uid: string) => doc(db, "rooms", id, "guesses", uid);
 
-function me(): string {
+function asRoom(id: string, raw: Record<string, unknown>): Room {
+  return { ...(raw as unknown as Room), id, lang: asLang(raw.lang) };
+}
+
+function me(lang: Lang = "ar"): string {
   const uid = auth.currentUser?.uid;
-  if (!uid) throw new GameError("unauthenticated", "سجّل الدخول أولًا.");
+  if (!uid) throw new GameError("unauthenticated", S(lang).err.signIn);
   return uid;
 }
 
 async function loadRoom(id: string): Promise<Room> {
   const snap = await getDoc(roomRef(id));
-  if (!snap.exists()) throw new GameError("not-found", "لا توجد غرفة بهذا الرمز.");
-  return { id, ...(snap.data() as object) } as Room;
+  if (!snap.exists()) throw new GameError("not-found", S("ar").err.noSuchRoom);
+  return asRoom(id, snap.data() as Record<string, unknown>);
 }
 
 function requireHost(room: Room, uid: string) {
   if (room.hostUid !== uid) {
-    throw new GameError("permission-denied", "هذا التحكم للمضيف فقط.");
+    throw new GameError("permission-denied", S(room.lang).err.hostOnly);
   }
 }
 
@@ -118,9 +124,9 @@ function membersOf(room: Room, team: TeamId): string[] {
 }
 
 /** Prefer the smaller side; on a tie, stable pick from uid (txn-safe). */
-function pickBalancedTeam(goldN: number, silverN: number, uid: string): TeamId {
+function pickBalancedTeam(goldN: number, silverN: number, uid: string, lang: Lang = "ar"): TeamId {
   if (goldN >= 4 && silverN >= 4) {
-    throw new GameError("resource-exhausted", "كلا الفريقين مكتملان (4 لاعبين).");
+    throw new GameError("resource-exhausted", S(lang).err.teamsFull);
   }
   if (goldN >= 4) return "silver";
   if (silverN >= 4) return "gold";
@@ -271,10 +277,11 @@ async function syncTeamSideDocs(
 /* lobby                                                              */
 /* ------------------------------------------------------------------ */
 
-async function createRoom({ name, avatar }: { name: string; avatar: number }) {
-  const uid = me();
+async function createRoom({ name, avatar, lang }: { name: string; avatar: number; lang?: Lang }) {
+  const L = asLang(lang);
+  const uid = me(L);
   const clean = String(name || "").trim().slice(0, 16);
-  if (!clean) throw new GameError("invalid-argument", "اكتب اسمك.");
+  if (!clean) throw new GameError("invalid-argument", S(L).err.writeName);
 
   for (let attempt = 0; attempt < 6; attempt++) {
     const id = newRoomId();
@@ -284,6 +291,7 @@ async function createRoom({ name, avatar }: { name: string; avatar: number }) {
       const now = Date.now();
       tx.set(roomRef(id), {
         hostUid: uid,
+        lang: L,
         phase: "lobby",
         round: 0,
         showdown: false,
@@ -314,19 +322,19 @@ async function createRoom({ name, avatar }: { name: string; avatar: number }) {
     });
     if (created) return { roomId: id };
   }
-  throw new GameError("internal", "تعذّر إنشاء الغرفة. حاول مرة أخرى.");
+  throw new GameError("internal", S(L).err.createFailed);
 }
 
 async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string; avatar: number }) {
   const uid = me();
   const id = String(roomId || "").replace(/\D/g, "").slice(0, 4);
   const clean = String(name || "").trim().slice(0, 16);
-  if (!clean) throw new GameError("invalid-argument", "اكتب اسمك.");
+  if (!clean) throw new GameError("invalid-argument", S("ar").err.writeName);
 
   const assigned = await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(id));
-    if (!snap.exists()) throw new GameError("not-found", "لا توجد غرفة بهذا الرمز.");
-    const room = snap.data() as Room;
+    if (!snap.exists()) throw new GameError("not-found", S("ar").err.noSuchRoom);
+    const room = asRoom(id, snap.data() as Record<string, unknown>);
     const existing = room.players[uid];
     const now = Date.now();
 
@@ -346,7 +354,8 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
         team = pickBalancedTeam(
           room.teams.gold.members.length,
           room.teams.silver.members.length,
-          uid
+          uid,
+          room.lang,
         );
         patch[`players.${uid}`] = {
           ...existing,
@@ -362,7 +371,7 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
     }
 
     if (Object.keys(room.players).length >= 10) {
-      throw new GameError("resource-exhausted", "الغرفة ممتلئة.");
+      throw new GameError("resource-exhausted", S(room.lang).err.roomFull);
     }
 
     // Lobby: sit unassigned until they pick a side.
@@ -380,7 +389,8 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
     const team = pickBalancedTeam(
       room.teams.gold.members.length,
       room.teams.silver.members.length,
-      uid
+      uid,
+      room.lang,
     );
     tx.update(roomRef(id), {
       [`players.${uid}`]: {
@@ -404,14 +414,14 @@ async function joinRoom({ roomId, name, avatar }: { roomId: string; name: string
 
 async function setTeam({ roomId, team }: { roomId: string; team: string | null }) {
   const uid = me();
-  if (team !== null && team !== "gold" && team !== "silver") {
-    throw new GameError("invalid-argument", "فريق غير معروف.");
-  }
   const room = await loadRoom(roomId);
-  if (room.phase !== "lobby") {
-    throw new GameError("failed-precondition", "لا يمكن تغيير الفريق أثناء اللعب.");
+  if (team !== null && team !== "gold" && team !== "silver") {
+    throw new GameError("invalid-argument", S(room.lang).err.unknownTeam);
   }
-  if (!room.players[uid]) throw new GameError("permission-denied", "لست في هذه الغرفة.");
+  if (room.phase !== "lobby") {
+    throw new GameError("failed-precondition", S(room.lang).err.switchPlay);
+  }
+  if (!room.players[uid]) throw new GameError("permission-denied", S(room.lang).err.notInRoom);
   await runTransaction(db, async (tx) => {
     tx.update(roomRef(roomId), { [`players.${uid}.team`]: team, updatedAt: Date.now() });
   });
@@ -422,7 +432,7 @@ async function shuffleTeams({ roomId }: { roomId: string }) {
   const uid = me();
   const room = await loadRoom(roomId);
   requireHost(room, uid);
-  if (room.phase !== "lobby") throw new GameError("failed-precondition", "الفرق تُوزَّع قبل البدء.");
+  if (room.phase !== "lobby") throw new GameError("failed-precondition", S(room.lang).err.shuffleLobby);
 
   const players = shuffle(Object.keys(room.players));
   const patch: Record<string, unknown> = { updatedAt: Date.now() };
@@ -435,10 +445,10 @@ async function kickPlayer({ roomId, uid: target }: { roomId: string; uid: string
   const uid = me();
   const room = await loadRoom(roomId);
   requireHost(room, uid);
-  if (target === uid) throw new GameError("invalid-argument", "لا يمكنك إخراج نفسك.");
-  if (!room.players[target]) throw new GameError("not-found", "اللاعب ليس في الغرفة.");
+  if (target === uid) throw new GameError("invalid-argument", S(room.lang).err.kickSelf);
+  if (!room.players[target]) throw new GameError("not-found", S(room.lang).err.playerGone);
   if (room.phase === "over") {
-    throw new GameError("failed-precondition", "انتهت اللعبة.");
+    throw new GameError("failed-precondition", S(room.lang).err.gameOver);
   }
 
   let removedFrom: TeamId | null = null;
@@ -447,9 +457,9 @@ async function kickPlayer({ roomId, uid: target }: { roomId: string; uid: string
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
     if (!snap.exists()) return;
-    const r = snap.data() as Room;
+    const r = asRoom(roomId, snap.data() as Record<string, unknown>);
     if (r.hostUid !== uid) {
-      throw new GameError("permission-denied", "المضيف فقط يخرج اللاعبين.");
+      throw new GameError("permission-denied", S(r.lang).err.hostKick);
     }
     if (!r.players[target]) return;
 
@@ -527,7 +537,7 @@ async function updateSettings({ roomId, settings }: { roomId: string; settings: 
   const uid = me();
   const room = await loadRoom(roomId);
   requireHost(room, uid);
-  if (room.phase !== "lobby") throw new GameError("failed-precondition", "الإعدادات تُضبط قبل البدء.");
+  if (room.phase !== "lobby") throw new GameError("failed-precondition", S(room.lang).err.settingsLobby);
   const s = settings ?? {};
   const next: Settings = {
     encryptSecs: snapTimer(Number(s.encryptSecs ?? room.settings.encryptSecs)),
@@ -549,15 +559,15 @@ async function startGame({ roomId }: { roomId: string }) {
   const uid = me();
   const room = await loadRoom(roomId);
   requireHost(room, uid);
-  if (room.phase !== "lobby") throw new GameError("failed-precondition", "اللعبة بدأت بالفعل.");
+  if (room.phase !== "lobby") throw new GameError("failed-precondition", S(room.lang).err.gameStarted);
 
   const gold = membersOf(room, "gold");
   const silver = membersOf(room, "silver");
   if (gold.length < 2 || silver.length < 2) {
-    throw new GameError("failed-precondition", "تحتاج لاعبَين على الأقل في كل فريق.");
+    throw new GameError("failed-precondition", S(room.lang).err.needTwo);
   }
 
-  const words = dealWords(8);
+  const words = dealWords(8, room.lang);
   const batch = writeBatch(db);
   const finalKeys: Record<string, string[]> = {};
 
@@ -622,21 +632,21 @@ async function startGame({ roomId }: { roomId: string }) {
 async function shuffleTeamKeys({ roomId, team }: { roomId: string; team: string }) {
   const uid = me();
   if (team !== "gold" && team !== "silver") {
-    throw new GameError("invalid-argument", "فريق غير معروف.");
+    throw new GameError("invalid-argument", S("ar").err.unknownTeam);
   }
   const side = team as TeamId;
   const room = await loadRoom(roomId);
   requireHost(room, uid);
   if (room.phase !== "keys") {
-    throw new GameError("failed-precondition", "خلط المفاتيح قبل بدء التشفير فقط.");
+    throw new GameError("failed-precondition", S(room.lang).err.shuffleKeysPhase);
   }
 
-  const fresh = dealWords(4);
+  const fresh = dealWords(4, room.lang);
 
   await runTransaction(db, async (tx) => {
     const roomSnap = await tx.get(roomRef(roomId));
-    if (!roomSnap.exists()) throw new GameError("not-found", "الغرفة غير موجودة.");
-    const cur = roomSnap.data() as Room;
+    if (!roomSnap.exists()) throw new GameError("not-found", S(room.lang).err.roomMissing);
+    const cur = asRoom(roomId, roomSnap.data() as Record<string, unknown>);
     if (cur.phase !== "keys") return;
 
     tx.update(privateRef(roomId, side), { keys: fresh });
@@ -687,43 +697,43 @@ export async function ensureCode(roomId: string, team: TeamId, round: number) {
 
 async function submitClues({ roomId, clues: raw }: { roomId: string; clues: string[] }) {
   const uid = me();
+  const room = await loadRoom(roomId);
   if (!Array.isArray(raw) || raw.length !== 3) {
-    throw new GameError("invalid-argument", "اكتب التلميحات الثلاثة.");
+    throw new GameError("invalid-argument", S(room.lang).err.writeThree);
   }
   const clues = raw.map((c) => String(c || "").trim().slice(0, 40));
-  if (clues.some((c) => !c)) throw new GameError("invalid-argument", "لا تترك تلميحًا فارغًا.");
+  if (clues.some((c) => !c)) throw new GameError("invalid-argument", S(room.lang).err.emptyClue);
 
-  const room = await loadRoom(roomId);
-  if (room.phase !== "encrypt") throw new GameError("failed-precondition", "ليست مرحلة كتابة التلميحات.");
+  if (room.phase !== "encrypt") throw new GameError("failed-precondition", S(room.lang).err.notEncryptPhase);
 
   const team = TEAMS.find((t) => room.encryptor[t] === uid) ?? null;
-  if (!team) throw new GameError("permission-denied", "أنت لست المُشفِّر في هذه الجولة.");
+  if (!team) throw new GameError("permission-denied", S(room.lang).err.notEncryptor);
 
   const privSnap = await getDoc(privateRef(roomId, team));
   const priv = privSnap.data() as { keys: string[]; usedClues: string[] } | undefined;
-  if (!priv) throw new GameError("internal", "بيانات الفريق غير متاحة.");
+  if (!priv) throw new GameError("internal", S(room.lang).err.noTeamData);
 
-  const normClues = clues.map(normalizeKey);
-  const normKeys = priv.keys.map(normalizeKey);
+  const normClues = clues.map((c) => normalizeKeyword(c, room.lang));
+  const normKeys = priv.keys.map((k) => normalizeKeyword(k, room.lang));
   for (let i = 0; i < 3; i++) {
     if (normKeys.includes(normClues[i])) {
-      throw new GameError("invalid-argument", `التلميح ${i + 1} هو إحدى كلماتكم. اختر غيره.`);
+      throw new GameError("invalid-argument", S(room.lang).err.clueIsKeyword(i + 1));
     }
   }
   if (new Set(normClues).size !== 3) {
-    throw new GameError("invalid-argument", "التلميحات الثلاثة متطابقة أو مكررة.");
+    throw new GameError("invalid-argument", S(room.lang).err.cluesDup);
   }
-  const used = new Set((priv.usedClues || []).map(normalizeAr));
+  const used = new Set((priv.usedClues || []).map((c) => normalizeText(c, room.lang)));
   for (const c of clues) {
-    if (used.has(normalizeAr(c))) {
-      throw new GameError("invalid-argument", `استخدمتم "${c}" في جولة سابقة.`);
+    if (used.has(normalizeText(c, room.lang))) {
+      throw new GameError("invalid-argument", S(room.lang).err.clueUsed(c));
     }
   }
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
-    if (!snap.exists()) throw new GameError("not-found", "الغرفة غير موجودة.");
-    const cur = { id: roomId, ...(snap.data() as object) } as Room;
+    if (!snap.exists()) throw new GameError("not-found", S(room.lang).err.roomMissing);
+    const cur = asRoom(roomId, snap.data() as Record<string, unknown>);
     if (cur.phase !== "encrypt") return;
     if (cur.cluesIn[team]) return;
 
@@ -733,7 +743,7 @@ async function submitClues({ roomId, clues: raw }: { roomId: string; clues: stri
 
     tx.update(secretRef(roomId, team, cur.round), { clues });
     tx.update(privateRef(roomId, team), {
-      usedClues: arrayUnion(...clues.map(normalizeAr)),
+      usedClues: arrayUnion(...clues.map((c) => normalizeText(c, cur.lang))),
     });
     tx.update(roomRef(roomId), {
       [`cluesIn.${team}`]: true,
@@ -754,7 +764,7 @@ async function submitShowdown({
   const uid = me();
   const room = await loadRoom(roomId);
   const team = room.players[uid]?.team;
-  if (!team) throw new GameError("permission-denied", "لست في فريق.");
+  if (!team) throw new GameError("permission-denied", S(room.lang).err.notOnTeam);
 
   const asRecord = Array.isArray(raw)
     ? { "1": raw[0] ?? "", "2": raw[1] ?? "", "3": raw[2] ?? "", "4": raw[3] ?? "" }
@@ -763,8 +773,8 @@ async function submitShowdown({
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
-    if (!snap.exists()) throw new GameError("not-found", "الغرفة غير موجودة.");
-    const cur = { id: roomId, ...(snap.data() as object) } as Room;
+    if (!snap.exists()) throw new GameError("not-found", S(room.lang).err.roomMissing);
+    const cur = asRoom(roomId, snap.data() as Record<string, unknown>);
     if (cur.phase !== "showdown") return;
     if (cur.showdownIn?.[team]) return;
 
@@ -777,6 +787,7 @@ async function submitShowdown({
     }
     tx.update(roomRef(roomId), {
       [`showdownIn.${team}`]: true,
+      [`showdownGuesses.${team}`]: wordsToArr(words),
       updatedAt: now,
     });
   });
@@ -798,10 +809,10 @@ async function advancePhase({
   const uid = me();
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
-    if (!snap.exists()) throw new GameError("not-found", "الغرفة غير موجودة.");
-    const room = { id: roomId, ...(snap.data() as object) } as Room;
+    if (!snap.exists()) throw new GameError("not-found", S("ar").err.roomMissing);
+    const room = asRoom(roomId, snap.data() as Record<string, unknown>);
 
-    if (!room.players[uid]) throw new GameError("permission-denied", "لست في هذه الغرفة.");
+    if (!room.players[uid]) throw new GameError("permission-denied", S(room.lang).err.notInRoom);
     if (room.paused) return;
     if (fromPhase && (room.phase !== fromPhase || room.round !== fromRound)) return;
 
@@ -812,11 +823,14 @@ async function advancePhase({
     if (!expired) {
       if (force) requireHost(room, uid);
       else if (!(await everyoneReady(tx, room))) {
-        throw new GameError("failed-precondition", "لم ينتهِ الوقت بعد.");
+        throw new GameError("failed-precondition", S(room.lang).err.timeLeft);
       }
     }
     await runTransition(tx, room);
   });
+  // Keys stay sealed until phase == 'over'. Score in a follow-up now
+  // that the flip has committed — same call, one user-visible action.
+  await settleShowdown(roomId);
   return { ok: true };
 }
 
@@ -1129,54 +1143,68 @@ async function runTransition(tx: Transaction, room: Room): Promise<void> {
 }
 
 /**
- * Open the decisive keyword sheet. Prefills guesses/{uid} from each team's
- * accumulated theories — all reads before any writes.
+ * Open the decisive keyword sheet.
+ *
+ * Do not read private/{team} or write the other side's guesses here —
+ * rules seal keywords from the opposing team, so the host (on one side)
+ * used to get permission-denied the moment they tapped "Keyword showdown".
+ * Prefill is each team's own job: setTheory mirrors onto guesses/{uid},
+ * and seedOwnShowdown copies leftover private.theories onto that sheet.
  */
 async function beginShowdown(tx: Transaction, room: Room): Promise<void> {
-  const id = room.id;
-  const privSnaps = {
-    gold: await tx.get(privateRef(id, "gold")),
-    silver: await tx.get(privateRef(id, "silver")),
-  };
-
-  for (const team of TEAMS) {
-    const theories = (privSnaps[team].data()?.theories as Record<string, string> | undefined) ?? {};
-    const words = wordsRecord(theories);
-    const members = room.teams[team].members;
-    for (const u of members) {
-      // merge: true — create if a member lacks a sheet (safer than update).
-      tx.set(guessRef(id, u), {
-        uid: u,
-        team,
-        members,
-        words,
-        submittedAt: deleteField(),
-      }, { merge: true });
-    }
-  }
-
-  tx.update(roomRef(id), {
+  tx.update(roomRef(room.id), {
     ...phasePatch(room.settings, "showdown"),
     showdownIn: { gold: false, silver: false },
     activeTeam: null,
   });
 }
 
+/**
+ * Copy this player's team theories onto their guess sheets. Own private
+ * only — safe to call from any teammate when showdown opens.
+ */
+async function seedOwnShowdown({ roomId }: { roomId: string }) {
+  const uid = me();
+  const room = await loadRoom(roomId);
+  if (room.phase !== "showdown") return { ok: true };
+  const team = room.players[uid]?.team;
+  if (!team) return { ok: true };
+
+  const members = room.teams[team].members;
+  const priv = await getDoc(privateRef(roomId, team));
+  const theories = wordsRecord(priv.data()?.theories as Record<string, string> | undefined);
+  const mine = await getDoc(guessRef(roomId, uid));
+  const prev = wordsRecord(mine.data()?.words as Record<string, string> | undefined);
+  const words = {
+    "1": prev["1"] || theories["1"],
+    "2": prev["2"] || theories["2"],
+    "3": prev["3"] || theories["3"],
+    "4": prev["4"] || theories["4"],
+  };
+
+  await Promise.all(members.map((u) =>
+    setDoc(guessRef(roomId, u), { uid: u, team, members, words }, { merge: true }).catch(() => {})
+  ));
+  return { ok: true };
+}
+
 type GuessDoc = { words?: Record<string, string>; submittedAt?: number | null };
 
-/** Grade both sheets against final/keys and end the game. */
+/**
+ * Flip to over so final/keys and both guess sheets become readable.
+ * Scoring happens in settleShowdown — rules refuse those reads while
+ * phase is still showdown, which is what made the host's resolve fail.
+ */
 async function resolveShowdown(tx: Transaction, room: Room): Promise<void> {
-  const id = room.id;
   const goldMembers = room.teams.gold.members;
   const silverMembers = room.teams.silver.members;
 
-  // Empty side forfeits — invalid path if we called guessRef(id, "").
   if (goldMembers.length === 0 || silverMembers.length === 0) {
     const winner: TeamId | "draw" =
       goldMembers.length === 0 && silverMembers.length === 0 ? "draw"
       : goldMembers.length === 0 ? "silver"
       : "gold";
-    tx.update(roomRef(id), {
+    tx.update(roomRef(room.id), {
       ...phasePatch(room.settings, "over"),
       activeTeam: null,
       winner,
@@ -1188,51 +1216,75 @@ async function resolveShowdown(tx: Transaction, room: Room): Promise<void> {
     return;
   }
 
-  const keysSnap = await tx.get(doc(db, "rooms", id, "final", "keys"));
-  const guessSnaps = {
-    gold: await tx.get(guessRef(id, goldMembers[0])),
-    silver: await tx.get(guessRef(id, silverMembers[0])),
-  };
-
-  const keys = (keysSnap.data() ?? {}) as Record<TeamId, string[]>;
-  const goldGuess = (guessSnaps.gold.data() ?? {}) as GuessDoc;
-  const silverGuess = (guessSnaps.silver.data() ?? {}) as GuessDoc;
-  const guesses: Record<TeamId, string[]> = {
-    gold: wordsToArr(goldGuess.words),
-    silver: wordsToArr(silverGuess.words),
-  };
-
-  const scored = scoreShowdown(guesses, {
-    gold: keys.gold ?? [],
-    silver: keys.silver ?? [],
-  });
-
-  let winner: TeamId | "draw" = scored.winner;
-  let timeBreak = false;
-
-  if (winner === "draw") {
-    const gMs = room.submitMs?.gold ?? 0;
-    const sMs = room.submitMs?.silver ?? 0;
-    if (gMs > 0 || sMs > 0) {
-      if (gMs < sMs) { winner = "gold"; timeBreak = true; }
-      else if (sMs < gMs) { winner = "silver"; timeBreak = true; }
-    }
-    if (winner === "draw") {
-      const gAt = goldGuess.submittedAt ?? Number.POSITIVE_INFINITY;
-      const sAt = silverGuess.submittedAt ?? Number.POSITIVE_INFINITY;
-      if (gAt < sAt) { winner = "gold"; timeBreak = true; }
-      else if (sAt < gAt) { winner = "silver"; timeBreak = true; }
-    }
-  }
-
-  tx.update(roomRef(id), {
+  tx.update(roomRef(room.id), {
     ...phasePatch(room.settings, "over"),
     activeTeam: null,
-    winner,
+    winner: null,
     endReason: "showdown",
-    showdownHits: scored.hits,
-    showdownGuesses: guesses,
-    showdownTimeBreak: timeBreak,
+    showdownHits: null,
+    showdownTimeBreak: false,
+  });
+}
+
+/** Grade both sheets now that phase == 'over' has unsealed the keys. */
+async function settleShowdown(roomId: string): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(roomRef(roomId));
+    if (!snap.exists()) return;
+    const room = asRoom(roomId, snap.data() as Record<string, unknown>);
+    if (room.phase !== "over" || room.endReason !== "showdown") return;
+    if (room.showdownHits) return;
+
+    const id = room.id;
+    const goldMembers = room.teams.gold.members;
+    const silverMembers = room.teams.silver.members;
+    if (goldMembers.length === 0 || silverMembers.length === 0) return;
+
+    const keysSnap = await tx.get(doc(db, "rooms", id, "final", "keys"));
+    const guessSnaps = {
+      gold: await tx.get(guessRef(id, goldMembers[0])),
+      silver: await tx.get(guessRef(id, silverMembers[0])),
+    };
+
+    const keys = (keysSnap.data() ?? {}) as Record<TeamId, string[]>;
+    const goldGuess = (guessSnaps.gold.data() ?? {}) as GuessDoc;
+    const silverGuess = (guessSnaps.silver.data() ?? {}) as GuessDoc;
+    const guesses: Record<TeamId, string[]> = {
+      gold: room.showdownGuesses?.gold ?? wordsToArr(goldGuess.words),
+      silver: room.showdownGuesses?.silver ?? wordsToArr(silverGuess.words),
+    };
+
+    const scored = scoreShowdown(guesses, {
+      gold: keys.gold ?? [],
+      silver: keys.silver ?? [],
+    }, room.lang);
+
+    let winner: TeamId | "draw" = scored.winner;
+    let timeBreak = false;
+
+    if (winner === "draw") {
+      const gMs = room.submitMs?.gold ?? 0;
+      const sMs = room.submitMs?.silver ?? 0;
+      if (gMs > 0 || sMs > 0) {
+        if (gMs < sMs) { winner = "gold"; timeBreak = true; }
+        else if (sMs < gMs) { winner = "silver"; timeBreak = true; }
+      }
+      if (winner === "draw") {
+        const gAt = goldGuess.submittedAt ?? Number.POSITIVE_INFINITY;
+        const sAt = silverGuess.submittedAt ?? Number.POSITIVE_INFINITY;
+        if (gAt < sAt) { winner = "gold"; timeBreak = true; }
+        else if (sAt < gAt) { winner = "silver"; timeBreak = true; }
+      }
+    }
+
+    tx.update(roomRef(id), {
+      winner,
+      endReason: "showdown",
+      showdownHits: scored.hits,
+      showdownGuesses: guesses,
+      showdownTimeBreak: timeBreak,
+      updatedAt: Date.now(),
+    });
   });
 }
 
@@ -1427,7 +1479,7 @@ async function hostControl({ roomId, action }: { roomId: string; action: string 
     if (room.phase === "lobby") return { ok: true };
     await returnToLobby(roomId, room);
   } else {
-    throw new GameError("invalid-argument", "أمر غير معروف.");
+    throw new GameError("invalid-argument", S(room.lang).err.unknownAction);
   }
   return { ok: true };
 }
@@ -1480,7 +1532,7 @@ async function returnToLobby(roomId: string, room: Room) {
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(roomRef(roomId));
     if (!snap.exists()) return;
-    const cur = snap.data() as Room;
+    const cur = asRoom(roomId, snap.data() as Record<string, unknown>);
     if (cur.phase === "lobby") return;
     tx.update(roomRef(roomId), {
       phase: "lobby", round: 0, showdown: false, paused: false,
@@ -1508,7 +1560,7 @@ async function rematch({ roomId }: { roomId: string }) {
   const uid = me();
   const room = await loadRoom(roomId);
   requireHost(room, uid);
-  if (room.phase !== "over") throw new GameError("failed-precondition", "اللعبة لم تنتهِ بعد.");
+  if (room.phase !== "over") throw new GameError("failed-precondition", S(room.lang).err.notOver);
   await returnToLobby(roomId, room);
   return { ok: true };
 }
@@ -1518,15 +1570,17 @@ async function rematch({ roomId }: { roomId: string }) {
 export const api = {
   createRoom, joinRoom, setTeam, shuffleTeams, kickPlayer, leaveRoom,
   updateSettings, startGame, submitClues, submitShowdown, advancePhase,
-  hostControl, rematch, shuffleTeamKeys,
+  hostControl, rematch, shuffleTeamKeys, seedOwnShowdown,
 };
 
-export function errText(e: unknown): string {
+export function errText(e: unknown, lang: Lang = "ar"): string {
+  if (e instanceof GameError) return e.message;
   const code = (e as { code?: string })?.code || "";
   const m = (e as { message?: string })?.message || "";
+  const s = S(lang);
   if (code === "permission-denied" || /insufficient permissions|Missing or insufficient/i.test(m)) {
-    return "لا صلاحية لهذا الإجراء. حدّث الصفحة وحاول مرة أخرى.";
+    return s.err.permission;
   }
-  if (!m || m === "INTERNAL") return "حدث خطأ. حاول مرة أخرى.";
+  if (!m || m === "INTERNAL") return s.err.generic;
   return m;
 }

@@ -3,7 +3,8 @@
  * and imported by the client for previews.
  */
 
-import { normalizeAr } from "./arabic";
+import { normalizeText } from "./arabic";
+import type { Lang } from "./types";
 
 export type TeamId = "gold" | "silver";
 export type Phase =
@@ -51,6 +52,8 @@ export interface TeamState {
 export interface Room {
   id: string;
   hostUid: string;
+  /** Locked at create. Optional so older test fixtures still typecheck. */
+  lang?: Lang;
   phase: Phase;
   round: number;
   /** True once a points tie commits the table to a showdown. */
@@ -239,11 +242,12 @@ export function evaluate(
 
 /**
  * Score the showdown: each team names the opponent's four keywords.
- * Comparison uses the same Arabic normalisation as repeated-clue checks.
+ * Comparison uses the same normalisation as repeated-clue checks.
  */
 export function scoreShowdown(
   guesses: Record<TeamId, string[]>,
   keys: Record<TeamId, string[]>,
+  lang: Lang = "ar",
 ): { hits: Record<TeamId, number>; winner: TeamId | "draw" } {
   const hits: Record<TeamId, number> = { gold: 0, silver: 0 };
   for (const team of TEAMS) {
@@ -251,8 +255,8 @@ export function scoreShowdown(
     const guessed = guesses[team] || [];
     const actual = keys[opp] || [];
     for (let i = 0; i < 4; i++) {
-      const g = normalizeAr(guessed[i] || "");
-      const k = normalizeAr(actual[i] || "");
+      const g = normalizeText(guessed[i] || "", lang);
+      const k = normalizeText(actual[i] || "", lang);
       if (g && k && g === k) hits[team] += 1;
     }
   }

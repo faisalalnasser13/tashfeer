@@ -3,7 +3,9 @@ import { api, errText } from "../lib/firebase";
 import type { Room, TeamId } from "../lib/types";
 import { TEAMS } from "../lib/types";
 import { TeamEmblem } from "../components/TeamEmblem";
-import { Banner, Btn, TEAM_HEX, TEAM_LABEL } from "../components/ui";
+import { Banner, Btn, TEAM_HEX } from "../components/ui";
+import { QR } from "../components/QR";
+import { S, joinUrl } from "../lib/strings";
 
 const MAX_SEATS = 4;
 const BRASS = "#D3B45F";
@@ -12,8 +14,11 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const isHost = room.hostUid === uid;
   const me = room.players[uid];
+  const s = S(room.lang);
+  const url = joinUrl(room.id);
 
   // Drop abandoned encrypt drafts for this room (incl. rematch → round 1).
   useEffect(() => {
@@ -37,19 +42,18 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
   const silver = byTeam("silver");
   const idle = byTeam(null);
   const canStart = gold.length >= 2 && silver.length >= 2;
-  const readyReason = readinessReason(gold.length, silver.length, idle.length);
+  const readyReason = readinessReason(gold.length, silver.length, idle.length, s);
 
   async function guard(fn: () => Promise<unknown>) {
     setErr(""); setBusy(true);
-    try { await fn(); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
+    try { await fn(); } catch (e) { setErr(errText(e, room.lang)); } finally { setBusy(false); }
   }
 
   async function share() {
-    const url = `${location.origin}/?r=${room.id}`;
-    const text = `انضم إلى غرفتي في تشفير\nالرمز: ${room.id}\n${url}`;
+    const text = s.shareText(room.id, url);
     try {
       if (navigator.share) {
-        await navigator.share({ title: "تشفير", text, url });
+        await navigator.share({ title: s.title, text, url });
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -65,7 +69,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
   }
 
   function leave() {
-    if (!window.confirm("مغادرة الغرفة؟ إن كنت آخر لاعب تُحذف الغرفة.")) return;
+    if (!window.confirm(s.leaveConfirm)) return;
     void api.leaveRoom({ roomId: room.id }).finally(onLeave);
   }
 
@@ -75,17 +79,27 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
         {/* Room code header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <p className="lobby-tt text-[10px] text-muted mb-1">رمز الغرفة</p>
+            <p className="lobby-tt text-[10px] text-muted mb-1">{s.roomCode}</p>
             <p className="font-display text-[34px] leading-none text-gold tracking-[0.18em]" dir="ltr">
               {room.id}
             </p>
           </div>
           <Btn variant="ghost" className="!py-2.5 !px-4 !text-[13px] !rounded-none mt-4" onClick={share}>
-            {copied ? "نُسخ الرابط" : "مشاركة"}
+            {copied ? s.copied : s.share}
           </Btn>
         </div>
 
         {err && <div className="mb-3"><Banner tone="warn">{err}</Banner></div>}
+
+        <Btn variant="ghost" className="w-full !py-2.5 mb-3" onClick={() => setShowQr((v) => !v)}>
+          {showQr ? s.hideQr : s.showQr}
+        </Btn>
+        {showQr && (
+          <div className="mb-3 flex flex-col items-center gap-1.5">
+            <QR url={url} />
+            <span className="text-[11px] font-bold text-muted">{s.scanToJoin}</span>
+          </div>
+        )}
 
         {/* Assignment board */}
         <section className="lobby-board mb-3">
@@ -114,6 +128,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
                     if (busy) return;
                     guard(() => api.kickPlayer({ roomId: room.id, uid: u }));
                   }}
+                  copy={s}
                 />
               );
             })}
@@ -122,7 +137,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
 
         {idle.length > 0 && (
           <div className="lobby-idle mb-3">
-            <p className="lobby-tt text-muted mb-2">بلا فريق</p>
+            <p className="lobby-tt text-muted mb-2">{s.noTeam}</p>
             <div className="flex flex-wrap gap-x-3 gap-y-2">
               {idle.map(([u, p]) => (
                 <span key={u} className="flex items-center gap-1.5">
@@ -133,7 +148,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
                       className="lobby-kick"
                       onClick={() => guard(() => api.kickPlayer({ roomId: room.id, uid: u }))}
                     >
-                      إخراج
+                      {s.kick}
                     </button>
                   )}
                 </span>
@@ -149,7 +164,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
             onClick={() => guard(() => api.shuffleTeams({ roomId: room.id }))}
             className="lobby-mix mb-3"
           >
-            اخلط الفرق
+            {s.shuffle}
           </button>
         )}
 
@@ -159,7 +174,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
             busy={busy}
             canStart={canStart}
             readyReason={readyReason}
-            onSave={(s) => guard(() => api.updateSettings({ roomId: room.id, settings: s }))}
+            onSave={(st) => guard(() => api.updateSettings({ roomId: room.id, settings: st }))}
             onStart={() => guard(() => api.startGame({ roomId: room.id }))}
           />
         ) : (
@@ -167,7 +182,7 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
         )}
 
         <button type="button" className="w-full text-[12px] text-muted/70 pt-4 pb-2" onClick={leave}>
-          مغادرة الغرفة
+          {s.leave}
         </button>
       </div>
     </div>
@@ -178,32 +193,32 @@ export function Lobby({ room, uid, onLeave }: { room: Room; uid: string; onLeave
 /* readiness                                                          */
 /* ------------------------------------------------------------------ */
 
-function readinessReason(goldN: number, silverN: number, idleN: number): string | null {
+function readinessReason(
+  goldN: number, silverN: number, idleN: number, s: ReturnType<typeof S>,
+): string | null {
   if (goldN >= 2 && silverN >= 2 && idleN === 0) return null;
   if (goldN >= 2 && silverN >= 2 && idleN > 0) {
-    return idleN === 1
-      ? "لا يزال لاعب بلا فريق"
-      : `${idleN} لاعبون بلا فريق`;
+    return idleN === 1 ? s.idleOne : s.idleMany(idleN);
   }
   const short: string[] = [];
-  if (goldN < 2) short.push(`الحلفاء (${goldN}/2)`);
-  if (silverN < 2) short.push(`المحور (${silverN}/2)`);
-  if (short.length === 2) return `${short[0]} و${short[1]} ناقصان`;
-  return `${short[0]} يحتاج لاعبَين على الأقل`;
+  if (goldN < 2) short.push(s.goldShort(goldN));
+  if (silverN < 2) short.push(s.silverShort(silverN));
+  if (short.length === 2) return s.shortBoth(short[0], short[1]);
+  return s.needsTwo(short[0]);
 }
 
-function ReadinessLine({ ready, reason }: { ready: boolean; reason: string | null }) {
+function ReadinessLine({ ready, reason, okLabel }: { ready: boolean; reason: string | null; okLabel: string }) {
   return (
     <div className={`lobby-ready ${ready ? "lobby-ready-ok" : "lobby-ready-warn"}`}>
       {ready ? (
         <>
           <ReadyIcon ok />
-          <span>الجاهزية مكتملة — يمكن البدء</span>
+          <span>{okLabel}</span>
         </>
       ) : (
         <>
           <ReadyIcon ok={false} />
-          <span>{reason ?? "بانتظار اكتمال الفريقين"}</span>
+          <span>{reason ?? ""}</span>
         </>
       )}
     </div>
@@ -238,7 +253,7 @@ function ReadyIcon({ ok }: { ok: boolean }) {
 /* ------------------------------------------------------------------ */
 
 function Station({
-  team, list, mine, dimEmblem, isHost, showCount, hostUid, uid, busy, onJoin, onKick,
+  team, list, mine, dimEmblem, isHost, showCount, hostUid, uid, busy, onJoin, onKick, copy,
 }: {
   team: TeamId;
   list: [string, Room["players"][string]][];
@@ -251,6 +266,7 @@ function Station({
   busy: boolean;
   onJoin: () => void;
   onKick: (u: string) => void;
+  copy: ReturnType<typeof S>;
 }) {
   const empty = Math.max(0, MAX_SEATS - list.length);
   const color = TEAM_HEX[team];
@@ -280,7 +296,7 @@ function Station({
           className={`font-display text-[14px] leading-none truncate ${dimEmblem ? "lobby-emblem-dim" : ""}`}
           style={{ color }}
         >
-          {TEAM_LABEL[team]}
+          {copy.team[team]}
         </span>
         {showCount && (
           <span className="num text-[11px] text-muted ms-auto shrink-0">
@@ -294,7 +310,7 @@ function Station({
           <div key={u} className="lobby-seat">
             <span className="truncate text-[13.5px]">{p.name}</span>
             <span className="flex items-center gap-1.5 shrink-0">
-              {u === hostUid && <span className="lobby-tt text-[9px] text-muted">مضيف</span>}
+              {u === hostUid && <span className="lobby-tt text-[9px] text-muted">{copy.host}</span>}
               {isHost && u !== uid && (
                 <button
                   type="button"
@@ -304,7 +320,7 @@ function Station({
                     onKick(u);
                   }}
                 >
-                  إخراج
+                  {copy.kick}
                 </button>
               )}
             </span>
@@ -312,7 +328,7 @@ function Station({
         ))}
         {Array.from({ length: empty }, (_, i) => (
           <div key={`e-${i}`} className="lobby-seat lobby-seat-empty">
-            <span className="text-muted">—</span>
+            <span className="text-muted">{copy.empty}</span>
             <span className="lobby-seat-dots" />
           </div>
         ))}
@@ -322,7 +338,7 @@ function Station({
         className="lobby-station-action"
         style={{ color: mine ? color : "#8A8474" }}
       >
-        {mine ? "خروج" : "انضم"}
+        {mine ? copy.leaveSide : copy.joinSide}
       </div>
     </div>
   );
@@ -343,29 +359,32 @@ function OrdersPanel({
   onStart: () => void;
 }) {
   const s = room.settings;
+  const copy = S(room.lang);
   const timerOpts = [45, 60, 75] as const;
 
   return (
     <section className="lobby-orders mt-3">
       <header className="lobby-orders-head">
-        <span>أوامر التشغيل</span>
-        <span className="text-muted">المضيف فقط</span>
+        <span>{copy.orders}</span>
+        <span className="text-muted">{copy.hostOnly}</span>
       </header>
 
       <div className="lobby-orders-row">
-        <span className="text-[13.5px]">المؤقت</span>
+        <span className="text-[13.5px]">{copy.timer}</span>
         <TimerLever
           on={s.useTimer}
           onToggle={() => onSave({ useTimer: !s.useTimer })}
+          onLabel={copy.timerOn}
+          offLabel={copy.timerOff}
         />
       </div>
 
       <div className={`lobby-orders-row lobby-orders-stack ${s.useTimer ? "" : "lobby-orders-dim"}`}>
         <div className="flex items-baseline justify-between mb-2">
-          <span className="text-[13px]">وقت كتابة التلميحات</span>
+          <span className="text-[13px]">{copy.encryptTime}</span>
           <span className="num text-[13px]" style={{ color: BRASS }}>
             {s.encryptSecs}
-            <span className="text-[10px] text-muted ms-1">ث</span>
+            <span className="text-[10px] text-muted ms-1">{copy.sec}</span>
           </span>
         </div>
         <Segmented
@@ -378,10 +397,10 @@ function OrdersPanel({
 
       <div className={`lobby-orders-row lobby-orders-stack ${s.useTimer ? "" : "lobby-orders-dim"}`}>
         <div className="flex items-baseline justify-between mb-2">
-          <span className="text-[13px]">وقت الفكّ والاعتراض</span>
+          <span className="text-[13px]">{copy.guessTime}</span>
           <span className="num text-[13px]" style={{ color: BRASS }}>
             {s.guessSecs}
-            <span className="text-[10px] text-muted ms-1">ث</span>
+            <span className="text-[10px] text-muted ms-1">{copy.sec}</span>
           </span>
         </div>
         <Segmented
@@ -394,7 +413,7 @@ function OrdersPanel({
 
       <div className="lobby-orders-row lobby-orders-stack">
         <div className="flex items-baseline justify-between mb-2">
-          <span className="text-[13px]">عدد الجولات</span>
+          <span className="text-[13px]">{copy.rounds}</span>
         </div>
         <Segmented
           options={[6, 8, 10] as const}
@@ -404,7 +423,7 @@ function OrdersPanel({
       </div>
 
       <div className="lobby-orders-ready">
-        <ReadinessLine ready={canStart} reason={readyReason} />
+        <ReadinessLine ready={canStart} reason={readyReason} okLabel={copy.readyOk} />
       </div>
 
       <button
@@ -413,24 +432,28 @@ function OrdersPanel({
         onClick={onStart}
         className="lobby-orders-start"
       >
-        ابدأ اللعبة
+        {copy.start}
       </button>
     </section>
   );
 }
 
-function TimerLever({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+function TimerLever({
+  on, onToggle, onLabel, offLabel,
+}: {
+  on: boolean; onToggle: () => void; onLabel: string; offLabel: string;
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
-      aria-label={on ? "تشغيل المؤقت" : "إيقاف المؤقت"}
+      aria-label={on ? onLabel : offLabel}
       onClick={onToggle}
       className={`lobby-lever ${on ? "lobby-lever-on" : ""}`}
     >
-      <span className="lobby-lever-label lobby-lever-on-label">تشغيل</span>
-      <span className="lobby-lever-label lobby-lever-off-label">إيقاف</span>
+      <span className="lobby-lever-label lobby-lever-on-label">{onLabel}</span>
+      <span className="lobby-lever-label lobby-lever-off-label">{offLabel}</span>
       <i className="lobby-lever-bolt" aria-hidden />
     </button>
   );
@@ -467,30 +490,31 @@ function Segmented<T extends number>({
 
 function NonHostWait({ room, canStart }: { room: Room; canStart: boolean }) {
   const s = room.settings;
+  const copy = S(room.lang);
   return (
     <div className="lobby-wait mt-3">
       <p className="lobby-wait-line">
         <span className="lobby-wait-dots" aria-hidden>
           <i /><i /><i />
         </span>
-        {canStart ? "بانتظار المضيف ليبدأ…" : "بانتظار اكتمال الفريقين…"}
+        {canStart ? copy.waitingHost : copy.waitingTeams}
       </p>
       <table className="lobby-summary">
         <tbody>
           <tr>
-            <th>المؤقت</th>
-            <td>{s.useTimer ? "تشغيل" : "إيقاف"}</td>
+            <th>{copy.timer}</th>
+            <td>{s.useTimer ? copy.timerOn : copy.timerOff}</td>
           </tr>
           <tr>
-            <th>كتابة التلميحات</th>
-            <td className="num">{s.encryptSecs} ث</td>
+            <th>{copy.encryptTime}</th>
+            <td className="num">{s.encryptSecs} {copy.sec}</td>
           </tr>
           <tr>
-            <th>الفكّ والاعتراض</th>
-            <td className="num">{s.guessSecs} ث</td>
+            <th>{copy.guessTime}</th>
+            <td className="num">{s.guessSecs} {copy.sec}</td>
           </tr>
           <tr>
-            <th>عدد الجولات</th>
+            <th>{copy.rounds}</th>
             <td className="num">{s.maxRounds}</td>
           </tr>
         </tbody>

@@ -5,6 +5,7 @@ import {
 import { db, api } from "./firebase";
 import { ensureCode, TIMER_GRACE_MS, TIMER_START_GRACE_MS } from "./engine";
 import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "./types";
+import { asLang } from "./strings";
 
 /* ------------------------------------------------------------------ */
 /* subscriptions                                                      */
@@ -25,7 +26,8 @@ export function useRoom(roomId: string | null) {
       (s) => {
         if (!s.exists()) { setMissing(true); setRoom(null); return; }
         setMissing(false);
-        setRoom({ id: s.id, ...(s.data() as object) } as Room);
+        const raw = s.data() as Record<string, unknown>;
+        setRoom({ id: s.id, ...raw, lang: asLang(raw.lang) } as Room);
       },
       () => setMissing(true)
     );
@@ -41,7 +43,11 @@ export function useRoom(roomId: string | null) {
  * Retries on error — a permission blip at deal time used to kill the
  * listener forever until refresh.
  */
-export function useTeamPrivate(roomId: string | null, team: TeamId | null) {
+export function useTeamPrivate(
+  roomId: string | null,
+  team: TeamId | null,
+  members: string[] = [],
+) {
   const [data, setData] = useState<{
     keys: string[];
     usedClues: string[];
@@ -94,14 +100,21 @@ export function useTeamPrivate(roomId: string | null, team: TeamId | null) {
     };
   }, [roomId, team]);
 
-  /** Shared opponent-word theory — lives on private/{team}, readable by the team. */
+  /** Shared opponent-word theory — private/{team}, mirrored onto guesses. */
   const setTheory = useMemo(() => {
     if (!roomId || !team) return null;
-    return (n: string, text: string) =>
+    return (n: string, text: string) => {
+      const clipped = text.slice(0, 24);
       updateDoc(doc(db, "rooms", roomId, "private", team), {
-        [`theories.${n}`]: text.slice(0, 24),
+        [`theories.${n}`]: clipped,
       }).catch(() => {});
-  }, [roomId, team]);
+      for (const u of members) {
+        updateDoc(doc(db, "rooms", roomId, "guesses", u), {
+          [`words.${n}`]: clipped,
+        }).catch(() => {});
+      }
+    };
+  }, [roomId, team, members]);
 
   return { data, setTheory };
 }

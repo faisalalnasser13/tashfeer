@@ -1,6 +1,7 @@
 import { useState } from "react";
-import type { TeamId } from "../lib/types";
+import type { Lang, TeamId } from "../lib/types";
 import { TEAM_HEX } from "./ui";
+import { S } from "../lib/strings";
 
 /**
  * Own team's four keywords. When `highlight` is set (encryptor's code
@@ -8,22 +9,24 @@ import { TEAM_HEX } from "./ui";
  * Opponent theories live on ClueGrid / records — not in this header.
  */
 export function KeysStrip({
-  keys, team, highlight,
+  keys, team, highlight, lang = "ar",
 }: {
   keys: string[] | null;
   team: TeamId;
   /** Digits 1–4 that appear in the encryptor's code this round. */
   highlight?: number[] | null;
+  lang?: Lang;
 }) {
   const [open, setOpen] = useState(false);
   const color = TEAM_HEX[team];
   const lit = new Set((highlight ?? []).filter((n) => n >= 1 && n <= 4));
   const lighting = lit.size > 0;
+  const s = S(lang);
 
   if (!keys) {
     return (
       <div className="px-4 py-1.5 text-[12px] text-muted hairline bg-ink/90">
-        جارٍ تحميل مفاتيحكم…
+        {s.loadingKeys}
       </div>
     );
   }
@@ -39,8 +42,8 @@ export function KeysStrip({
         {open ? (
           <div className="px-3 pt-2.5 pb-2.5">
             <div className="flex items-center justify-between px-1 pb-2">
-              <span className="text-[11px] text-muted">مفاتيحكم السرية</span>
-              <span className="text-[11px] text-muted">إخفاء</span>
+              <span className="text-[11px] text-muted">{s.secretKeys}</span>
+              <span className="text-[11px] text-muted">{s.hide}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {keys.map((k, i) => {

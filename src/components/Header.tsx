@@ -1,4 +1,5 @@
 import type { Room, TeamId } from "../lib/types";
+import { S } from "../lib/strings";
 
 /** Phases with a player-facing countdown. Transition beats hide the clock. */
 export function phaseShowsTimer(phase: string): boolean {
@@ -28,9 +29,10 @@ export function Header({
   const crit = showTimer && remaining != null && remaining <= 10_000;
   const warn = showTimer && remaining != null && remaining <= 15_000 && !crit;
   const showdown = room.phase === "showdown" || room.showdown;
+  const s = S(room.lang);
   const roundLabel = showdown
-    ? (room.phase === "showdown" ? "المواجهة" : "تعادل · مواجهة")
-    : `الجولة ${room.round}`;
+    ? (room.phase === "showdown" ? s.showdown : s.tieShowdown)
+    : s.roundN(room.round);
 
   return (
     <header
@@ -62,7 +64,7 @@ export function Header({
             }`}
             aria-live="polite"
           >
-            {room.paused ? "إيقاف" : remaining != null ? clock(remaining) : "∞"}
+            {room.paused ? s.pausedClock : remaining != null ? clock(remaining) : "∞"}
           </span>
         ) : (
           <span className="w-0" aria-hidden />

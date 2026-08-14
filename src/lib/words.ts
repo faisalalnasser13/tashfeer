@@ -1,11 +1,13 @@
 /**
- * One keyword list. Concrete, imageable Arabic nouns and everyday words.
- *
- * Prefer singular forms without the definite article. Duplicate meanings
- * are collapsed via normalizeKey at deal time.
+ * Keyword banks. Concrete, imageable nouns. Duplicate meanings are
+ * collapsed via normalizeKeyword at deal time.
  */
 
-import { normalizeKey } from "./arabic";
+import type { Lang } from "./types";
+import { normalizeKeyword } from "./arabic";
+import { WORDS_EN } from "./words.en";
+
+export { WORDS_EN };
 
 export const WORDS: string[] = [
   "بحر", "جبل", "نهر", "جزيرة", "صحراء", "واحة", "غابة", "كهف", "صخرة", "رمل", "تراب", "ماء",
@@ -82,14 +84,19 @@ export const WORDS: string[] = [
   "جنيف", "فيينا", "الرياض", "أبها", "الطائف", "العلا", "مكة"
 ];
 
+/** The bank this room deals from. Indexes are only valid within one lang. */
+export function wordsFor(lang: Lang = "ar"): string[] {
+  return lang === "en" ? WORDS_EN : WORDS;
+}
+
 /** Deals `n` distinct keywords. */
-export function dealWords(n: number): string[] {
-  return dealWordsExcluding(n, new Set());
+export function dealWords(n: number, lang: Lang = "ar"): string[] {
+  return dealWordsExcluding(n, new Set(), lang);
 }
 
 /** Deals `n` keywords whose normalised forms are not in `exclude`. */
-export function dealWordsExcluding(n: number, exclude: Set<string>): string[] {
-  const pool = WORDS.filter((w) => !exclude.has(normalizeKey(w)));
+export function dealWordsExcluding(n: number, exclude: Set<string>, lang: Lang = "ar"): string[] {
+  const pool = wordsFor(lang).filter((w) => !exclude.has(normalizeKeyword(w, lang)));
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];

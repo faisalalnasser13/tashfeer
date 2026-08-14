@@ -1,7 +1,8 @@
 import { useEffect, useState, Fragment } from "react";
-import { ORDINALS } from "../lib/arabic";
-import type { TeamId } from "../lib/types";
+import { ordinalsFor } from "../lib/arabic";
+import type { Lang, TeamId } from "../lib/types";
 import { TEAM_HEX } from "./ui";
+import { S } from "../lib/strings";
 
 /** Pad / input chrome keyed to team id (gold=allies blue, silver=axis orange). */
 function padChrome(tone: TeamId) {
@@ -45,6 +46,7 @@ export function Cartouche({
   /** Hide the 1–4 pad grid (reveal screen — digits only). Default true. */
   showPads = true,
   size = "md",
+  lang = "ar",
 }: {
   values: (number | null)[];
   onChange?: (next: (number | null)[]) => void;
@@ -63,10 +65,13 @@ export function Cartouche({
   showPads?: boolean;
   /** `dense` = encryptor guess spectate only (compact, aligned columns). */
   size?: "md" | "sm" | "xs" | "dense";
+  lang?: Lang;
 }) {
   const editable = Boolean(onChange);
   const [focus, setFocus] = useState<number>(0);
   const chrome = padChrome(tone);
+  const ORDINALS = ordinalsFor(lang);
+  const s = S(lang);
 
   useEffect(() => {
     if (!editable) return;
@@ -122,8 +127,8 @@ export function Cartouche({
   function GuessLabel({ text }: { text: string }) {
     return (
       <span className="pad-word" style={{ color: chrome.accent }}>
-        {text || "—"}
-        <span aria-hidden>؟</span>
+        {text || s.empty}
+        <span aria-hidden>{s.qmark}</span>
       </span>
     );
   }
@@ -175,14 +180,14 @@ export function Cartouche({
               className={cls}
               disabled={!editable}
               onClick={() => setFocus(i)}
-              aria-label={`${ORDINALS[i]}: ${v == null ? "فارغ" : v}`}
+              aria-label={v == null ? s.slotEmpty : s.slotFilled(ORDINALS[i], v)}
             >
               <span className="num slot-digit">{v == null ? "—" : v}</span>
               {word ? <span className="slot-word">{word}</span> : null}
               {guess !== undefined ? (
                 <span className="slot-word" style={{ color: chrome.accent }}>
-                  {guess || "—"}
-                  <span aria-hidden>؟</span>
+                  {guess || s.empty}
+                  <span aria-hidden>{s.qmark}</span>
                 </span>
               ) : null}
               {hints.length > 0 ? (
@@ -204,7 +209,7 @@ export function Cartouche({
                   style={{ color: chrome.accent }}
                   title={clue}
                 >
-                  {clue || "—"}
+                  {clue || s.empty}
                 </p>
               </div>
               {slot}
@@ -250,10 +255,10 @@ export function Cartouche({
             <button
               type="button"
               onClick={clear}
-              aria-label="مسح"
+              aria-label={s.clear}
               className="pad-btn pad-clear col-span-2"
             >
-              مسح
+              {s.clear}
             </button>
           )}
         </div>

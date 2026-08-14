@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api, errText } from "../lib/firebase";
-import { normalizeAr, normalizeKey, ORDINALS } from "../lib/arabic";
+import { normalizeText, normalizeKeyword, ordinalsFor } from "../lib/arabic";
 import { useDraft, useLocal } from "../lib/hooks";
 import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "../lib/types";
 import { OTHER, TEAMS } from "../lib/types";
 import { Cartouche } from "../components/Cartouche";
 import { buildLanes, ClueGrid, SharedGuessInput } from "../components/ClueGrid";
 import { TeamEmblem } from "../components/TeamEmblem";
-import { Banner, Btn, Empty, PipBoard, Stamp, TEAM_HEX, TEAM_LABEL } from "../components/ui";
+import { Banner, Btn, Empty, PipBoard, Stamp, TEAM_HEX } from "../components/ui";
 import { codesEqual, points, tiebreakTrigger, type TiebreakTrigger } from "../lib/rules";
+import { S } from "../lib/strings";
 
 interface Ctx {
   room: Room;
@@ -54,7 +55,7 @@ function HostContinue({
         onClick={() =>
           api.advancePhase({
             roomId: room.id, force: true, fromPhase: room.phase, fromRound: room.round,
-          }).catch((e) => { alert(errText(e)); })
+          }).catch((e) => { alert(errText(e, room.lang)); })
         }
       >
         {label}
@@ -73,6 +74,7 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
   const other = OTHER[myTeam];
   const [busy, setBusy] = useState<TeamId | null>(null);
   const [err, setErr] = useState("");
+  const s = S(room.lang);
 
   async function reshuffle(team: TeamId) {
     setErr("");
@@ -80,7 +82,7 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
     try {
       await api.shuffleTeamKeys({ roomId: room.id, team });
     } catch (e) {
-      setErr(errText(e));
+      setErr(errText(e, room.lang));
     } finally {
       setBusy(null);
     }
@@ -95,11 +97,11 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
   return (
     <div className={`px-5 pt-2 fade-in ${isHost ? "pb-36" : "pb-28"}`}>
       <h2 className={`text-[22px] font-semibold text-center ${isHost ? "mb-4" : "mb-1"}`}>
-        مفاتيحكم الأربعة
+        {s.yourFourKeys}
       </h2>
       {!isHost && (
         <p className="text-[15px] text-muted text-center mb-3 leading-relaxed -mt-0.5">
-          لن تتغيّر طوال اللعبة.
+          {s.wontChange}
         </p>
       )}
       {err && (
@@ -110,13 +112,13 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
 
       <div className="keys-sheet max-w-sm mx-auto">
         <div className="keys-sheet-band keys-sheet-band-top">
-          <span className="keys-sheet-form num">نموذج مف-1</span>
-          <span className="keys-sheet-class">تصنيف · سري</span>
+          <span className="keys-sheet-form num">{s.formKy1}</span>
+          <span className="keys-sheet-class">{s.classified}</span>
         </div>
 
         {crew.length > 0 && (
           <div className={`keys-sheet-crew ${crew.length > 6 ? "keys-sheet-crew-dense" : ""}`}>
-            <p className="keys-sheet-crew-label">توقيعات الطاقم المناوب</p>
+            <p className="keys-sheet-crew-label">{s.crewSigns}</p>
             <div className="keys-sheet-crew-row">
               {crew.map(([id, p]) => (
                 <div key={id} className="keys-sheet-sign">
@@ -151,27 +153,27 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
         </div>
 
         <div className="keys-sheet-band keys-sheet-band-foot">
-          <span className="keys-sheet-destroy">يُتلف فور انتهاء اللعبة</span>
+          <span className="keys-sheet-destroy">{s.destroyAfter}</span>
           <span
             className="stamp stamp-bad keys-sheet-stamp"
             style={{ animationDelay: `${stampDelayMs}ms` }}
           >
-            سري
+            {s.secretStamp}
           </span>
         </div>
       </div>
 
       {isHost && (
         <div className="keys-cmds">
-          <p className="keys-cmds-label">أوامر المضيف</p>
+          <p className="keys-cmds-label">{s.hostOrders}</p>
           <button
             type="button"
             disabled={busy !== null}
             onClick={() => reshuffle(myTeam)}
             className="keys-cmd"
           >
-            <span className="keys-cmd-label">تغيير مفاتيح {TEAM_LABEL[myTeam]}</span>
-            <span className="keys-cmd-action">{busy === myTeam ? "…" : "تغيير"}</span>
+            <span className="keys-cmd-label">{s.changeKeys(s.team[myTeam])}</span>
+            <span className="keys-cmd-action">{busy === myTeam ? "…" : s.change}</span>
           </button>
           <button
             type="button"
@@ -181,15 +183,15 @@ export function KeysPhase({ room, uid, myTeam, keys }: Ctx) {
             style={{ borderColor: `${TEAM_HEX[other]}66` }}
           >
             <span className="keys-cmd-label" style={{ color: TEAM_HEX[other] }}>
-              تغيير مفاتيح {TEAM_LABEL[other]}
-              <span className="keys-cmd-hint">بدون عرض كلماتهم</span>
+              {s.changeKeys(s.team[other])}
+              <span className="keys-cmd-hint">{s.withoutShowing}</span>
             </span>
-            <span className="keys-cmd-action">{busy === other ? "…" : "تغيير"}</span>
+            <span className="keys-cmd-action">{busy === other ? "…" : s.change}</span>
           </button>
         </div>
       )}
 
-      {isHost && <HostContinue room={room} uid={uid} label="بدء التشفير" />}
+      {isHost && <HostContinue room={room} uid={uid} label={s.startEncrypt} />}
     </div>
   );
 }
@@ -209,6 +211,8 @@ export function EncryptPhase(ctx: Ctx) {
 function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmittedClues }: Ctx) {
   // Survives tab unmount (Game remounts the play tab). Cleared per round via key.
   const alreadyIn = room.cluesIn[myTeam] === true;
+  const s = S(room.lang);
+  const ORDINALS = ordinalsFor(room.lang);
   const [clues, setClues] = useLocal<string[]>(
     `tashfeer.encryptClues.${room.id}.${room.round}`,
     ["", "", ""],
@@ -230,23 +234,23 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
     }
   }, [mySubmittedClues]);
 
-  const usedSet = useMemo(() => new Set(usedClues.map(normalizeAr)), [usedClues]);
-  const keySet = useMemo(() => new Set((keys ?? []).map(normalizeKey)), [keys]);
+  const usedSet = useMemo(() => new Set(usedClues.map((c) => normalizeText(c, room.lang))), [usedClues, room.lang]);
+  const keySet = useMemo(() => new Set((keys ?? []).map((k) => normalizeKeyword(k, room.lang))), [keys, room.lang]);
 
   function problem(i: number): string | null {
     const raw = clues[i].trim();
     if (!raw) return null;
-    if (keySet.has(normalizeKey(raw))) return "هذه إحدى كلماتكم";
-    if (usedSet.has(normalizeAr(raw))) return "استُخدم في جولة سابقة";
-    const dup = clues.findIndex((c, j) => j !== i && c.trim() && normalizeAr(c) === normalizeAr(raw));
-    if (dup >= 0 && dup < i) return "مكرر";
+    if (keySet.has(normalizeKeyword(raw, room.lang))) return s.isYourKeyword;
+    if (usedSet.has(normalizeText(raw, room.lang))) return s.usedBefore;
+    const dup = clues.findIndex((c, j) => j !== i && c.trim() && normalizeText(c, room.lang) === normalizeText(raw, room.lang));
+    if (dup >= 0 && dup < i) return s.duplicate;
     return null;
   }
 
   const filled = clues.every((c) => c.trim().length > 0);
   const clean = filled && [0, 1, 2].every((i) => !problem(i));
   const blockReason = !filled
-    ? "أكمل التلميحات الثلاثة"
+    ? s.finishThree
     : ([0, 1, 2].map(problem).find(Boolean) ?? null);
 
   async function send() {
@@ -257,7 +261,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
       try {
         localStorage.removeItem(`tashfeer.encryptClues.${room.id}.${room.round}`);
       } catch { /* private mode */ }
-    } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
+    } catch (e) { setErr(errText(e, room.lang)); } finally { setBusy(false); }
   }
 
   /**
@@ -289,7 +293,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
         : (mySubmittedClues ?? ["…", "…", "…"]);
     return (
       <div className="px-5 py-4 fade-in">
-        <Empty title="أُرسلت تلميحاتك" body="بانتظار المُشفِّر الآخر. لا تلمّح لأحد بشيء." />
+        <Empty title={s.cluesSent} body={s.waitOtherEncryptor} />
         <div className="max-w-sm mx-auto mt-1.5 space-y-1.5">
           {shown.map((c, i) => (
             <div key={i} className="card px-3 py-2 flex items-center gap-2.5">
@@ -313,7 +317,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
   return (
     <div className="px-3 pt-2 pb-4 fade-in">
       {!code && (
-        <p className="text-[11px] text-muted text-center mb-2">جارٍ سحب الشفرة…</p>
+        <p className="text-[11px] text-muted text-center mb-2">{s.drawingCode}</p>
       )}
 
       <div className="card encrypt-card overflow-hidden">
@@ -356,7 +360,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
                       type="button"
                       className="chip encrypt-past-more"
                       onClick={() => target && setPastOpen(target)}
-                      aria-label={`عرض ${extra} تلميحات سابقة إضافية`}
+                      aria-label={s.morePastAria(extra)}
                     >
                       +{extra}
                     </button>
@@ -392,7 +396,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
                       setFocusIdx((cur) => (cur === i ? null : cur));
                     }, 80);
                   }}
-                  placeholder="تلميح"
+                  placeholder={s.cluePh}
                   className={`encrypt-input ${inputPh}`}
                   style={{
                     background: inputBg,
@@ -412,7 +416,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
         <div className="encrypt-foot">
           {err && <Banner tone="warn">{err}</Banner>}
           <Btn className="w-full !py-2.5" disabled={!clean || busy} onClick={send}>
-            {busy ? "جارٍ الإرسال…" : "أرسل التلميحات"}
+            {busy ? s.sending : s.sendClues}
           </Btn>
           {!clean ? (
             <p
@@ -424,7 +428,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
             </p>
           ) : (
             <p className="text-[10.5px] text-muted text-center leading-snug mt-1.5">
-              ممنوع التلميح للهجاء أو عدد الحروف أو الترتيب.
+              {s.noSpelling}
             </p>
           )}
         </div>
@@ -435,7 +439,7 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
           className="encrypt-past-sheet"
           role="dialog"
           aria-modal="true"
-          aria-label="تلميحات سابقة"
+          aria-label={s.pastClues}
           onClick={() => setPastOpen(null)}
         >
           <div
@@ -447,14 +451,14 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
               <p className="text-[12px] font-medium" style={{ color }}>
                 <span className="num me-1.5">{pastOpen}</span>
                 {keys?.[pastOpen - 1] ?? "…"}
-                <span className="text-muted font-normal text-[11px] ms-1.5">· السابق</span>
+                <span className="text-muted font-normal text-[11px] ms-1.5">· {s.previous}</span>
               </p>
               <button
                 type="button"
                 className="text-[11px] text-muted px-1"
                 onClick={() => setPastOpen(null)}
               >
-                إغلاق
+                {s.close}
               </button>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -471,8 +475,8 @@ function EncryptorView({ room, myTeam, keys, usedClues, code, rounds, mySubmitte
 
       {rounds.length > 0 && (
         <div className="mt-4 max-h-[40vh] overflow-y-auto overscroll-contain">
-          <p className="text-[12px] text-muted mb-2 px-1">سجل تلميحاتكم</p>
-          <ClueGrid lanes={lanes} team={myTeam} />
+          <p className="text-[12px] text-muted mb-2 px-1">{s.yourClueLog}</p>
+          <ClueGrid lanes={lanes} team={myTeam} lang={room.lang} />
         </div>
       )}
     </div>
@@ -483,16 +487,17 @@ function EncryptWaiting({ room, myTeam, rounds, keys, theories, setTheory }: Ctx
   const enemy = OTHER[myTeam];
   const myLanes = buildLanes(rounds, myTeam, keys);
   const enemyLanes = buildLanes(rounds, enemy, null);
+  const s = S(room.lang);
 
   return (
     <div className="px-4 pt-2 pb-8 space-y-4 fade-in">
-      <p className="encrypt-wait-caption">بانتظار المشفّرين</p>
-      <div className="duel encrypt-wait-duel" role="group" aria-label="المُشفِّران">
+      <p className="encrypt-wait-caption">{s.waitingEncryptors}</p>
+      <div className="duel encrypt-wait-duel" role="group" aria-label={s.encryptorsAria}>
         {TEAMS.flatMap((team, i) => {
           const encUid = room.encryptor[team];
           const ready = room.cluesIn[team] === true;
           const color = TEAM_HEX[team];
-          const fullName = encUid ? (room.players[encUid]?.name ?? "؟") : "؟";
+          const fullName = encUid ? (room.players[encUid]?.name ?? s.qmark) : s.qmark;
           const display = fullName.split(" ")[0] || fullName;
           const side = (
             <div
@@ -512,7 +517,7 @@ function EncryptWaiting({ room, myTeam, rounds, keys, theories, setTheory }: Ctx
                   {display}
                 </span>
                 {ready ? (
-                  <span className="encrypt-wait-check" aria-label="جاهز">
+                  <span className="encrypt-wait-check" aria-label={s.ready}>
                     <svg width="16" height="16" viewBox="0 0 14 14" aria-hidden>
                       <path
                         d="M2.5 7.2 5.6 10.2 11.5 3.8"
@@ -525,7 +530,7 @@ function EncryptWaiting({ room, myTeam, rounds, keys, theories, setTheory }: Ctx
                     </svg>
                   </span>
                 ) : (
-                  <span className="encrypt-wait-dots" aria-label="يكتب">
+                  <span className="encrypt-wait-dots" aria-label={s.writing}>
                     <i /><i /><i />
                   </span>
                 )}
@@ -546,27 +551,28 @@ function EncryptWaiting({ room, myTeam, rounds, keys, theories, setTheory }: Ctx
       </div>
 
       <div>
-        <p className="text-[13px] font-medium mb-1 px-1">سجل العدو</p>
+        <p className="text-[13px] font-medium mb-1 px-1">{s.enemyLog}</p>
         <p className="text-[12px] text-muted mb-2 px-1">
-          أضيفوا تخميناتكم لكلماتهم
+          {s.addGuesses}
         </p>
         <ClueGrid
           lanes={enemyLanes}
           team={enemy}
           theories={theories}
           onGuess={setTheory ? (n, t) => setTheory(n, t) : undefined}
+          lang={room.lang}
         />
       </div>
 
       <div>
-        <p className="text-[13px] font-medium mb-1 px-1">سجل فريقكم</p>
+        <p className="text-[13px] font-medium mb-1 px-1">{s.yourLog}</p>
         <p className="text-[12px] text-muted mb-2 px-1">
-          راجعوا تلميحاتكم السابقة — الخصم يحفظها كلها
+          {s.reviewPast}
         </p>
         {rounds.length === 0 ? (
-          <Empty title="الجولة الأولى" body="لا سجلّ بعد. في هذه الجولة لا اعتراض على أحد." />
+          <Empty title={s.firstRound} body={s.noLogYet} />
         ) : (
-          <ClueGrid lanes={myLanes} team={myTeam} />
+          <ClueGrid lanes={myLanes} team={myTeam} lang={room.lang} />
         )}
       </div>
     </div>
@@ -590,6 +596,7 @@ export function GuessPhase(ctx: Ctx) {
   const [busy, setBusy] = useState(false);
   const [localDecrypt, setLocalDecrypt] = useState<(number | null)[] | null>(null);
   const [localIntercept, setLocalIntercept] = useState<(number | null)[] | null>(null);
+  const s = S(room.lang);
 
   useEffect(() => {
     if (!draft) {
@@ -621,7 +628,7 @@ export function GuessPhase(ctx: Ctx) {
     try {
       await actions?.setCode(field, next);
     } catch (e) {
-      setErr(errText(e));
+      setErr(errText(e, room.lang));
     }
   }
 
@@ -632,7 +639,7 @@ export function GuessPhase(ctx: Ctx) {
     try {
       await actions.submit(uid, field);
     } catch (e) {
-      setErr(errText(e));
+      setErr(errText(e, room.lang));
     } finally {
       setBusy(false);
     }
@@ -647,8 +654,8 @@ export function GuessPhase(ctx: Ctx) {
     return (
       <div className="px-4 py-8 fade-in">
         <Empty
-          title="لم تُعطَ تلميحات"
-          body="مُشفِّركم لم يقدّم تلميحات — سوء تفاهم. لا اعتراض، واللعبة تتجاوز فكّ الشفرة لهذا الفريق."
+          title={s.noCluesTitle}
+          body={s.noCluesBody}
         />
       </div>
     );
@@ -678,12 +685,12 @@ export function GuessPhase(ctx: Ctx) {
       <Banner>
         {amOwner ? (
           <>
-            <span className="font-bold">فكّوا شفرة فريقكم من:</span>{" "}
+            <span className="font-bold">{s.decryptFrom}</span>{" "}
             <span className="font-bold" style={{ color: encColor }}>{encName}</span>
           </>
         ) : (
           <>
-            <span className="font-bold">اعترضوا شفرة العدو من:</span>{" "}
+            <span className="font-bold">{s.interceptFrom}</span>{" "}
             <span className="font-bold" style={{ color: encColor }}>{encName}</span>
           </>
         )}
@@ -691,7 +698,7 @@ export function GuessPhase(ctx: Ctx) {
 
       {lockedOut && (
         <Banner tone="lock">
-          أنت كتبت هذه التلميحات. لا تشارك في الفكّ ولا تُظهر أي ردّ فعل.
+          {s.encryptorLocked}
         </Banner>
       )}
 
@@ -702,6 +709,7 @@ export function GuessPhase(ctx: Ctx) {
           sent || lockedOut ? undefined : (next) => setField(next)
         }
         tone={active}
+        lang={room.lang}
         keyWords={amOwner ? keys : null}
         guessWords={
           amInterceptor
@@ -717,10 +725,10 @@ export function GuessPhase(ctx: Ctx) {
 
       <p className="text-[11.5px] text-muted text-center">
         {sent
-          ? "أُرسلت — لا يمكن التعديل"
+          ? s.sentLocked
           : lockedOut
-          ? "بانتظار فريقك…"
-          : "أي لاعب في فريقكم يستطيع تحريك الأرقام — الجميع يرى نفس الشاشة"}
+          ? s.waitingTeam
+          : s.anyoneCanMove}
       </p>
 
       {/* Same order as EncryptorView: pads → send → record. Not fixed —
@@ -732,36 +740,36 @@ export function GuessPhase(ctx: Ctx) {
         {sent ? (
           <div className="flex items-center justify-center py-2">
             <span className="text-[13.5px] text-muted">
-              أرسلها {room.players[sentBy!]?.name ?? "زميل"}
-              {" — بانتظار الطرف الآخر"}
+              {s.sentByWaiting(room.players[sentBy!]?.name ?? s.you)}
             </span>
           </div>
         ) : lockedOut ? (
           <p className="text-center text-[13px] text-muted py-3">
-            بانتظار فريقك ليفكّ الشفرة…
+            {s.waitingDecrypt}
           </p>
         ) : (
           <>
             <Btn className="w-full" disabled={!complete || busy} onClick={send}>
-              {busy ? "جارٍ الإرسال…" : amOwner ? "أرسل فكّ الشفرة" : "أرسل الاعتراض"}
+              {busy ? s.sending : amOwner ? s.sendDecrypt : s.sendIntercept}
             </Btn>
             <p className="text-[11px] text-muted text-center mt-2 leading-relaxed">
               {complete
-                ? "أي لاعب في الفريق يستطيع الإرسال — وبعدها تُقفل الأرقام"
-                : "أكملوا الأرقام الثلاثة قبل الإرسال"}
+                ? s.anyoneCanSend
+                : s.completeThree}
             </p>
           </>
         )}
       </div>
 
       <SectionLine>
-        {amOwner ? "سجلّكم" : `سجلّ ${TEAM_LABEL[active]}`}
+        {amOwner ? s.logYours : s.logOf(s.team[active])}
       </SectionLine>
       <ClueGrid
         lanes={ownerLanes}
         team={active}
         theories={amInterceptor ? theories : undefined}
         onGuess={amInterceptor ? (n, t) => setTheory?.(n, t) : undefined}
+        lang={room.lang}
       />
     </div>
   );
@@ -789,12 +797,13 @@ function EncryptorGuessWatch({
   const { draft: enemyDraft } = useDraft(room.id, enemy, room.round);
   const enemyIntercept = enemyDraft?.intercept ?? [null, null, null];
   const enemySentBy = enemyDraft?.submittedIntercept ?? null;
+  const s = S(room.lang);
 
   return (
     <div className="pb-20">
       <div className="px-3 pt-1.5 space-y-1.5 fade-in">
         <p className="rounded-lg border border-[#3A2A5A] bg-[#1A1230] px-2.5 py-1 text-[11px] leading-snug text-[#B49CD8] text-center">
-          راقب فقط — لا تُظهر ردّ فعل
+          {s.watchOnly}
         </p>
 
         <section
@@ -803,9 +812,9 @@ function EncryptorGuessWatch({
         >
           <header className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-bold" style={{ color: mineColor }}>
-              فريقكم: {TEAM_LABEL[myTeam]}
+              {s.yourTeamDecrypts(s.team[myTeam])}
             </p>
-            <span className="text-[9px] text-muted">يفكّون شفرتكم</span>
+            <span className="text-[9px] text-muted">{s.theyDecrypt}</span>
           </header>
 
           <Cartouche
@@ -815,6 +824,7 @@ function EncryptorGuessWatch({
             keyWords={keys}
             showPads={false}
             size="dense"
+            lang={room.lang}
           />
         </section>
 
@@ -824,9 +834,9 @@ function EncryptorGuessWatch({
         >
           <header className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-bold" style={{ color: enemyColor }}>
-              العدو: {TEAM_LABEL[enemy]}
+              {s.enemyIntercepts(s.team[enemy])}
             </p>
-            <span className="text-[9px] text-muted">يعترضون · مباشر</span>
+            <span className="text-[9px] text-muted">{s.theyInterceptLive}</span>
           </header>
 
           <Cartouche
@@ -838,11 +848,12 @@ function EncryptorGuessWatch({
             )}
             showPads={false}
             size="dense"
+            lang={room.lang}
           />
           <p className="text-[9px] text-muted text-center leading-tight">
             {enemySentBy
-              ? `أرسل الاعتراض ${room.players[enemySentBy]?.name ?? "خصم"}`
-              : "تشاهدون أرقامهم وهي تتحرّك"}
+              ? s.interceptSentBy(room.players[enemySentBy]?.name ?? s.you)
+              : s.watchingNumbers}
           </p>
         </section>
       </div>
@@ -856,8 +867,8 @@ function EncryptorGuessWatch({
       >
         <p className="text-center text-[11px] text-muted py-0.5 leading-snug">
           {sentBy
-            ? `أرسلها ${room.players[sentBy]?.name ?? "زميل"} — بانتظار الطرف الآخر`
-            : "بانتظار فريقك ليفكّ الشفرة…"}
+            ? s.sentByWaiting(room.players[sentBy]?.name ?? s.you)
+            : s.waitingDecrypt}
         </p>
       </div>
     </div>
@@ -883,12 +894,13 @@ export function RevealPhase({ room, uid, myTeam, rounds, keys }: Ctx) {
   // Round 1 (and any dual reveal): activeTeam is null — show both sides.
   const dual = room.activeTeam == null;
   const teams: TeamId[] = dual ? TEAMS : [room.activeTeam ?? "gold"];
+  const s = S(room.lang);
 
   if (!rec || teams.some((t) => !rec.data?.[t])) {
     return (
       <div className="px-4 py-8 pb-36">
-        <Empty title="جارٍ الكشف…" />
-        <HostContinue room={room} uid={uid} label="متابعة" />
+        <Empty title={s.revealing} />
+        <HostContinue room={room} uid={uid} label={s.continue} />
       </div>
     );
   }
@@ -905,15 +917,16 @@ export function RevealPhase({ room, uid, myTeam, rounds, keys }: Ctx) {
           rounds={rounds}
           visible
           compact={dual}
+          lang={room.lang}
         />
       ))}
-      <HostContinue room={room} uid={uid} label="متابعة" />
+      <HostContinue room={room} uid={uid} label={s.continue} />
     </div>
   );
 }
 
 function RevealCard({
-  team, rec, mine, keys, rounds, visible, compact,
+  team, rec, mine, keys, rounds, visible, compact, lang = "ar",
 }: {
   team: TeamId;
   rec: RoundRecord;
@@ -922,7 +935,9 @@ function RevealCard({
   rounds: RoundRecord[];
   visible: boolean;
   compact?: boolean;
+  lang?: import("../lib/types").Lang;
 }) {
+  const s = S(lang);
   const side = rec.data[team];
   const opp = OTHER[team];
   const color = TEAM_HEX[team];
@@ -959,47 +974,48 @@ function RevealCard({
     >
       <div className={`flex items-center justify-between ${compact ? "mb-2" : "mb-3"} min-h-[2rem]`}>
         <span className={`font-display ${compact ? "text-[15px]" : "text-[16px]"}`} style={{ color }}>
-          شفرة {TEAM_LABEL[team]}
-          {mine && <span className="text-[11px] text-muted ms-2">فريقكم</span>}
+          {s.cipherOf(s.team[team])}
+          {mine && <span className="text-[11px] text-muted ms-2">{s.yourTeam}</span>}
         </span>
       </div>
 
       {side.noClues ? (
         <Banner tone="warn">
-          لم يقدّم المُشفِّر تلميحات — سوء تفاهم (خلل). لا اعتراض.
+          {s.noCluesWarn}
         </Banner>
       ) : (
         <div className="space-y-3">
           <div className="flex flex-col items-center">
-            <p className="text-[11px] text-muted mb-1.5">الشفرة الحقيقية</p>
+            <p className="text-[11px] text-muted mb-1.5">{s.trueCode}</p>
             <div className="w-full max-w-[20rem]">
               <Cartouche
                 values={side.code}
                 clues={side.clues}
                 tone={team}
                 showPads={false}
+                lang={lang}
               />
             </div>
           </div>
 
           <div className="flex items-start gap-3 w-full">
             {(hasBreach || hasFault) && (
-              <div className="reveal-stamps shrink-0" aria-label="نتائج الجولة">
+              <div className="reveal-stamps shrink-0" aria-label={s.roundResults}>
                 {hasBreach && (
                   <div className="flex flex-col items-center gap-1">
-                    <Stamp kind="breach" good={goodForViewer} />
+                    <Stamp kind="breach" good={goodForViewer} lang={lang} />
                     <span className="reveal-stamp-cap">
                       {mine
-                        ? `اخترقكم ${TEAM_LABEL[opp]}`
-                        : `اخترقتم ${TEAM_LABEL[team]}`}
+                        ? s.theyBreachedYou(s.team[opp])
+                        : s.youBreachedThem(s.team[team])}
                     </span>
                   </div>
                 )}
                 {hasFault && (
                   <div className="flex flex-col items-center gap-1">
-                    <Stamp kind="fault" good={goodForViewer} />
+                    <Stamp kind="fault" good={goodForViewer} lang={lang} />
                     <span className="reveal-stamp-cap">
-                      {mine ? "خلل — أخطأتم" : `خلل — ${TEAM_LABEL[team]}`}
+                      {mine ? s.youFaulted : s.theyFaulted(s.team[team])}
                     </span>
                   </div>
                 )}
@@ -1010,8 +1026,8 @@ function RevealCard({
             <div className="w-[9.5rem] shrink-0 space-y-2 ms-auto">
               <div>
                 <p className="text-[10px] text-muted mb-1 leading-none flex items-center gap-1.5">
-                  <span>فكّ {TEAM_LABEL[team]}</span>
-                  <AttemptMark ok={decryptOk} />
+                  <span>{s.decryptOf(s.team[team])}</span>
+                  <AttemptMark ok={decryptOk} lang={lang} />
                 </p>
                 <Cartouche
                   values={side.decrypt}
@@ -1021,13 +1037,14 @@ function RevealCard({
                   historyByDigit={decryptHistory}
                   showPads={false}
                   size="xs"
+                  lang={lang}
                 />
               </div>
               {rec.round >= 2 && (
                 <div>
                   <p className="text-[10px] text-muted mb-1 leading-none flex items-center gap-1.5">
-                    <span>اعتراض {TEAM_LABEL[opp]}</span>
-                    <AttemptMark ok={interceptOk} />
+                    <span>{s.interceptOf(s.team[opp])}</span>
+                    <AttemptMark ok={interceptOk} lang={lang} />
                   </p>
                   <Cartouche
                     values={side.intercept}
@@ -1037,6 +1054,7 @@ function RevealCard({
                     historyByDigit={priorHistoryByDigit}
                     showPads={false}
                     size="xs"
+                    lang={lang}
                   />
                 </div>
               )}
@@ -1048,12 +1066,13 @@ function RevealCard({
   );
 }
 
-function AttemptMark({ ok }: { ok: boolean }) {
+function AttemptMark({ ok, lang = "ar" }: { ok: boolean; lang?: import("../lib/types").Lang }) {
+  const s = S(lang);
   return (
     <span
       className="num text-[13px] font-bold leading-none"
       style={{ color: ok ? "#8FAE5C" : "#F03B2E" }}
-      aria-label={ok ? "صحيح" : "خطأ"}
+      aria-label={ok ? s.markOk : s.markBad}
     >
       {ok ? "✓" : "✗"}
     </span>
@@ -1067,18 +1086,22 @@ function AttemptMark({ ok }: { ok: boolean }) {
 const BREACH = "#8FAE5C";
 const FAULT = "#F03B2E";
 
-const TIEBREAK_WHY: Record<TiebreakTrigger, string> = {
-  mixed: "فريق وصل إلى اختراقين وخللين في آن واحد (فوز وخسارة معًا).",
-  bothBreach: "الفريقان حققا اختراقهما الثاني في نفس الجولة.",
-  bothFault: "الفريقان وقعا في خللهما الثاني في نفس الجولة.",
-  lastRound: "انتهت الجولات دون فوز أو خسارة حاسمة، والنقاط متعادلة.",
-};
+function tiebreakWhy(s: ReturnType<typeof S>): Record<TiebreakTrigger, string> {
+  return {
+    mixed: s.whyMixed,
+    bothBreach: s.whyBothBreach,
+    bothFault: s.whyBothFault,
+    lastRound: s.whyLastRound,
+  };
+}
 
 export function RoundEndPhase({ room, uid, away }: Ctx) {
   const isHost = room.hostUid === uid;
   const maxRounds = room.settings.maxRounds;
   const cellCount = maxRounds;
   const awaitingShowdown = room.showdown && !room.winner;
+  const s = S(room.lang);
+  const why = tiebreakWhy(s);
 
   const wanderers = away
     .filter((a) => a.count >= 2 || a.ms >= 10000)
@@ -1116,35 +1139,35 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
   });
 
   const continueLabel = room.winner
-    ? "النتيجة النهائية"
+    ? s.finalResult
     : awaitingShowdown
-    ? "المواجهة الحاسمة"
-    : "الجولة التالية";
+    ? s.showdownTitle
+    : s.nextRound;
 
   return (
     <div className="pb-36 space-y-4 fade-in">
       {awaitingShowdown && (
         <div className="mx-4 mt-2 px-3 py-2.5 rounded-xl bg-alarm/15 border border-alarm/40 space-y-1.5">
           <p className="text-[13px] text-alarm font-medium leading-snug">
-            يلزم كسر التعادل — مواجهة الكلمات
+            {s.tiebreakTitle}
           </p>
           <p className="text-[12px] text-alarm/85 leading-snug">
-            {trigger ? TIEBREAK_WHY[trigger] : "النقاط متعادلة بعد حسم الجولة."}
+            {trigger ? why[trigger] : s.pointsTiedFallback}
           </p>
           {trigger && trigger !== "lastRound" && (
             <p className="text-[12px] text-alarm/85 leading-snug">
-              النقاط متعادلة ({gp} — {sp})، لذلك يخمن كل فريق كلمات الخصم الأربع.
+              {s.pointsTiedSo(gp, sp)}
             </p>
           )}
           {trigger === "lastRound" && (
             <p className="text-[12px] text-alarm/85 leading-snug">
-              يخمن كل فريق كلمات الخصم الأربع — الأكثر إصابة يفوز.
+              {s.eachGuessesFour}
             </p>
           )}
         </div>
       )}
       <div className="rend-strip">
-        <span className="rend-strip-label">الجولات</span>
+        <span className="rend-strip-label">{s.roundsLabel}</span>
         <div className="rend-strip-cells" aria-hidden>
           {Array.from({ length: cellCount }, (_, i) => {
             const n = i + 1;
@@ -1171,23 +1194,23 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
       <section className="rend-sec">
         <div className="rend-sec-body">
           {TEAMS.map((t) => {
-            const s = room.teams[t].score;
+            const score = room.teams[t].score;
             return (
               <div key={t} className="rend-row">
                 <span className="font-display text-[15px] truncate" style={{ color: TEAM_HEX[t] }}>
-                  {TEAM_LABEL[t]}
+                  {s.team[t]}
                 </span>
                 <span className="rend-score-side">
-                  <span className="rend-score-unit" title="اختراق">
-                    <span className="rend-score-n" style={{ color: BREACH }}>{s.breach}</span>
-                    <PipBoard n={s.breach} color={BREACH} title="اختراق" />
-                    <span className="rend-score-lbl">اختراق</span>
+                  <span className="rend-score-unit" title={s.breach}>
+                    <span className="rend-score-n" style={{ color: BREACH }}>{score.breach}</span>
+                    <PipBoard n={score.breach} color={BREACH} title={s.breach} />
+                    <span className="rend-score-lbl">{s.breach}</span>
                   </span>
                   <span className="w-px h-3 bg-line" />
-                  <span className="rend-score-unit" title="خلل">
-                    <span className="rend-score-n" style={{ color: FAULT }}>{s.fault}</span>
-                    <PipBoard n={s.fault} color={FAULT} title="خلل" />
-                    <span className="rend-score-lbl">خلل</span>
+                  <span className="rend-score-unit" title={s.fault}>
+                    <span className="rend-score-n" style={{ color: FAULT }}>{score.fault}</span>
+                    <PipBoard n={score.fault} color={FAULT} title={s.fault} />
+                    <span className="rend-score-lbl">{s.fault}</span>
                   </span>
                 </span>
               </div>
@@ -1196,8 +1219,8 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
         </div>
         <p className="rend-sec-foot">
           {awaitingShowdown
-            ? `النقاط: ${TEAM_LABEL.gold} ${gp} · ${TEAM_LABEL.silver} ${sp} (اختراق +1، خلل −1)`
-            : "اختراقان يفوزان باللعبة. خللان يخسرانها."}
+            ? s.pointsLine(s.team.gold, gp, s.team.silver, sp)
+            : s.twoBreachWin}
         </p>
       </section>
 
@@ -1205,7 +1228,7 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
         <div
           className={`duel rend-duel${awaitingShowdown ? " rend-duel-roster" : ""}`}
           role="group"
-          aria-label={awaitingShowdown ? "المواجهة الحاسمة" : "المُشفِّران القادمان"}
+          aria-label={awaitingShowdown ? s.showdownDuel : s.nextEncryptors}
         >
           {duelSides.flatMap(({ team, uids, you }, i) => {
             const color = TEAM_HEX[team];
@@ -1220,7 +1243,7 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
                 </span>
                 <span className="col">
                   {uids.map((u) => {
-                    const fullName = room.players[u]?.name ?? "؟";
+                    const fullName = room.players[u]?.name ?? s.qmark;
                     const display = fullName.split(" ")[0] || fullName;
                     const mine = u === uid;
                     return (
@@ -1232,7 +1255,7 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
                         >
                           {display}
                         </span>
-                        {mine && <span className="you-tag">أنت</span>}
+                        {mine && <span className="you-tag">{s.youTag}</span>}
                       </span>
                     );
                   })}
@@ -1256,18 +1279,18 @@ export function RoundEndPhase({ room, uid, away }: Ctx) {
       {wanderers.length > 0 && (
         <section className="rend-sec rend-sec-away">
           <div className="rend-sec-head">
-            <span>من غادر الشاشة هذه الجولة</span>
+            <span>{s.leftScreen}</span>
             <span className="rend-sec-counter num">{wanderers.length}</span>
           </div>
           <div className="rend-sec-body">
             {wanderers.map((a) => (
               <div key={a.uid} className="rend-row">
                 <span className="truncate text-[14px]">
-                  {room.players[a.uid]?.name ?? "؟"}
+                  {room.players[a.uid]?.name ?? s.qmark}
                 </span>
                 <span className="flex items-baseline gap-2 shrink-0">
                   <span className="rend-away-count">{a.count}×</span>
-                  <span className="rend-away-ms">{Math.round(a.ms / 1000)}ث</span>
+                  <span className="rend-away-ms">{Math.round(a.ms / 1000)}{s.sec}</span>
                 </span>
               </div>
             ))}
@@ -1304,6 +1327,7 @@ export function ShowdownPhase({
   wordsRef.current = guessWords;
   const enemyLanes = buildLanes(rounds, enemy, null);
   const sent = alreadyIn || sentLocal;
+  const s = S(room.lang);
 
   async function send() {
     if (alreadyIn || sentLocal || busy) return;
@@ -1313,7 +1337,7 @@ export function ShowdownPhase({
       await api.submitShowdown({ roomId: room.id, words });
       setSentLocal(true);
     } catch (e) {
-      setErr(errText(e));
+      setErr(errText(e, room.lang));
     } finally {
       setBusy(false);
     }
@@ -1336,10 +1360,10 @@ export function ShowdownPhase({
     <div className="px-3 pt-2 pb-6 fade-in space-y-3">
       <div className="px-3 py-2.5 rounded-xl bg-alarm/15 border border-alarm/40">
         <p className="text-[13px] text-alarm font-medium leading-snug">
-          تعادل بعد {room.round} جولات. اكتبوا كلمات الخصم الأربع — الأكثر إصابة يفوز.
+          {s.showdownBanner(room.round)}
         </p>
         <p className="text-[11px] text-alarm/70 mt-1 leading-snug">
-          عند التساوي يفوز الأسرع عبر الجولات (تشفير وفك).
+          {s.showdownTime}
         </p>
       </div>
 
@@ -1369,12 +1393,13 @@ export function ShowdownPhase({
                   remote={guessWords[key] ?? ""}
                   disabled={sent}
                   showQMark={false}
-                  placeholder="كلمة الخصم"
+                  placeholder={s.opponentWord}
                   className="w-full bg-[#1B1A14] border border-line rounded-lg px-3 py-2 text-parch placeholder:text-[#6E6858] focus:border-gold focus:outline-none disabled:opacity-60"
                   onGuess={(digit, text) => {
                     wordsRef.current = { ...wordsRef.current, [digit]: text };
                     setGuessWord?.(digit, text);
                   }}
+                  lang={room.lang}
                 />
               </div>
             </div>
@@ -1385,10 +1410,10 @@ export function ShowdownPhase({
       {err && <Banner tone="warn">{err}</Banner>}
 
       {sent ? (
-        <Empty title="أُرسل تخمينكم" body="بانتظار الفريق الآخر…" />
+        <Empty title={s.guessSent} body={s.waitingOther} />
       ) : (
         <Btn className="w-full" disabled={busy || !setGuessWord} onClick={() => void send()}>
-          {busy ? "…" : "إرسال التخمين"}
+          {busy ? "…" : s.sendGuess}
         </Btn>
       )}
 
@@ -1400,7 +1425,7 @@ export function ShowdownPhase({
               style={{ color: room.showdownIn?.[t] ? TEAM_HEX[t] : undefined }}
               className={room.showdownIn?.[t] ? "font-medium" : "text-muted"}
             >
-              {TEAM_LABEL[t]}
+              {s.team[t]}
               {room.showdownIn?.[t] ? " ✓" : " …"}
             </span>
           ))}

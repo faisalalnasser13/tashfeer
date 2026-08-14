@@ -1,8 +1,13 @@
 import React from "react";
-import type { TeamId } from "../lib/types";
+import type { Lang, TeamId } from "../lib/types";
+import { S } from "../lib/strings";
 
-export const TEAM_LABEL: Record<TeamId, string> = { gold: "الحلفاء", silver: "المحور" };
 export const TEAM_HEX: Record<TeamId, string> = { gold: "#4E86C6", silver: "#E07B35" };
+/** @deprecated use S(lang).team — kept so leftover imports still compile. */
+export const TEAM_LABEL: Record<TeamId, string> = { gold: "الحلفاء", silver: "المحور" };
+export function teamLabel(lang: Lang | null | undefined): Record<TeamId, string> {
+  return S(lang).team;
+}
 
 /* ------------------------------------------------------------------ */
 
@@ -38,13 +43,15 @@ export function Pips({
 }
 
 export function Stamp({
-  kind, good,
+  kind, good, lang,
 }: {
   kind: "breach" | "fault";
   /** Viewer-relative: true = green (good for you), false = red (bad for you). */
   good: boolean;
+  lang?: Lang;
 }) {
-  const label = kind === "breach" ? "اختراق" : "خلل";
+  const s = S(lang);
+  const label = kind === "breach" ? s.breach : s.fault;
   return (
     <span
       className={`stamp ${kind === "fault" ? "stamp-fault" : ""} ${good ? "stamp-good" : "stamp-bad"}`}

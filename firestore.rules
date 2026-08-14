@@ -94,7 +94,15 @@ service cloud.firestore {
     // Each player's sheet of theories about the opponent's four words.
     // Readable/writable by the whole team so one shared guess per digit.
     match /rooms/{roomId}/guesses/{docId} {
-      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      // Team-only while playing. Once the game is over, any member may
+      // read both sheets so the showdown can be scored (final/keys is
+      // also unsealed then). Missing doc: members may get() it.
+      allow read: if signedIn() && (
+                    resource == null
+                      ? inRoom(roomId)
+                      : request.auth.uid in resource.data.members
+                        || (inRoom(roomId) && roomData(roomId).phase == 'over')
+                  );
       allow create: if inRoom(roomId);
       allow update: if signedIn() && request.auth.uid in resource.data.members;
       allow delete: if inRoom(roomId);

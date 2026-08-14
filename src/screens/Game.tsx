@@ -4,11 +4,13 @@ import {
   useEnsureCode, useFinalKeys, useGuessSheet, usePhaseDriver, useRounds,
   useTeamPrivate,
 } from "../lib/hooks";
+import { api } from "../lib/firebase";
 import type { Room, TeamId } from "../lib/types";
 import { Header } from "../components/Header";
 import { KeysStrip } from "../components/KeysStrip";
 import { ScoreStrip } from "../components/ScoreStrip";
 import { Banner, Empty } from "../components/ui";
+import { S } from "../lib/strings";
 import {
   EncryptPhase, GuessPhase, KeysPhase, RevealPhase, RoundEndPhase, ShowdownPhase,
 } from "./phases";
@@ -46,7 +48,8 @@ export function Game({
   const [chromeH, setChromeH] = useState(0);
   const visualTop = useVisualTop();
 
-  const { data: priv, setTheory } = useTeamPrivate(room.id, myTeam);
+  const members = myTeam ? room.teams[myTeam].members : [];
+  const { data: priv, setTheory } = useTeamPrivate(room.id, myTeam, members);
   const rounds = useRounds(room.id);
   const away = useAway(room.id, room.round);
   const amEncryptor = myTeam ? room.encryptor[myTeam] === uid : false;
@@ -59,7 +62,10 @@ export function Game({
   usePhaseDriver(room, uid);
   useEnsureCode(room.id, myTeam, room.round, amEncryptor, room.phase);
 
-  const members = myTeam ? room.teams[myTeam].members : [];
+  useEffect(() => {
+    if (room.phase !== "showdown" || !myTeam) return;
+    api.seedOwnShowdown({ roomId: room.id }).catch(() => {});
+  }, [room.phase, room.id, myTeam]);
   const {
     words: guessWords, setWord: setGuessWord, submittedAt: guessSubmittedAt,
   } = useGuessSheet(
@@ -108,8 +114,8 @@ export function Game({
     return (
       <div className="p-6" style={{ paddingTop: "calc(var(--safe-t) + 60px)" }}>
         <Empty
-          title="أنت خارج الفريقين"
-          body="بدأت اللعبة بدونك. انتظر انتهاءها أو اطلب من المضيف إعادة التوزيع."
+          title={S(room.lang).outOfTeamsTitle}
+          body={S(room.lang).outOfTeamsBody}
         />
       </div>
     );
@@ -144,7 +150,7 @@ export function Game({
         <Header room={room} remaining={remaining} pct={pct} myTeam={myTeam} />
         {room.paused && (
           <div className="px-4 py-1.5">
-            <Banner tone="warn">أوقف المضيف اللعبة مؤقتًا.</Banner>
+            <Banner tone="warn">{S(room.lang).paused}</Banner>
           </div>
         )}
       </div>
@@ -167,6 +173,7 @@ export function Game({
               highlight={
                 amEncryptor && room.phase === "encrypt" && code ? code : null
               }
+              lang={room.lang}
             />
             {/* Encrypt waiters lead with the duel — score strip would push it down. */}
             {!(room.phase === "encrypt" && tab === "play") && (
@@ -190,7 +197,7 @@ export function Game({
         )}
       </main>
 
-      <TabBar tab={tab} setTab={setTab} logCount={rounds.length} />
+      <TabBar tab={tab} setTab={setTab} logCount={rounds.length} lang={room.lang} />
     </div>
   );
 }
@@ -208,12 +215,13 @@ function PhaseView({ ctx }: { ctx: Parameters<typeof EncryptPhase>[0] }) {
 }
 
 function TabBar({
-  tab, setTab, logCount,
-}: { tab: Tab; setTab: (t: Tab) => void; logCount: number }) {
+  tab, setTab, logCount, lang,
+}: { tab: Tab; setTab: (t: Tab) => void; logCount: number; lang: import("../lib/types").Lang }) {
+  const s = S(lang);
   const items: { id: Tab; label: string; badge?: number }[] = [
-    { id: "play", label: "اللعب" },
-    { id: "log", label: "السجل", badge: logCount },
-    { id: "team", label: "الفريق" },
+    { id: "play", label: s.tabPlay },
+    { id: "log", label: s.tabLog, badge: logCount },
+    { id: "team", label: s.tabTeam },
   ];
   return (
     <nav

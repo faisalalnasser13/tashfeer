@@ -438,6 +438,8 @@ await it("showdown phase seeds theories and resolves by hits", async () => {
 
   await call(fns.advancePhase, HOST, { roomId, force: true, fromPhase: "roundEnd", fromRound: 8 });
   eq(room(roomId).phase, "showdown", "entered showdown");
+  // Host cannot read the other team's private — each side seeds its own sheet.
+  await call(fns.seedOwnShowdown, room(roomId).teams.gold.members[0], { roomId });
   const gWords = S().get(`rooms/${roomId}/guesses/${room(roomId).teams.gold.members[0]}`).words;
   eq(gWords["1"], "ه", "seeded from theories");
 

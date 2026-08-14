@@ -1,0 +1,50 @@
+/**
+ * English keyword list. Concrete, imageable nouns — same job as the
+ * Arabic bank, without culture-specific items (no local dishes, dress,
+ * geography, or religious practice unique to one place).
+ *
+ * Prefer singular forms without articles. Duplicate meanings are
+ * collapsed via normalizeKeyword at deal time.
+ */
+export const WORDS_EN: string[] = [
+  "sea", "mountain", "river", "island", "desert", "forest", "cave", "rock", "sand", "soil",
+  "water", "fire", "sun", "moon", "star", "cloud", "rain", "snow", "wind", "lightning",
+  "thunder", "fog", "shadow", "volcano", "earthquake", "light", "echo", "wave", "smoke", "ash",
+  "steam", "lion", "wolf", "fox", "tiger", "elephant", "horse", "donkey", "dog", "mouse",
+  "rabbit", "deer", "monkey", "bear", "snake", "scorpion", "spider", "bee", "ant", "butterfly",
+  "mosquito", "hawk", "eagle", "owl", "crow", "dove", "rooster", "chicken", "duck", "fish",
+  "whale", "octopus", "turtle", "crocodile", "frog", "snail", "bat", "peacock", "ostrich", "giraffe",
+  "hand", "foot", "head", "eye", "ear", "nose", "mouth", "tongue", "tooth", "heart",
+  "blood", "bone", "skin", "arm", "leg", "knee", "shoulder", "finger", "brain", "lung",
+  "liver", "stomach", "face", "eyebrow", "beard", "voice", "tear", "sweat", "pulse", "fingerprint",
+  "bread", "salt", "sugar", "honey", "olive", "grape", "apple", "banana", "orange", "lemon",
+  "watermelon", "walnut", "almond", "rice", "wheat", "milk", "cheese", "meat", "tea", "coffee",
+  "juice", "soup", "pepper", "cinnamon", "mint", "spice", "vinegar", "candy", "cake", "jam",
+  "butter", "key", "lock", "door", "window", "stairs", "chair", "table", "bed", "pillow",
+  "blanket", "mirror", "clock", "lamp", "candle", "scissors", "needle", "thread", "rope", "hammer",
+  "saw", "knife", "spoon", "fork", "plate", "cup", "kettle", "pot", "broom", "soap",
+  "comb", "umbrella", "bag", "box", "basket", "sack", "paper", "pen", "ink", "notebook",
+  "book", "ruler", "glue", "shirt", "pants", "shoe", "sock", "hat", "scarf", "belt",
+  "coat", "glove", "ring", "bracelet", "necklace", "glasses", "house", "palace", "castle", "tower",
+  "bridge", "tunnel", "wall", "roof", "cellar", "market", "school", "hospital", "museum", "port",
+  "station", "factory", "farm", "garden", "theatre", "hotel", "restaurant", "shop", "prison", "court",
+  "bank", "street", "square", "alley", "tent", "cabin", "car", "bicycle", "train", "plane",
+  "ship", "boat", "sail", "anchor", "wheel", "engine", "fuel", "road", "map", "compass",
+  "rocket", "submarine", "bus", "truck", "elevator", "doctor", "teacher", "engineer", "soldier", "officer",
+  "judge", "lawyer", "merchant", "farmer", "hunter", "carpenter", "cook", "barber", "actor", "singer",
+  "dancer", "painter", "poet", "magician", "thief", "spy", "guard", "king", "prince", "minister",
+  "knight", "pirate", "guest", "neighbor", "twin", "child", "bride", "grandfather", "metal", "iron",
+  "copper", "silver", "gold", "glass", "stone", "clay", "wood", "straw", "lens", "microscope",
+  "scale", "number", "circle", "triangle", "line", "point", "angle", "length", "electricity", "magnet",
+  "tree", "rose", "flower", "grass", "root", "branch", "seed", "cactus", "drum", "flute",
+  "melody", "song", "story", "novel", "joke", "game", "chess", "dice", "ball", "doll",
+  "festival", "wedding", "gift", "letter", "stamp", "mail", "newspaper", "news", "theft", "crime",
+  "evidence", "mask", "symbol", "ambush", "chase", "bribe", "smuggling", "forgery", "betrayal", "witness",
+  "hideout", "trap", "weapon", "bullet", "bomb", "dagger", "sword", "shield", "spear", "bow",
+  "arrow", "cannon", "love", "fear", "joy", "sadness", "anger", "hope", "dream", "memory",
+  "secret", "lie", "justice", "freedom", "war", "strength", "pride", "luck", "time", "beginning",
+  "end", "chaos", "riddle", "legend", "curse", "silence", "noise", "smell", "red", "blue",
+  "green", "cow", "sheep", "cat", "shark", "egg", "tomato", "garlic", "carrot", "potato",
+  "chocolate", "pizza", "carpet", "closet", "curtain", "fridge", "oven", "television", "phone", "camera",
+  "valley", "lake", "beach", "sky", "storm", "winter", "summer", "night", "robot", "internet",
+];

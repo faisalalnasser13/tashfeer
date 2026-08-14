@@ -2,10 +2,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ensureAuth } from "./lib/firebase";
 import { useLocal, useRoom } from "./lib/hooks";
 import { startVersionWatch } from "./lib/version";
+import { asLang } from "./lib/strings";
 import { Home } from "./screens/Home";
 import { Lobby } from "./screens/Lobby";
 import { Game } from "./screens/Game";
-import { Banner, Btn, Empty } from "./components/ui";
+import { Banner } from "./components/ui";
 import { VersionBadge } from "./components/VersionBadge";
 
 function inviteFromUrl(): string | null {
@@ -20,16 +21,16 @@ export default function App() {
   const [authErr, setAuthErr] = useState("");
   const [roomId, setRoomId] = useLocal<string | null>("tashfeer.room", null);
   const { room, missing } = useRoom(roomId);
+  const me = room && uid ? room.players[uid] : null;
 
   useEffect(() => startVersionWatch(), []);
 
-  // Deep link /?r=1234 — stash the code and drop any different saved room
-  // so the join screen actually appears (stale tashfeer.room used to win).
+  // Deep link /?r=1234 — open that room so the join page can follow its language.
   useEffect(() => {
     const r = inviteFromUrl();
     if (!r) return;
     sessionStorage.setItem("tashfeer.invite", r);
-    if (roomId !== r) setRoomId(null);
+    if (roomId !== r) setRoomId(r);
     // roomId is the mount-time value from localStorage; we only want this once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -49,9 +50,18 @@ export default function App() {
   }, [roomId, missing, setRoomId]);
 
   useEffect(() => {
+    const en = room?.lang === "en";
+    document.documentElement.lang = en ? "en" : "ar";
+    document.documentElement.dir = en ? "ltr" : "rtl";
+    document.title = !room || !me
+      ? "تشفير · Cipher"
+      : en ? "Cipher" : "تشفير";
+  }, [room, me]);
+
+  useEffect(() => {
     ensureAuth()
       .then((u) => setUid(u.uid))
-      .catch(() => setAuthErr("تعذّر الاتصال. تحقّق من الشبكة."));
+      .catch(() => setAuthErr("تعذّر الاتصال. تحقّق من الشبكة.\nCouldn't connect. Check the network."));
   }, []);
 
   const shell = (body: ReactNode) => (
@@ -66,6 +76,11 @@ export default function App() {
     </div>
   );
 
+  const enter = (id: string) => {
+    setRoomId(id);
+    sessionStorage.removeItem("tashfeer.invite");
+  };
+
   if (authErr) {
     return shell(
       <div className="p-6 pt-24">
@@ -79,31 +94,23 @@ export default function App() {
     );
   }
 
-  if (!roomId || missing) {
-    return shell(
-      <Home
-        onEnter={(id) => {
-          setRoomId(id);
-          sessionStorage.removeItem("tashfeer.invite");
-        }}
-      />
-    );
+  if (!roomId) {
+    return shell(<Home onEnter={enter} />);
   }
+
+  if (missing) {
+    return shell(<Home onEnter={enter} />);
+  }
+
   if (!room) {
     return shell(
       <div className="grid place-items-center h-full text-muted text-[13px]">…</div>
     );
   }
 
-  // Joined by link but the game already started, or was removed mid-game.
-  if (!room.players[uid]) {
+  if (!me) {
     return shell(
-      <div className="p-6" style={{ paddingTop: "calc(var(--safe-t) + 60px)" }}>
-        <Empty title="لست في هذه الغرفة" body="ربما أخرجك المضيف." />
-        <Btn className="w-full mt-4" onClick={() => setRoomId(null)}>
-          العودة
-        </Btn>
-      </div>
+      <Home onEnter={enter} initialCode={room.id} joinLang={asLang(room.lang)} />
     );
   }
 

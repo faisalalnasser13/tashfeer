@@ -58,6 +58,31 @@ textarea {
   letter-spacing: 0;
 }
 
+/* English rooms: Latin body + typewriter display. Don't flip rows —
+   `dir="ltr"` already puts cartouche slot 0 on the left. */
+html[lang="en"] body {
+  font-family: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
+}
+html[lang="en"] .font-display {
+  font-family: "Special Elite", "Courier Prime", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+html[lang="en"] .slot,
+html[lang="en"] .slot::before,
+html[lang="en"] .watch-sheet-input::placeholder {
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+html[lang="en"] .stamp,
+html[lang="en"] .watch-sheet-title,
+html[lang="en"] .watch-sheet-secret,
+html[lang="en"] .keys-sheet-title,
+html[lang="en"] .keys-sheet-sign-name,
+html[lang="en"] .over-winner-team,
+html[lang="en"] .over-records-title,
+html[lang="en"] .over-declass-mark {
+  font-family: "Special Elite", "Courier Prime", sans-serif;
+}
+
 /* Numerals must never inherit an italic or condensed face — they carry
    the entire game state. */
 .num {
@@ -489,9 +514,9 @@ textarea {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 6px 10px;
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.04em;
-  color: #8a8070;
+  color: #5a5448;
   background: #15140f;
   border-block-end: 1px solid #3a3629;
 }
@@ -511,24 +536,30 @@ textarea {
 }
 
 .watch-sheet-form {
-  font-size: 10px;
-  color: #6e6858;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: #4a4638;
+  opacity: 0.7;
 }
 
 .watch-sheet-footer-note {
-  color: #6e6858;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  color: #4a4638;
+  opacity: 0.7;
 }
 
-/* Classification stamp — bottom visual left under RTL. */
+/* Classification mark — texture, not a call-to-action. */
 .watch-sheet-secret {
   font-family: "Noto Kufi Arabic", sans-serif;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: #8a6a6a;
-  border: 1px solid rgba(138, 106, 106, 0.55);
-  padding: 2px 7px 3px;
-  background: rgba(80, 40, 40, 0.22);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: #5a5048;
+  border: 1px solid rgba(90, 80, 72, 0.28);
+  padding: 1px 5px 2px;
+  background: transparent;
+  opacity: 0.65;
 }
 
 .watch-sheet-meta-sep {
@@ -1449,8 +1480,8 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 0.45rem;
-  padding: 7px 4px;
-  color: #6e6858;
+  padding: 5px 4px;
+  color: #4a4638;
 }
 
 .keys-sheet-band-top {
@@ -1461,8 +1492,10 @@ textarea {
 .keys-sheet-class {
   flex-shrink: 0;
   font-family: "Special Elite", "Courier Prime", monospace;
-  font-size: 10px;
-  letter-spacing: 0.05em;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: #4a4638;
+  opacity: 0.7;
 }
 
 .keys-sheet-band-top .keys-sheet-valid {
@@ -1502,9 +1535,10 @@ textarea {
   margin: 0 0 8px;
   text-align: center;
   font-family: "Special Elite", "Courier Prime", monospace;
-  font-size: 8.5px;
-  letter-spacing: 0.06em;
-  color: #6e6858;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: #4a4638;
+  opacity: 0.7;
 }
 
 .keys-sheet-crew-row {
@@ -1597,17 +1631,24 @@ textarea {
 
 .keys-sheet-destroy {
   font-family: "Courier Prime", monospace;
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.04em;
-  color: #6e6858;
+  color: #4a4638;
+  opacity: 0.7;
   line-height: 1.35;
-  max-width: 12rem;
+  max-width: 10rem;
 }
 
 .keys-sheet-stamp {
-  font-size: 14px;
-  padding: 4px 12px 5px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  padding: 2px 7px 3px;
   flex-shrink: 0;
+  border-width: 1px;
+  opacity: 0.45;
+  transform: rotate(-2deg);
+  animation: none;
 }
 
 /* Host commands — outside the sheet, not document chrome. */
@@ -1681,11 +1722,12 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 5px 10px;
+  padding: 4px 10px;
   font-family: "Courier Prime", monospace;
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  color: #6e6858;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: #4a4638;
+  opacity: 0.75;
   border-block-end: 1px solid #3a3629;
   background: #18170f;
 }
@@ -1907,7 +1949,7 @@ textarea {
 
 .over-records-head {
   margin-block-end: 0.55rem;
-  padding-inline-end: 5.25rem; /* clear the corner stamp */
+  padding-inline-end: 4.25rem; /* clear the corner stamp */
 }
 
 .over-records-title {
@@ -1952,7 +1994,7 @@ textarea {
 
 .over-declass-stamp {
   position: absolute;
-  inset-block-start: 0.35rem;
+  inset-block-start: 0.4rem;
   inset-inline-end: 0.4rem; /* visual left under RTL */
   z-index: 2;
   display: flex;
@@ -1961,45 +2003,39 @@ textarea {
   justify-content: center;
   gap: 1px;
   width: max-content;
-  min-width: 5.25rem;
-  padding: 0.35rem 0.75rem 0.4rem;
-  border: 3px solid var(--gold);
+  min-width: 0;
+  padding: 0.2rem 0.45rem 0.22rem;
+  border: 1px solid rgba(211, 180, 95, 0.28);
   border-radius: 2px / 3px;
-  color: var(--gold);
-  background: rgba(211, 180, 95, 0.12);
-  box-shadow:
-    inset 0 0 0 1px rgba(211, 180, 95, 0.38),
-    0 1px 0 rgba(18, 17, 12, 0.35);
-  transform: rotate(8deg);
-  animation: over-declass-in 0.6s cubic-bezier(0.2, 1.6, 0.35, 1) both;
+  color: rgba(211, 180, 95, 0.45);
+  background: transparent;
+  box-shadow: none;
+  transform: rotate(6deg);
+  animation: none;
   pointer-events: none;
+  opacity: 0.7;
 }
 
 .over-declass-stamp::after {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border: 1px solid rgba(211, 180, 95, 0.4);
-  border-radius: 1px;
-  pointer-events: none;
+  display: none;
 }
 
 .over-declass-mark {
   font-family: "Noto Kufi Arabic", sans-serif;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
   line-height: 1.05;
   letter-spacing: 0.04em;
 }
 
 .over-declass-sub {
   font-family: "Courier Prime", monospace;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
   line-height: 1;
-  color: rgba(211, 180, 95, 0.88);
-  padding-inline-start: 0.22em;
+  color: rgba(211, 180, 95, 0.5);
+  padding-inline-start: 0.14em;
 }
 
 @keyframes over-declass-in {

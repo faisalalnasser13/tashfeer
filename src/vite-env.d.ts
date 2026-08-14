@@ -1,5 +1,15 @@
 /// <reference types="vite/client" />
 
+declare module "qrcode-generator" {
+  type QRCode = {
+    addData(data: string): void;
+    make(): void;
+    getModuleCount(): number;
+    isDark(row: number, col: number): boolean;
+  };
+  export default function qrcode(typeNumber: number, errorCorrectionLevel: string): QRCode;
+}
+
 declare const __APP_VERSION__: string;
 
 interface ImportMetaEnv {

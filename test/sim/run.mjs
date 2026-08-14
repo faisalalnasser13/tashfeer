@@ -36,10 +36,11 @@ await esbuild.build({
 });
 
 await esbuild.build({
-  entryPoints: [
-    join(root, "src/lib/arabic.ts"),
-    join(root, "src/lib/words.ts"),
-  ],
+        entryPoints: [
+          join(root, "src/lib/arabic.ts"),
+          join(root, "src/lib/words.ts"),
+          join(root, "src/lib/words.en.ts"),
+        ],
   outdir,
   outExtension: { ".js": ".cjs" },
   format: "cjs",

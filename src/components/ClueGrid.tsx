@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { RoundRecord, TeamId } from "../lib/types";
-import { TEAM_HEX, TEAM_LABEL } from "./ui";
+import type { Lang, RoundRecord, TeamId } from "../lib/types";
+import { TEAM_HEX } from "./ui";
+import { S } from "../lib/strings";
 
 export interface Lane {
   n: number;
@@ -55,7 +56,7 @@ function matrixFromLanes(lanes: Lane[]): { round: number; cells: (string | null)
  * a word repeating down one column is the crib that gave you away.
  */
 export function ClueGrid({
-  lanes, team, theories, onGuess, declassified,
+  lanes, team, theories, onGuess, declassified, lang = "ar",
 }: {
   lanes: Lane[];
   team: TeamId;
@@ -63,29 +64,31 @@ export function ClueGrid({
   onGuess?: (n: string, text: string) => void;
   /** End screen: keys are unsealed — classification stamp moves to the records hero. */
   declassified?: boolean;
+  lang?: Lang;
 }) {
   const color = TEAM_HEX[team];
   const rows = useMemo(() => matrixFromLanes(lanes), [lanes]);
   const dense = rows.length > 5;
+  const s = S(lang);
 
   return (
     <div
       className="watch-sheet"
       style={{ ["--watch-team" as string]: color }}
       role="table"
-      aria-label={`سجل ${TEAM_LABEL[team]}`}
+      aria-label={s.logTitle(s.team[team])}
     >
       <div className="watch-sheet-meta">
         {/* RTL: first → visual right, last → visual left */}
-        <span className="watch-sheet-form num">نموذج سج-٤</span>
-        <span className="watch-sheet-title">سجل {TEAM_LABEL[team]}</span>
+        <span className="watch-sheet-form num">{s.formLg4}</span>
+        <span className="watch-sheet-title">{s.logTitle(s.team[team])}</span>
       </div>
 
       <div className="watch-sheet-grid" role="rowgroup">
         <div className="watch-sheet-header" role="row">
           {/* Gutter first → visual right under dir=rtl */}
           <div className="watch-sheet-gutter watch-sheet-gutter-head" role="columnheader">
-            <span className="num">و</span>
+            <span className="num">{s.watchGutter}</span>
           </div>
           {lanes.map((lane) => {
             const known = lane.label;
@@ -107,8 +110,8 @@ export function ClueGrid({
                   />
                 ) : (
                   <p className={`watch-sheet-guess ${remote ? "" : "watch-sheet-empty"}`}>
-                    <span>{remote || "—"}</span>
-                    <span aria-hidden>؟</span>
+                    <span>{remote || s.empty}</span>
+                    <span aria-hidden>{s.qmark}</span>
                   </p>
                 )}
               </div>
@@ -117,7 +120,7 @@ export function ClueGrid({
         </div>
 
         {rows.length === 0 ? (
-          <p className="watch-sheet-empty-msg">لا مراقبات بعد</p>
+          <p className="watch-sheet-empty-msg">{s.noWatches}</p>
         ) : (
           rows.map((row) => (
             <div key={row.round} className={`watch-sheet-row ${dense ? "watch-sheet-row-dense" : ""}`} role="row">
@@ -132,7 +135,7 @@ export function ClueGrid({
                     text ? "" : "watch-sheet-cell-blank",
                   ].filter(Boolean).join(" ")}
                   role="cell"
-                  title={text ? `جولة ${row.round}: ${text}` : `جولة ${row.round}: غير مستخدم`}
+                  title={text ? s.usedRound(row.round, text) : s.unusedRound(row.round)}
                 >
                   {text ?? ""}
                 </div>
@@ -143,9 +146,9 @@ export function ClueGrid({
       </div>
 
       <div className="watch-sheet-footer">
-        <span className="watch-sheet-footer-note">نهاية السجل · لا يُتلف</span>
+        <span className="watch-sheet-footer-note">{s.endOfLog}</span>
         {!declassified && (
-          <span className="watch-sheet-secret">سري للغاية</span>
+          <span className="watch-sheet-secret">{s.topSecret}</span>
         )}
       </div>
     </div>
@@ -168,7 +171,7 @@ export function pinTheoryFieldInView(el: HTMLElement) {
  * wipe the caret. Used by the log theory sheet and the showdown inputs.
  */
 export function SharedGuessInput({
-  n, remote, color, onGuess, disabled, className, placeholder = "—", showQMark = true,
+  n, remote, color, onGuess, disabled, className,   placeholder = "—", showQMark = true, lang = "ar",
 }: {
   n: number | string;
   remote: string;
@@ -178,9 +181,11 @@ export function SharedGuessInput({
   className?: string;
   placeholder?: string;
   showQMark?: boolean;
+  lang?: Lang;
 }) {
   const [value, setValue] = useState(remote);
   const focused = useRef(false);
+  const s = S(lang);
 
   useEffect(() => {
     if (!focused.current) setValue(remote);
@@ -210,11 +215,11 @@ export function SharedGuessInput({
         maxLength={24}
         className={className ?? "watch-sheet-input"}
         style={{ color: value && color ? color : undefined, fontSize: "16px" }}
-        aria-label={`تخمين الكلمة ${n}`}
+        aria-label={s.guessWordN(n)}
       />
       {showQMark && (
         <span className="watch-sheet-qmark" style={{ color }} aria-hidden>
-          ؟
+          {s.qmark}
         </span>
       )}
     </div>
