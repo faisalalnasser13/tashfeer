@@ -268,7 +268,6 @@ function Station({
   onKick: (u: string) => void;
   copy: ReturnType<typeof S>;
 }) {
-  const empty = Math.max(0, MAX_SEATS - list.length);
   const color = TEAM_HEX[team];
 
   return (
@@ -324,12 +323,6 @@ function Station({
                 </button>
               )}
             </span>
-          </div>
-        ))}
-        {Array.from({ length: empty }, (_, i) => (
-          <div key={`e-${i}`} className="lobby-seat lobby-seat-empty">
-            <span className="text-muted">{copy.empty}</span>
-            <span className="lobby-seat-dots" />
           </div>
         ))}
       </div>

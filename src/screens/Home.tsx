@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { api, errText } from "../lib/firebase";
-import { useLocal } from "../lib/hooks";
 import { S } from "../lib/strings";
 import type { Lang } from "../lib/types";
 import { Banner, Btn, Field, inputCls } from "../components/ui";
@@ -13,7 +12,7 @@ export function Home({
   /** Set when opening a known room — join UI follows that room's language. */
   joinLang?: Lang;
 }) {
-  const [name, setName] = useLocal("tashfeer.name", "");
+  const [name, setName] = useState("");
   const [code, setCode] = useState(
     () => initialCode || sessionStorage.getItem("tashfeer.invite") || "",
   );
@@ -24,6 +23,10 @@ export function Home({
   const flashLang: Lang = joinLang ?? "ar";
 
   const ready = name.trim().length > 0;
+
+  useEffect(() => {
+    try { localStorage.removeItem("tashfeer.name"); } catch { /* private mode */ }
+  }, []);
 
   useEffect(() => {
     if (initialCode) setCode(initialCode);
@@ -144,7 +147,7 @@ export function Home({
             value={name}
             maxLength={16}
             onChange={(e) => setName(e.target.value)}
-            placeholder={`${s.namePh.split(":")[0]} · Sam Carter`}
+            placeholder={s.namePh}
           />
         </Field>
 

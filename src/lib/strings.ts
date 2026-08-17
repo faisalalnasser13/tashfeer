@@ -314,7 +314,7 @@ const AR: Strings = {
   ordinals: ordinalsFor("ar"),
 
   yourName: "اسمك",
-  namePh: "مثلًا: سعد بن صالح",
+  namePh: "سعد بن صالح",
   openRoom: "أنشئ غرفة",
   creating: "جارٍ الإنشاء…",
   orJoin: "أو انضم بغرفة قائمة — حتى أثناء اللعب",
