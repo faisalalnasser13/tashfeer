@@ -25,6 +25,9 @@ function arrayRemove(...values) {
 function increment(n) {
   return new FieldValue("increment", n);
 }
+function serverTimestamp() {
+  return new FieldValue("serverTimestamp");
+}
 
 function pathOf(ref) {
   return ref._path;
@@ -76,6 +79,7 @@ function resolveField(prev, val) {
     return (typeof prev === "number" ? prev : 0) + val._payload;
   }
   if (val._kind === "delete") return undefined;
+  if (val._kind === "serverTimestamp") return Date.now();
   return deepClone(val);
 }
 
@@ -271,6 +275,7 @@ module.exports = {
   arrayUnion,
   arrayRemove,
   increment,
+  serverTimestamp,
   __setUser,
   __getUser,
   __reset,

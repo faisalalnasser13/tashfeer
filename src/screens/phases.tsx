@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api, errText } from "../lib/firebase";
+import { syncedNow } from "../lib/engine";
 import { normalizeText, normalizeKeyword, ordinalsFor } from "../lib/arabic";
 import { useDraft, useLocal } from "../lib/hooks";
 import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "../lib/types";
@@ -1346,7 +1347,7 @@ export function ShowdownPhase({
   // Auto-submit at the visible deadline so resolve reads a locked sheet.
   useEffect(() => {
     if (sent || autoSent.current || !room.phaseEndsAt || room.paused) return;
-    const left = Math.max(0, room.phaseEndsAt - Date.now());
+    const left = Math.max(0, room.phaseEndsAt - syncedNow());
     const t = setTimeout(() => {
       if (autoSent.current) return;
       autoSent.current = true;

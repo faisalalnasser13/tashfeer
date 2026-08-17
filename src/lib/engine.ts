@@ -23,7 +23,8 @@
 
 import {
   doc, collection, getDoc, getDocs, deleteDoc, setDoc, runTransaction,
-  arrayUnion, arrayRemove, deleteField, writeBatch, updateDoc, Transaction, DocumentReference,
+  arrayUnion, arrayRemove, deleteField, writeBatch, updateDoc, serverTimestamp,
+  Transaction, DocumentReference,
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import {
@@ -42,6 +43,34 @@ import type { Lang } from "./types";
 const ID_ALPHABET = "0123456789";
 /** Small skew so a slightly-fast phone isn't rejected at the true deadline. */
 const CLOCK_SKEW_MS = 250;
+
+/**
+ * local − server. Positive means this phone's clock is ahead.
+ * Updated from room.serverNow on each committed snapshot.
+ */
+let clockOffsetMs = 0;
+
+export function noteServerNow(raw: unknown): void {
+  if (raw == null) return;
+  let ms: number | null = null;
+  if (typeof raw === "number" && Number.isFinite(raw)) ms = raw;
+  else if (typeof raw === "object" && raw !== null && "toMillis" in raw) {
+    const n = (raw as { toMillis: () => number }).toMillis();
+    if (Number.isFinite(n)) ms = n;
+  }
+  if (ms == null) return;
+  clockOffsetMs = Date.now() - ms;
+}
+
+/** Wall time in the same domain as phaseEndsAt (Firestore server clock). */
+export function syncedNow(): number {
+  return Date.now() - clockOffsetMs;
+}
+
+function clockStamp() {
+  return { serverNow: serverTimestamp() };
+}
+
 /**
  * Hidden cushion after the visible timer hits 0:00. Not baked into
  * `phaseEndsAt` — the clock shows the real budget, then this grace runs
@@ -161,7 +190,7 @@ function phaseGraceMs(phase: Phase): number {
 }
 
 function phasePatch(settings: Settings, phase: Phase) {
-  const now = Date.now();
+  const now = syncedNow();
   const dur = phaseDuration(settings, phase);
   const startGrace =
     dur != null && isTimedPlayPhase(phase)
@@ -174,6 +203,7 @@ function phasePatch(settings: Settings, phase: Phase) {
     // Timed play phases also get TIMER_START_GRACE_MS before the clock drains.
     phaseEndsAt: dur === null ? null : now + startGrace + dur,
     updatedAt: now,
+    ...clockStamp(),
   };
 }
 
@@ -288,7 +318,7 @@ async function createRoom({ name, avatar, lang }: { name: string; avatar: number
     const created = await runTransaction(db, async (tx) => {
       const snap = await tx.get(roomRef(id));
       if (snap.exists()) return false;
-      const now = Date.now();
+      const now = syncedNow();
       tx.set(roomRef(id), {
         hostUid: uid,
         lang: L,
@@ -298,6 +328,7 @@ async function createRoom({ name, avatar, lang }: { name: string; avatar: number
         paused: false,
         phaseStartedAt: now,
         phaseEndsAt: null,
+        ...clockStamp(),
         settings: { ...DEFAULTS },
         players: { [uid]: { name: clean, avatar: Number(avatar) || 0, team: null, joinedAt: now } },
         teams: {
@@ -737,7 +768,7 @@ async function submitClues({ roomId, clues: raw }: { roomId: string; clues: stri
     if (cur.phase !== "encrypt") return;
     if (cur.cluesIn[team]) return;
 
-    const now = Date.now();
+    const now = syncedNow();
     const elapsed = Math.max(0, now - (cur.phaseStartedAt ?? now));
     const prevMs = cur.submitMs?.[team] ?? 0;
 
@@ -818,7 +849,7 @@ async function advancePhase({
 
     const expired =
       room.phaseEndsAt !== null
-      && Date.now() + CLOCK_SKEW_MS >= room.phaseEndsAt + phaseGraceMs(room.phase);
+      && syncedNow() + CLOCK_SKEW_MS >= room.phaseEndsAt + phaseGraceMs(room.phase);
 
     if (!expired) {
       if (force) requireHost(room, uid);
@@ -1452,12 +1483,12 @@ async function hostControl({ roomId, action }: { roomId: string; action: string 
   const uid = me();
   const room = await loadRoom(roomId);
   requireHost(room, uid);
-  const now = Date.now();
+  const now = syncedNow();
 
   if (action === "pause") {
     const left = room.phaseEndsAt ? Math.max(0, room.phaseEndsAt - now) : null;
     await runTransaction(db, async (tx) => {
-      tx.update(roomRef(roomId), { paused: true, pausedRemaining: left, updatedAt: now });
+      tx.update(roomRef(roomId), { paused: true, pausedRemaining: left, updatedAt: now, ...clockStamp() });
     });
   } else if (action === "resume") {
     const snap = await getDoc(roomRef(roomId));
@@ -1467,12 +1498,13 @@ async function hostControl({ roomId, action }: { roomId: string; action: string 
         paused: false, phaseStartedAt: now,
         phaseEndsAt: left == null ? null : now + left,
         pausedRemaining: deleteField(), updatedAt: now,
+        ...clockStamp(),
       });
     });
   } else if (action === "addTime") {
     if (room.phaseEndsAt == null) return { ok: true };
     await runTransaction(db, async (tx) => {
-      tx.update(roomRef(roomId), { phaseEndsAt: room.phaseEndsAt! + 30_000, updatedAt: now });
+      tx.update(roomRef(roomId), { phaseEndsAt: room.phaseEndsAt! + 30_000, updatedAt: now, ...clockStamp() });
     });
   } else if (action === "endGame") {
     // Host bail-out: skip the results screen and reopen the lobby.
@@ -1536,7 +1568,8 @@ async function returnToLobby(roomId: string, room: Room) {
     if (cur.phase === "lobby") return;
     tx.update(roomRef(roomId), {
       phase: "lobby", round: 0, showdown: false, paused: false,
-      phaseEndsAt: null, phaseStartedAt: Date.now(),
+      phaseEndsAt: null, phaseStartedAt: syncedNow(),
+      ...clockStamp(),
       winner: null, endReason: null,
       clues: { gold: null, silver: null },
       cluesIn: { gold: false, silver: false },

@@ -3,7 +3,7 @@ import {
   doc, collection, onSnapshot, setDoc, updateDoc, increment, query, orderBy,
 } from "firebase/firestore";
 import { db, api } from "./firebase";
-import { ensureCode, TIMER_GRACE_MS, TIMER_START_GRACE_MS } from "./engine";
+import { ensureCode, noteServerNow, syncedNow, TIMER_GRACE_MS, TIMER_START_GRACE_MS } from "./engine";
 import type { AwayRecord, Draft, Room, RoundRecord, TeamId } from "./types";
 import { asLang } from "./strings";
 
@@ -27,6 +27,7 @@ export function useRoom(roomId: string | null) {
         if (!s.exists()) { setMissing(true); setRoom(null); return; }
         setMissing(false);
         const raw = s.data() as Record<string, unknown>;
+        if (!s.metadata?.hasPendingWrites) noteServerNow(raw.serverNow);
         setRoom({ id: s.id, ...raw, lang: asLang(raw.lang) } as Room);
       },
       () => setMissing(true)
@@ -332,10 +333,10 @@ export function useAway(roomId: string | null, round: number) {
  * (keys / reveal / roundEnd) expire exactly at the deadline.
  */
 export function useCountdown(room: Room | null) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(syncedNow);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 250);
+    const t = setInterval(() => setNow(syncedNow()), 250);
     return () => clearInterval(t);
   }, []);
 
